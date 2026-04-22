@@ -1,0 +1,14 @@
+export { AdminDashboard } from './AdminDashboard';
+export { AdminUsersPage } from './AdminUsersPage';
+export { UserDetailPage } from './UserDetailPage';
+export { InstructorsManagementPage } from './InstructorsManagementPage';
+export { InstructorDetailPage } from './InstructorDetailPage';
+export { CoursesManagementPage } from './CoursesManagementPage';
+export { CourseReviewPage } from './CourseReviewPage';
+export { CategoriesManagementPage } from './CategoriesManagementPage';
+export { TransactionsPage } from './TransactionsPage';
+export { TransactionDetailPage } from './TransactionDetailPage';
+export { AdminPayoutsPage } from './AdminPayoutsPage';
+export { CommissionSettingsPage } from './CommissionSettingsPage';
+export { AdminSettingsPage } from './AdminSettingsPage';
+export { ModerationPage } from './ModerationPage';

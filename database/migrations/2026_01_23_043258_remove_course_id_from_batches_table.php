@@ -1,0 +1,31 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('batches', function (Blueprint $table) {
+            $table->dropIndex(['course_id', 'status']); // Fix for SQLite: drop index before column
+            $table->dropForeign(['course_id']);
+            $table->dropColumn('course_id');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('batches', function (Blueprint $table) {
+            $table->foreignId('course_id')->nullable()->after('id')->constrained()->cascadeOnDelete();
+            $table->index(['course_id', 'status']);
+        });
+    }
+};

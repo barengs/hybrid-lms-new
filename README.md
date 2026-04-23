@@ -93,8 +93,11 @@ composer run dev
 - **Payout & Commission**: Sistem pembagian keuntungan antara platform dan instruktur yang transparan.
 
 ### 4. Classroom & Batch Management
-- **Structured Learning**: Siswa dapat belajar dalam kelompok (batch) tertentu dengan kode akses unik.
-- **Progress Tracking**: Pemantauan kemajuan belajar siswa secara real-time untuk setiap batch.
+- **Structured Learning**: Siswa dapat belajar dalam kelompok (batch) tertentu untuk pengalaman belajar yang lebih terorganisir.
+- **Tipe Classroom (LMS Hybrid)**: Fitur khusus untuk pembelajaran tatap muka atau kelas terstruktur dengan dukungan kode kelas unik (`class_code`).
+- **Kode Kelas**: Memungkinkan siswa untuk bergabung ke dalam kelas secara cepat menggunakan kode unik yang dibagikan oleh instruktur.
+- **Manajemen Jadwal**: Mendukung pengaturan tanggal mulai, tanggal berakhir, serta periode pendaftaran yang spesifik untuk setiap batch.
+- **Progress Tracking**: Pemantauan kemajuan belajar siswa secara real-time untuk setiap batch, memudahkan instruktur memantau performa kelas secara kolektif.
 
 ### 5. Media & Pengalaman Belajar
 - **Optimasi Gambar**: Konversi otomatis ke format WebP untuk performa maksimal.
@@ -123,8 +126,10 @@ graph TD
 
 ### Penjelasan Proses:
 1.  **Persiapan Konten**: Instruktur menyusun kurikulum yang terdiri dari Section dan Lesson (Video, Teks, Tugas).
-2.  **Transaksi**: Siswa memilih kursus, melakukan pembayaran, dan akses kursus akan terbuka otomatis setelah verifikasi pembayaran (Webhook).
-3.  **Proses Belajar**: Siswa mengikuti alur pembelajaran. Sistem mencatat setiap pelajaran yang telah diselesaikan.
+2.  **Transaksi & Akses**: 
+    - **Self-Paced**: Siswa membeli kursus melalui marketplace dan akses terbuka setelah pembayaran.
+    - **Classroom/Batch**: Siswa bergabung ke kelas tertentu melalui pendaftaran batch atau menggunakan **Kode Kelas** (`class_code`) yang diberikan pengajar.
+3.  **Proses Belajar**: Siswa mengikuti alur pembelajaran. Sistem mencatat setiap pelajaran yang telah diselesaikan secara real-time.
 4.  **Evaluasi AI**: Untuk tugas esai atau coding, instruktur dapat memicu **AI Grading Service**. Sistem akan mengekstrak konten dari file (termasuk PDF) dan mengirimkannya ke AI untuk dinilai berdasarkan rubrik yang telah ditentukan.
 5.  **Penyelesaian**: Setelah semua materi dan tugas selesai, siswa dinyatakan lulus dari kursus tersebut.
 6.  **Revenue Sharing**: Setiap transaksi yang berhasil akan dihitung komisinya untuk platform, dan sisanya menjadi saldo instruktur yang dapat ditarik (Payout).

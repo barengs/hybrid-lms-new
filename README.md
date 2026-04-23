@@ -75,6 +75,22 @@ composer run dev
 
 ---
 
+## 🔑 Akun Demo
+
+Gunakan akun berikut untuk mencoba fitur di lingkungan lokal atau demo. Semua akun menggunakan password default di bawah ini kecuali disebutkan lain.
+
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| **Super Admin** | `admin@hybridlms.com` | `password` |
+| **Instructor (Simulation)** | `instructor@hybridlms.com` | `password` |
+| **Student (Simulation)** | `student@hybridlms.com` | `password` |
+| **Test Instructor** | `instructor@hlms.test` | `12345678` |
+| **Test Student** | `student@hlms.test` | `12345678` |
+
+> **Catatan**: Jalankan `php artisan db:seed` untuk memastikan akun-akun di atas tersedia di database Anda.
+
+---
+
 ## 🌟 Fitur Lengkap
 
 ### 1. Manajemen Multi-Role

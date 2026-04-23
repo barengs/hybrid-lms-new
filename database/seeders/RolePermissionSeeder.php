@@ -100,6 +100,8 @@ class RolePermissionSeeder extends Seeder
         $systemPermissions = [
             'view platform analytics',
             'manage settings',
+            'manage commission',
+            'moderate content',
         ];
 
         // Create all permissions
@@ -181,6 +183,10 @@ class RolePermissionSeeder extends Seeder
         // Super Admin role (has all permissions)
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'api']);
         $superAdminRole->syncPermissions(Permission::where('guard_name', 'api')->get());
+
+        // System Admin role (Admin Sistem)
+        $adminSistemRole = Role::firstOrCreate(['name' => 'admin-sistem', 'guard_name' => 'api']);
+        $adminSistemRole->syncPermissions(Permission::where('guard_name', 'api')->get());
 
         // Keep legacy admin role for backward compatibility
         $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'api']);

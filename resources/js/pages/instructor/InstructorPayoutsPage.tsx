@@ -76,6 +76,14 @@ const mockPayouts: Payout[] = [
   },
 ];
 
+import { 
+  useGetInstructorPayoutsQuery, 
+  useRequestPayoutMutation,
+  useGetInstructorEarningsQuery 
+} from '@/store/features/instructor/instructorApiSlice';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import toast from 'react-hot-toast';
+
 export function InstructorPayoutsPage() {
   const { language } = useLanguage();
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -83,43 +91,66 @@ export function InstructorPayoutsPage() {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawMethod, setWithdrawMethod] = useState('bank_transfer');
 
-  // Mock available balance
-  const availableBalance = 52000000; // From earnings page
-  const minimumWithdraw = 100000;
-  const pendingAmount = mockPayouts
-    .filter(p => p.status === 'pending' || p.status === 'processing')
-    .reduce((acc, p) => acc + p.amount, 0);
+  const { data: payouts = [], isLoading: isLoadingPayouts } = useGetInstructorPayoutsQuery();
+  const { data: earningsData, isLoading: isLoadingEarnings } = useGetInstructorEarningsQuery();
+  const [requestPayout, { isLoading: isRequesting }] = useRequestPayoutMutation();
+
+  const stats = useMemo(() => {
+    if (!earningsData?.stats) return {
+      availableBalance: 0,
+      minimumWithdraw: 100000,
+      pendingAmount: 0,
+      totalWithdrawn: 0,
+      pendingWithdrawals: 0,
+      completedWithdrawals: 0
+    };
+
+    const completed = payouts.filter(p => p.status === 'completed');
+    const pending = payouts.filter(p => p.status === 'pending' || p.status === 'processing');
+
+    return {
+      availableBalance: earningsData.stats.available_for_withdraw,
+      minimumWithdraw: earningsData.stats.settings.minimum_payout,
+      pendingAmount: pending.reduce((acc, p) => acc + Number(p.amount), 0),
+      totalWithdrawn: completed.reduce((acc, p) => acc + Number(p.amount), 0),
+      pendingWithdrawals: pending.length,
+      completedWithdrawals: completed.length
+    };
+  }, [payouts, earningsData]);
 
   // Filter payouts
   const filteredPayouts = useMemo(() => {
-    if (statusFilter === 'all') return mockPayouts;
-    return mockPayouts.filter(p => p.status === statusFilter);
-  }, [statusFilter]);
+    if (statusFilter === 'all') return payouts;
+    return payouts.filter(p => p.status === statusFilter);
+  }, [statusFilter, payouts]);
 
-  // Calculate stats
-  const stats = {
-    totalWithdrawn: mockPayouts
-      .filter(p => p.status === 'completed')
-      .reduce((acc, p) => acc + p.amount, 0),
-    pendingWithdrawals: mockPayouts.filter(p => p.status === 'pending' || p.status === 'processing').length,
-    completedWithdrawals: mockPayouts.filter(p => p.status === 'completed').length,
-  };
-
-  const handleWithdrawRequest = () => {
+  const handleWithdrawRequest = async () => {
     const amount = parseFloat(withdrawAmount);
-    if (amount < minimumWithdraw) {
-      alert(`Minimum withdrawal is ${formatCurrency(minimumWithdraw)}`);
+    if (amount < stats.minimumWithdraw) {
+      toast.error(`${language === 'id' ? 'Minimum penarikan adalah' : 'Minimum withdrawal is'} ${formatCurrency(stats.minimumWithdraw)}`);
       return;
     }
-    if (amount > availableBalance) {
-      alert('Insufficient balance');
+    if (amount > stats.availableBalance) {
+      toast.error(language === 'id' ? 'Saldo tidak mencukupi' : 'Insufficient balance');
       return;
     }
-    // In real app, call API to request withdrawal
-    console.log('Withdrawal request:', { amount, method: withdrawMethod });
-    setShowWithdrawModal(false);
-    setWithdrawAmount('');
+
+    try {
+      await requestPayout({
+        amount,
+        method: withdrawMethod,
+        account_info: 'BCA - **** 1234', // In a real app, this would be from user settings
+      }).unwrap();
+      
+      toast.success(language === 'id' ? 'Permintaan penarikan berhasil dikirim' : 'Withdrawal request submitted successfully');
+      setShowWithdrawModal(false);
+      setWithdrawAmount('');
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to submit request');
+    }
   };
+
+  if (isLoadingPayouts || isLoadingEarnings) return <LoadingScreen />;
 
   const getStatusBadge = (status: Payout['status']) => {
     const config = {
@@ -170,7 +201,7 @@ export function InstructorPayoutsPage() {
                 <p className="text-green-100 text-sm mb-1">
                   {language === 'id' ? 'Saldo Tersedia' : 'Available Balance'}
                 </p>
-                <p className="text-2xl font-bold">{formatCurrency(availableBalance)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(stats.availableBalance)}</p>
               </div>
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
                 <DollarSign className="w-6 h-6" />
@@ -180,7 +211,7 @@ export function InstructorPayoutsPage() {
               onClick={() => setShowWithdrawModal(true)}
               size="sm"
               className="w-full mt-4 bg-white text-green-600 hover:bg-gray-100"
-              disabled={availableBalance < minimumWithdraw}
+              disabled={stats.availableBalance < stats.minimumWithdraw}
             >
               {language === 'id' ? 'Tarik Dana' : 'Withdraw Funds'}
             </Button>
@@ -195,7 +226,7 @@ export function InstructorPayoutsPage() {
                 <p className="text-sm text-gray-500">
                   {language === 'id' ? 'Menunggu Proses' : 'Pending'}
                 </p>
-                <p className="text-xl font-bold text-gray-900">{formatCurrency(pendingAmount)}</p>
+                <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.pendingAmount)}</p>
                 <p className="text-xs text-gray-500">
                   {stats.pendingWithdrawals} {language === 'id' ? 'penarikan' : 'withdrawals'}
                 </p>
@@ -230,7 +261,7 @@ export function InstructorPayoutsPage() {
                 {language === 'id' ? 'Informasi Penarikan' : 'Withdrawal Information'}
               </p>
               <ul className="space-y-1 text-blue-700">
-                <li>• {language === 'id' ? 'Minimum penarikan' : 'Minimum withdrawal'}: {formatCurrency(minimumWithdraw)}</li>
+                <li>• {language === 'id' ? 'Minimum penarikan' : 'Minimum withdrawal'}: {formatCurrency(stats.minimumWithdraw)}</li>
                 <li>• {language === 'id' ? 'Waktu proses: 1-3 hari kerja' : 'Processing time: 1-3 business days'}</li>
                 <li>• {language === 'id' ? 'Biaya admin: Gratis' : 'Admin fee: Free'}</li>
                 <li>• {language === 'id' ? 'Penarikan dapat dilakukan kapan saja' : 'Withdrawals can be requested anytime'}</li>
@@ -305,9 +336,9 @@ export function InstructorPayoutsPage() {
                       <td className="px-4 py-4 text-sm text-gray-700">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-gray-400" />
-                          {new Date(payout.requestDate).toLocaleDateString('id-ID')}
+                          {new Date(payout.created_at).toLocaleDateString('id-ID')}
                         </div>
-                        <div className="text-xs text-gray-500">{getTimeAgo(payout.requestDate)}</div>
+                        <div className="text-xs text-gray-500">{getTimeAgo(payout.created_at)}</div>
                       </td>
                       <td className="px-4 py-4">
                         <p className="text-sm font-semibold text-gray-900">{formatCurrency(payout.amount)}</p>
@@ -315,7 +346,7 @@ export function InstructorPayoutsPage() {
                       <td className="px-4 py-4 text-sm text-gray-700">
                         <div className="flex items-center gap-2">
                           <CreditCard className="w-4 h-4 text-gray-400" />
-                          {payout.accountInfo}
+                          {payout.account_info}
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -325,10 +356,10 @@ export function InstructorPayoutsPage() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-700">
-                        {payout.processedDate ? (
+                        {payout.processed_at ? (
                           <>
-                            {new Date(payout.processedDate).toLocaleDateString('id-ID')}
-                            <div className="text-xs text-gray-500">{getTimeAgo(payout.processedDate)}</div>
+                            {new Date(payout.processed_at).toLocaleDateString('id-ID')}
+                            <div className="text-xs text-gray-500">{getTimeAgo(payout.processed_at)}</div>
                           </>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -355,13 +386,13 @@ export function InstructorPayoutsPage() {
                 <span className="text-sm text-gray-600">
                   {language === 'id' ? 'Saldo Tersedia' : 'Available Balance'}
                 </span>
-                <span className="font-semibold text-gray-900">{formatCurrency(availableBalance)}</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(stats.availableBalance)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">
                   {language === 'id' ? 'Minimum Penarikan' : 'Minimum Withdrawal'}
                 </span>
-                <span className="text-sm text-gray-900">{formatCurrency(minimumWithdraw)}</span>
+                <span className="text-sm text-gray-900">{formatCurrency(stats.minimumWithdraw)}</span>
               </div>
             </div>
 
@@ -398,14 +429,14 @@ export function InstructorPayoutsPage() {
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowWithdrawModal(false)}>
+               <Button variant="outline" onClick={() => setShowWithdrawModal(false)}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
               <Button
                 onClick={handleWithdrawRequest}
-                disabled={!withdrawAmount || parseFloat(withdrawAmount) < minimumWithdraw}
+                disabled={!withdrawAmount || parseFloat(withdrawAmount) < stats.minimumWithdraw || isRequesting}
               >
-                {language === 'id' ? 'Request Penarikan' : 'Request Withdrawal'}
+                {language === 'id' ? (isRequesting ? 'Memproses...' : 'Request Penarikan') : (isRequesting ? 'Processing...' : 'Request Withdrawal')}
               </Button>
             </div>
           </div>

@@ -19,95 +19,31 @@ import {
   Clock,
   Download,
   Eye,
+  Plus,
+  RotateCcw,
+  Loader2,
+  MapPin,
+  FileText,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, Button, Badge, Avatar, Select, Modal, DataTable } from '@/components/ui';
+import { Card, Button, Badge, Avatar, Select, Modal, DataTable, Textarea, MultiSelect } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatNumber, getTimeAgo } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
 import { Dropdown } from '@/components/ui';
-
-// User interface
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  role: 'student' | 'instructor' | 'admin';
-  status: 'active' | 'suspended';
-  isVerified: boolean;
-  createdAt: string;
-  lastLogin?: string;
-}
-
-// Mock users data
-const mockUsers: User[] = [
-  {
-    id: 'user-1',
-    name: 'Ahmad Rizki',
-    email: 'ahmad.rizki@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
-    role: 'student',
-    status: 'active',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-    lastLogin: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 'user-2',
-    name: 'Siti Nurhaliza',
-    email: 'siti.nur@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-    role: 'instructor',
-    status: 'active',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 90).toISOString(),
-    lastLogin: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 'user-3',
-    name: 'Budi Santoso',
-    email: 'budi.santoso@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BudiS',
-    role: 'student',
-    status: 'suspended',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 60).toISOString(),
-    lastLogin: new Date(Date.now() - 86400000 * 10).toISOString(),
-  },
-  {
-    id: 'user-4',
-    name: 'Dewi Lestari',
-    email: 'dewi.lestari@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dewi',
-    role: 'instructor',
-    status: 'active',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 120).toISOString(),
-    lastLogin: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: 'user-5',
-    name: 'Rudi Hermawan',
-    email: 'rudi.h@example.com',
-    role: 'student',
-    status: 'active',
-    isVerified: false,
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    lastLogin: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'user-6',
-    name: 'Ani Wijaya',
-    email: 'ani.wijaya@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ani',
-    role: 'admin',
-    status: 'active',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 180).toISOString(),
-    lastLogin: new Date(Date.now() - 1800000).toISOString(),
-  },
-];
+import {
+  useGetUsersQuery,
+  useGetUserStatsQuery,
+  useGetRolesQuery,
+  useCreateUserMutation,
+  useUpdateUserMutation,
+  useToggleUserStatusMutation,
+  useDeleteUserMutation,
+  useRestoreUserMutation,
+  useBulkUserActionMutation,
+  type AdminUser,
+} from '@/store/features/admin/adminUserApiSlice';
+import toast from 'react-hot-toast';
 
 export function AdminUsersPage() {
   const { language } = useLanguage();
@@ -115,11 +51,12 @@ export function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+  const [page, setPage] = useState(1);
+  const [selectedUsers, setSelectedUsers] = useState<AdminUser[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   // Form states
@@ -127,102 +64,114 @@ export function AdminUsersPage() {
     name: '',
     email: '',
     password: '',
-    role: 'student' as User['role'],
+    roles: [] as string[],
+    bio: '',
+    address: '',
+    status: 'active' as AdminUser['status'],
   });
 
-  // Calculate stats
-  const stats = useMemo(() => {
-    const total = mockUsers.length;
-    const students = mockUsers.filter(u => u.role === 'student').length;
-    const instructors = mockUsers.filter(u => u.role === 'instructor').length;
-    const admins = mockUsers.filter(u => u.role === 'admin').length;
-    const active = mockUsers.filter(u => u.status === 'active').length;
-    const suspended = mockUsers.filter(u => u.status === 'suspended').length;
-    const newThisMonth = mockUsers.filter(u => {
-      const thirtyDaysAgo = Date.now() - 86400000 * 30;
-      return new Date(u.createdAt).getTime() > thirtyDaysAgo;
-    }).length;
+  // API Hooks
+  const { data: usersData, isLoading: isLoadingUsers } = useGetUsersQuery({
+    page,
+    search: searchQuery,
+    role: roleFilter,
+    status: statusFilter,
+  });
 
-    return { total, students, instructors, admins, active, suspended, newThisMonth };
-  }, []);
+  const { data: stats, isLoading: isLoadingStats } = useGetUserStatsQuery();
+  const { data: rolesList } = useGetRolesQuery();
 
-  // Filter and search users
-  const filteredUsers = useMemo(() => {
-    let users = [...mockUsers];
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      users = users.filter(u =>
-        u.name.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query)
-      );
-    }
-
-    // Role filter
-    if (roleFilter !== 'all') {
-      users = users.filter(u => u.role === roleFilter);
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      users = users.filter(u => u.status === statusFilter);
-    }
-
-    return users;
-  }, [searchQuery, roleFilter, statusFilter]);
+  const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
+  const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
+  const [toggleStatus] = useToggleUserStatusMutation();
+  const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
+  const [restoreUser] = useRestoreUserMutation();
+  const [bulkAction, { isLoading: isBulkLoading }] = useBulkUserActionMutation();
 
   // Handlers
-  const handleAddUser = () => {
-    console.log('Adding user:', formData);
-    setShowAddModal(false);
-    setFormData({ name: '', email: '', password: '', role: 'student' });
+  const handleAddUser = async () => {
+    try {
+      if (formData.roles.length === 0) {
+        toast.error(language === 'id' ? 'Pilih setidaknya satu role' : 'Select at least one role');
+        return;
+      }
+      const response = await createUser(formData).unwrap();
+      toast.success(response.message);
+      setShowAddModal(false);
+      setFormData({ name: '', email: '', password: '', roles: [], bio: '', address: '', status: 'active' });
+    } catch (err: any) {
+      toast.error(err.data?.message || 'Failed to create user');
+    }
   };
 
-  const handleEditUser = () => {
-    console.log('Editing user:', editingUser, formData);
-    setShowEditModal(false);
-    setEditingUser(null);
+  const handleEditUser = async () => {
+    if (!editingUser) return;
+    try {
+      const response = await updateUser({ id: editingUser.id, data: formData }).unwrap();
+      toast.success(response.message);
+      setShowEditModal(false);
+      setEditingUser(null);
+    } catch (err: any) {
+      toast.error(err.data?.message || 'Failed to update user');
+    }
   };
 
-  const handleDeleteUser = () => {
-    console.log('Deleting user:', deletingUserId);
-    setShowDeleteModal(false);
-    setDeletingUserId(null);
+  const handleDeleteUser = async () => {
+    if (!deletingUserId) return;
+    try {
+      const response = await deleteUser(deletingUserId).unwrap();
+      toast.success(response.message);
+      setShowDeleteModal(false);
+      setDeletingUserId(null);
+    } catch (err: any) {
+      toast.error(err.data?.message || 'Failed to delete user');
+    }
   };
 
-  const handleToggleStatus = (userId: string) => {
-    console.log('Toggling status for user:', userId);
-    // In real app, call API
+  const handleToggleStatus = async (userId: string) => {
+    try {
+      const response = await toggleStatus(userId).unwrap();
+      toast.success(response.message);
+    } catch (err: any) {
+      toast.error(err.data?.message || 'Failed to toggle status');
+    }
   };
 
-  const handleBulkSuspend = () => {
-    console.log('Bulk suspend:', selectedUsers.map(u => u.id));
-    setSelectedUsers([]);
+  const handleRestoreUser = async (userId: string) => {
+    try {
+      const response = await restoreUser(userId).unwrap();
+      toast.success(response.message);
+    } catch (err: any) {
+      toast.error(err.data?.message || 'Failed to restore user');
+    }
   };
 
-  const handleBulkActivate = () => {
-    console.log('Bulk activate:', selectedUsers.map(u => u.id));
-    setSelectedUsers([]);
+  const handleBulkOperation = async (action: string) => {
+    try {
+      const ids = selectedUsers.map(u => u.id);
+      const response = await bulkAction({ ids, action }).unwrap();
+      toast.success(response.message);
+      setSelectedUsers([]);
+    } catch (err: any) {
+      toast.error(err.data?.message || 'Bulk operation failed');
+    }
   };
 
-  const handleBulkDelete = () => {
-    console.log('Bulk delete:', selectedUsers.map(u => u.id));
-    setSelectedUsers([]);
-  };
-
-  const openEditModal = (user: User) => {
+  const openEditModal = (user: AdminUser) => {
     setEditingUser(user);
     setFormData({
       name: user.name,
       email: user.email,
       password: '',
-      role: user.role,
+      roles: user.roles.map(r => r.name),
+      bio: user.profile?.bio || '',
+      address: user.profile?.address || '',
+      status: user.status,
     });
     setShowEditModal(true);
   };
 
-  const getUserActions = (user: User): DropdownItem[] => [
+  const getUserActions = (user: AdminUser): DropdownItem[] => [
     {
       label: language === 'id' ? 'Lihat Detail' : 'View Details',
       icon: <Eye className="w-4 h-4" />,
@@ -239,6 +188,13 @@ export function AdminUsersPage() {
         : (language === 'id' ? 'Aktifkan' : 'Activate'),
       icon: user.status === 'active' ? <Ban className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />,
       onClick: () => handleToggleStatus(user.id),
+      disabled: !!user.deleted_at,
+    },
+    {
+      label: language === 'id' ? 'Pulihkan' : 'Restore',
+      icon: <RotateCcw className="w-4 h-4" />,
+      onClick: () => handleRestoreUser(user.id),
+      hidden: !user.deleted_at,
     },
     { divider: true, label: '' },
     {
@@ -249,21 +205,32 @@ export function AdminUsersPage() {
         setShowDeleteModal(true);
       },
       danger: true,
+      hidden: !!user.deleted_at,
     },
   ];
 
-  const getRoleBadge = (role: User['role']) => {
-    const config = {
-      student: { variant: 'secondary' as const, label: language === 'id' ? 'Siswa' : 'Student' },
-      instructor: { variant: 'primary' as const, label: language === 'id' ? 'Instruktur' : 'Instructor' },
-      admin: { variant: 'danger' as const, label: 'Admin' },
+  const getRoleBadge = (role: string) => {
+    const variants: Record<string, any> = {
+      student: 'secondary',
+      instructor: 'primary',
+      admin: 'danger',
+      curriculum: 'warning',
+      marketing: 'success',
     };
-    const { variant, label } = config[role];
-    return <Badge variant={variant} size="sm">{label}</Badge>;
+    const variant = variants[role.toLowerCase()] || 'outline';
+    return <Badge key={role} variant={variant} size="sm" className="capitalize mr-1 mb-1">{role}</Badge>;
   };
 
-  const getStatusBadge = (status: User['status']) => {
-    return status === 'active' ? (
+  const getStatusBadge = (user: AdminUser) => {
+    if (user.deleted_at) {
+      return (
+        <Badge variant="danger" size="sm">
+          <Trash2 className="w-3 h-3 mr-1" />
+          {language === 'id' ? 'Terhapus' : 'Deleted'}
+        </Badge>
+      );
+    }
+    return user.status === 'active' ? (
       <Badge variant="success" size="sm">
         <CheckCircle className="w-3 h-3 mr-1" />
         {language === 'id' ? 'Aktif' : 'Active'}
@@ -277,7 +244,7 @@ export function AdminUsersPage() {
   };
 
   // Column definitions for DataTable
-  const columns = useMemo<ColumnDef<User>[]>(
+  const columns = useMemo<ColumnDef<AdminUser>[]>(
     () => [
       {
         id: 'select',
@@ -306,7 +273,7 @@ export function AdminUsersPage() {
           const user = row.original;
           return (
             <div className="flex items-center gap-3">
-              <Avatar src={user.avatar} name={user.name} size="sm" />
+              <Avatar src={user.profile?.avatar ?? undefined} name={user.name} size="sm" />
               <div>
                 <button
                   onClick={() => navigate(`/admin/users/${user.id}`)}
@@ -324,20 +291,24 @@ export function AdminUsersPage() {
         },
       },
       {
-        accessorKey: 'role',
+        accessorKey: 'roles',
         header: 'Role',
-        cell: ({ row }) => getRoleBadge(row.original.role),
+        cell: ({ row }) => (
+          <div className="flex flex-wrap max-w-[200px]">
+            {row.original.roles.map(r => getRoleBadge(r.name))}
+          </div>
+        ),
       },
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => getStatusBadge(row.original.status),
+        cell: ({ row }) => getStatusBadge(row.original),
       },
       {
-        accessorKey: 'createdAt',
+        accessorKey: 'created_at',
         header: language === 'id' ? 'Terdaftar' : 'Registered',
         cell: ({ row }) => {
-          const date = row.original.createdAt;
+          const date = row.original.created_at;
           return (
             <div className="text-sm text-gray-700">
               <div className="flex items-center gap-1">
@@ -348,12 +319,13 @@ export function AdminUsersPage() {
             </div>
           );
         },
+        enableSorting: true,
       },
       {
-        accessorKey: 'lastLogin',
+        accessorKey: 'last_login_at',
         header: language === 'id' ? 'Login Terakhir' : 'Last Login',
         cell: ({ row }) => {
-          const login = row.original.lastLogin;
+          const login = row.original.last_login_at;
           if (!login) return <span className="text-gray-400">-</span>;
           return (
             <div className="text-sm text-gray-700">
@@ -372,7 +344,7 @@ export function AdminUsersPage() {
         cell: ({ row }) => (
           <Dropdown
             trigger={
-              <button className="p-2 hover:bg-gray-100 rounded-lg">
+              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                 <MoreVertical className="w-5 h-5 text-gray-400" />
               </button>
             }
@@ -387,9 +359,9 @@ export function AdminUsersPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto p-6 lg:p-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               {language === 'id' ? 'Manajemen Pengguna' : 'User Management'}
@@ -406,76 +378,84 @@ export function AdminUsersPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.total)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Total' : 'Total'}</p>
-            </div>
-          </Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+          {isLoadingStats ? (
+            Array(7).fill(0).map((_, i) => (
+              <Card key={i} className="animate-pulse bg-gray-50 h-20"> </Card>
+            ))
+          ) : (
+            <>
+              <Card className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.total || 0)}</p>
+                  <p className="text-xs text-gray-500">{language === 'id' ? 'Total' : 'Total'}</p>
+                </div>
+              </Card>
 
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.students)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Siswa' : 'Students'}</p>
-            </div>
-          </Card>
+              <Card className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.students || 0)}</p>
+                  <p className="text-xs text-gray-500">{language === 'id' ? 'Siswa' : 'Students'}</p>
+                </div>
+              </Card>
 
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.instructors)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Instruktur' : 'Instructors'}</p>
-            </div>
-          </Card>
+              <Card className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.instructors || 0)}</p>
+                  <p className="text-xs text-gray-500">{language === 'id' ? 'Instruktur' : 'Instructors'}</p>
+                </div>
+              </Card>
 
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.admins)}</p>
-              <p className="text-xs text-gray-500">Admin</p>
-            </div>
-          </Card>
+              <Card className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.admins || 0)}</p>
+                  <p className="text-xs text-gray-500">Admin</p>
+                </div>
+              </Card>
 
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.active)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Aktif' : 'Active'}</p>
-            </div>
-          </Card>
+              <Card className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <UserCheck className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.active || 0)}</p>
+                  <p className="text-xs text-gray-500">{language === 'id' ? 'Aktif' : 'Active'}</p>
+                </div>
+              </Card>
 
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <UserX className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.suspended)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Suspend' : 'Suspended'}</p>
-            </div>
-          </Card>
+              <Card className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <UserX className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.suspended || 0)}</p>
+                  <p className="text-xs text-gray-500">{language === 'id' ? 'Suspend' : 'Suspended'}</p>
+                </div>
+              </Card>
 
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-              <UserPlus className="w-5 h-5 text-cyan-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.newThisMonth)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Baru' : 'New'}</p>
-            </div>
-          </Card>
+              <Card className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-cyan-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.newThisMonth || 0)}</p>
+                  <p className="text-xs text-gray-500">{language === 'id' ? 'Baru' : 'New'}</p>
+                </div>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Bulk Actions */}
@@ -486,13 +466,17 @@ export function AdminUsersPage() {
                 {selectedUsers.length} {language === 'id' ? 'pengguna dipilih' : 'users selected'}
               </p>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={handleBulkActivate}>
+                <Button size="sm" variant="outline" onClick={() => handleBulkOperation('activate')} disabled={isBulkLoading}>
                   {language === 'id' ? 'Aktifkan' : 'Activate'}
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleBulkSuspend}>
+                <Button size="sm" variant="outline" onClick={() => handleBulkOperation('suspend')} disabled={isBulkLoading}>
                   {language === 'id' ? 'Suspend' : 'Suspend'}
                 </Button>
-                <Button size="sm" variant="danger" onClick={handleBulkDelete}>
+                <Button size="sm" variant="outline" onClick={() => handleBulkOperation('restore')} disabled={isBulkLoading} className="bg-white">
+                   <RotateCcw className="w-3.5 h-3.5 mr-1 text-green-600" />
+                   {language === 'id' ? 'Pulihkan' : 'Restore'}
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => handleBulkOperation('delete')} disabled={isBulkLoading}>
                   {language === 'id' ? 'Hapus' : 'Delete'}
                 </Button>
               </div>
@@ -521,9 +505,7 @@ export function AdminUsersPage() {
                   onChange={(e) => setRoleFilter(e.target.value)}
                   options={[
                     { value: 'all', label: language === 'id' ? 'Semua Role' : 'All Roles' },
-                    { value: 'student', label: language === 'id' ? 'Siswa' : 'Student' },
-                    { value: 'instructor', label: language === 'id' ? 'Instruktur' : 'Instructor' },
-                    { value: 'admin', label: 'Admin' },
+                    ...(rolesList?.map(r => ({ value: r.name, label: r.name.charAt(0).toUpperCase() + r.name.slice(1) })) || []),
                   ]}
                   className="w-full sm:w-40"
                 />
@@ -534,6 +516,7 @@ export function AdminUsersPage() {
                     { value: 'all', label: language === 'id' ? 'Semua Status' : 'All Status' },
                     { value: 'active', label: language === 'id' ? 'Aktif' : 'Active' },
                     { value: 'suspended', label: language === 'id' ? 'Suspend' : 'Suspended' },
+                    { value: 'deleted', label: language === 'id' ? 'Terhapus' : 'Deleted' },
                   ]}
                   className="w-full sm:w-40"
                 />
@@ -544,10 +527,10 @@ export function AdminUsersPage() {
             </div>
           </div>
 
-          {/* Table */}
           <DataTable
             columns={columns}
-            data={filteredUsers}
+            data={usersData?.data || []}
+            isLoading={isLoadingUsers}
             enableRowSelection={true}
             enablePagination={true}
             pageSize={10}
@@ -555,35 +538,37 @@ export function AdminUsersPage() {
           />
         </Card>
 
-        {/* Add User Modal */}
         <Modal
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           title={language === 'id' ? 'Tambah Pengguna Baru' : 'Add New User'}
         >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {language === 'id' ? 'Nama Lengkap' : 'Full Name'}
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="John Doe"
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {language === 'id' ? 'Nama Lengkap' : 'Full Name'}
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="john@example.com"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="john@example.com"
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <input
@@ -593,68 +578,103 @@ export function AdminUsersPage() {
                 placeholder="••••••••"
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {language === 'id' ? 'Password akan dikirim ke email pengguna.' : 'Password will be sent to the user\'s email.'}
+              </p>
             </div>
-            <Select
+
+            <MultiSelect
               label="Role"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as User['role'] })}
-              options={[
-                { value: 'student', label: language === 'id' ? 'Siswa' : 'Student' },
-                { value: 'instructor', label: language === 'id' ? 'Instruktur' : 'Instructor' },
-                { value: 'admin', label: 'Admin' },
-              ]}
+              placeholder={language === 'id' ? 'Pilih satu atau lebih role...' : 'Select one or more roles...'}
+              options={rolesList?.map(role => ({ value: role.name, label: role.name })) || []}
+              selectedValues={formData.roles}
+              onChange={(values) => setFormData({ ...formData, roles: values })}
             />
-            <div className="flex justify-end gap-2 pt-4">
+
+            <Textarea
+              label={language === 'id' ? 'Bio / Ringkasan' : 'Bio / Summary'}
+              value={formData.bio}
+              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+              placeholder={language === 'id' ? 'Tulis sedikit tentang pengguna...' : 'Write something about the user...'}
+              rows={2}
+            />
+
+            <Textarea
+              label={language === 'id' ? 'Alamat' : 'Address'}
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder={language === 'id' ? 'Alamat lengkap...' : 'Full address...'}
+              rows={2}
+            />
+
+            <div className="flex justify-end gap-2 pt-4 border-t sticky bottom-0 bg-white pb-1">
               <Button size="sm" variant="outline" onClick={() => setShowAddModal(false)}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
-              <Button size="sm" onClick={handleAddUser}>
-                {language === 'id' ? 'Tambah Pengguna' : 'Add User'}
+              <Button size="sm" onClick={handleAddUser} disabled={isCreating}>
+                {isCreating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {language === 'id' ? 'Memproses...' : 'Processing...'}
+                  </>
+                ) : (
+                  <>{language === 'id' ? 'Tambah Pengguna' : 'Add User'}</>
+                )}
               </Button>
             </div>
           </div>
         </Modal>
 
-        {/* Edit User Modal */}
         <Modal
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           title={language === 'id' ? 'Edit Pengguna' : 'Edit User'}
         >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {language === 'id' ? 'Nama Lengkap' : 'Full Name'}
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {language === 'id' ? 'Nama Lengkap' : 'Full Name'}
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+
             <Select
-              label="Role"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as User['role'] })}
+              label={language === 'id' ? 'Status Akun' : 'Account Status'}
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as AdminUser['status'] })}
               options={[
-                { value: 'student', label: language === 'id' ? 'Siswa' : 'Student' },
-                { value: 'instructor', label: language === 'id' ? 'Instruktur' : 'Instructor' },
-                { value: 'admin', label: 'Admin' },
+                { value: 'active', label: language === 'id' ? 'Aktif' : 'Active' },
+                { value: 'suspended', label: language === 'id' ? 'Suspended' : 'Suspended' },
               ]}
             />
+
+            <MultiSelect
+              label="Role"
+              placeholder={language === 'id' ? 'Pilih satu atau lebih role...' : 'Select one or more roles...'}
+              options={rolesList?.map(role => ({ value: role.name, label: role.name })) || []}
+              selectedValues={formData.roles}
+              onChange={(values) => setFormData({ ...formData, roles: values })}
+            />
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {language === 'id' ? 'Password Baru (kosongkan jika tidak ingin mengubah)' : 'New Password (leave blank to keep current)'}
+                {language === 'id' ? 'Password Baru' : 'New Password'}
               </label>
               <input
                 type="password"
@@ -663,19 +683,43 @@ export function AdminUsersPage() {
                 placeholder="••••••••"
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {language === 'id' ? 'Kosongkan jika tidak ingin mengubah.' : 'Leave blank to keep current.'}
+              </p>
             </div>
-            <div className="flex justify-end gap-2 pt-4">
+
+            <Textarea
+              label={language === 'id' ? 'Bio / Ringkasan' : 'Bio / Summary'}
+              value={formData.bio}
+              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+              rows={2}
+            />
+
+            <Textarea
+              label={language === 'id' ? 'Alamat' : 'Address'}
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              rows={2}
+            />
+
+            <div className="flex justify-end gap-2 pt-4 border-t sticky bottom-0 bg-white pb-1">
               <Button size="sm" variant="outline" onClick={() => setShowEditModal(false)}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
-              <Button size="sm" onClick={handleEditUser}>
-                {language === 'id' ? 'Simpan' : 'Save'}
+              <Button size="sm" onClick={handleEditUser} disabled={isUpdating}>
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {language === 'id' ? 'Menyimpan...' : 'Saving...'}
+                  </>
+                ) : (
+                  <>{language === 'id' ? 'Simpan' : 'Save'}</>
+                )}
               </Button>
             </div>
           </div>
         </Modal>
 
-        {/* Delete Confirmation Modal */}
         <Modal
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
@@ -692,8 +736,8 @@ export function AdminUsersPage() {
               <Button size="sm" variant="outline" onClick={() => setShowDeleteModal(false)}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
-              <Button size="sm" variant="danger" onClick={handleDeleteUser}>
-                {language === 'id' ? 'Hapus' : 'Delete'}
+              <Button size="sm" variant="danger" onClick={handleDeleteUser} disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'id' ? 'Hapus' : 'Delete')}
               </Button>
             </div>
           </div>

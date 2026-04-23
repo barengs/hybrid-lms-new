@@ -9,6 +9,8 @@ interface DropdownItem {
   href?: string;
   danger?: boolean;
   divider?: boolean;
+  hidden?: boolean;
+  disabled?: boolean;
 }
 
 interface DropdownProps {
@@ -34,38 +36,42 @@ function Dropdown({ trigger, items, children, align = 'right', className, conten
         leaveTo="transform opacity-0 scale-95"
       >
         <MenuItems
+          anchor={align === 'left' ? 'bottom start' : 'bottom end'}
           className={cn(
-            'absolute z-50 mt-2 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black/5 focus:outline-none overflow-hidden',
-            align === 'left' ? 'left-0' : 'right-0',
+            'z-50 mt-2 origin-top-right rounded-xl bg-white shadow-lg ring-1 ring-black/5 focus:outline-none overflow-hidden',
             children ? contentClassName : 'w-56 py-1'
           )}
         >
           {children ? (
             children
           ) : (
-            items?.map((item, index) =>
-              item.divider ? (
-                <div key={index} className="border-t border-gray-100 my-1" />
-              ) : (
-                <MenuItem key={index}>
-                  {({ focus }) => (
-                    <button
-                      onClick={item.onClick}
-                      className={cn(
-                        'flex w-full items-center gap-3 px-4 py-2.5 text-sm',
-                        focus && 'bg-gray-50',
-                        item.danger
-                          ? 'text-red-600 hover:bg-red-50'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      )}
-                    >
-                      {item.icon && <span className="w-5 h-5">{item.icon}</span>}
-                      {item.label}
-                    </button>
-                  )}
-                </MenuItem>
+            items
+              ?.filter((item) => !item.hidden)
+              .map((item, index) =>
+                item.divider ? (
+                  <div key={index} className="border-t border-gray-100 my-1" />
+                ) : (
+                  <MenuItem key={index} disabled={item.disabled}>
+                    {({ focus, disabled }) => (
+                      <button
+                        onClick={item.onClick}
+                        disabled={disabled}
+                        className={cn(
+                          'flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors',
+                          focus && 'bg-gray-50',
+                          disabled && 'opacity-50 cursor-not-allowed grayscale',
+                          item.danger
+                            ? 'text-red-600 hover:bg-red-50'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        )}
+                      >
+                        {item.icon && <span className="w-5 h-5">{item.icon}</span>}
+                        {item.label}
+                      </button>
+                    )}
+                  </MenuItem>
+                )
               )
-            )
           )}
         </MenuItems>
       </Transition>

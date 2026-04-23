@@ -45,20 +45,29 @@ export function MyClassesPage() {
   };
 
   const { data: classesData, isLoading, isError } = useGetClassesQuery();
-  const classes = classesData?.data || [];
+  // Based on actual API response, classes are directly in data array
+  const classes = Array.isArray(classesData?.data) ? classesData.data : [];
 
   // Filter classes
   const filteredClasses = classes.filter((cls) => {
-    const matchesSearch = cls.courseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cls.instructor.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || cls.status === filterStatus;
+    const matchesSearch = (cls.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (cls.instructor?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Safety check for status, default to ongoing if missing
+    const currentStatus = cls.status || 'ongoing';
+    const matchesStatus = filterStatus === 'all' || 
+                         (filterStatus === 'ongoing' && (currentStatus === 'active' || currentStatus === 'in_progress' || currentStatus === 'ongoing')) ||
+                         (filterStatus === 'completed' && currentStatus === 'completed');
     return matchesSearch && matchesStatus;
   });
 
   const stats = {
     total: classes.length,
-    ongoing: classes.filter((c) => c.status === 'ongoing').length,
-    completed: classes.filter((c) => c.status === 'completed').length,
+    ongoing: classes.filter((c) => {
+        const s = c.status || 'ongoing';
+        return s === 'active' || s === 'in_progress' || s === 'ongoing';
+    }).length,
+    completed: classes.filter((c) => (c.status || 'ongoing') === 'completed').length,
   };
 
   if (isLoading) {
@@ -208,27 +217,29 @@ export function MyClassesPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <Link
-                          to={`/class/${cls.id}`}
+                          to={`/student/class/${cls.id}`}
                           className="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400"
                         >
-                          {cls.courseName}
+                          {cls.name}
                         </Link>
-                        <Badge variant={cls.status === 'ongoing' ? 'success' : 'secondary'} size="sm">
-                          {cls.status === 'ongoing'
+                        <Badge variant={(cls.status === 'active' || cls.status === 'in_progress' || !cls.status) ? 'success' : 'secondary'} size="sm">
+                          {(cls.status === 'active' || cls.status === 'in_progress' || !cls.status)
                             ? language === 'id' ? 'Aktif' : 'Active'
                             : language === 'id' ? 'Selesai' : 'Completed'}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Avatar
-                          src={cls.instructor.avatar}
-                          name={cls.instructor.name}
-                          size="xs"
-                        />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {cls.instructor.name}
-                        </span>
-                      </div>
+                      {cls.instructor && (
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            src={cls.instructor.avatar}
+                            name={cls.instructor.name}
+                            size="xs"
+                          />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {cls.instructor.name}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -236,46 +247,46 @@ export function MyClassesPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Calendar className="w-4 h-4" />
-                      <span>{cls.schedule.day}</span>
+                      <span>{cls.schedule?.day || (language === 'id' ? 'Senin - Jumat' : 'Mon - Fri')}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="w-4 h-4" />
-                      <span>{cls.schedule.time}</span>
+                      <span>{cls.schedule?.time || '09:00 - 11:00'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <MapPin className="w-4 h-4" />
-                      <span>{cls.schedule.location}</span>
+                      <span>{cls.schedule?.location || (language === 'id' ? 'Ruang Virtual 1' : 'Virtual Room 1')}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Users className="w-4 h-4" />
-                      <span>{cls.students}/{cls.maxStudents} {language === 'id' ? 'siswa' : 'students'}</span>
+                      <span>{cls.students_count}/{cls.max_students || 50} {language === 'id' ? 'siswa' : 'students'}</span>
                     </div>
                   </div>
 
                   {/* Progress */}
-                  {cls.status === 'ongoing' && (
+                  {(cls.status === 'active' || cls.status === 'in_progress' || !cls.status) && (
                     <div>
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-gray-600 dark:text-gray-400">
                           {language === 'id' ? 'Progress' : 'Progress'}
                         </span>
-                        <span className="font-medium text-gray-900 dark:text-white">{cls.progress}%</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{cls.progress || 0}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${cls.progress}%` }}
+                          style={{ width: `${cls.progress || 0}%` }}
                         />
                       </div>
                     </div>
                   )}
 
                   {/* Notifications */}
-                  {(cls.notifications.newMaterials > 0 ||
-                    cls.notifications.newAssignments > 0 ||
-                    cls.notifications.upcomingDeadlines > 0) && (
+                  {((cls.notifications?.newMaterials || 0) > 0 ||
+                    (cls.notifications?.newAssignments || 0) > 0 ||
+                    (cls.notifications?.upcomingDeadlines || 0) > 0) && (
                       <div className="flex flex-wrap gap-2 mt-3">
-                        {cls.notifications.newMaterials > 0 && (
+                        {cls.notifications?.newMaterials > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                             <Video className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                             <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
@@ -284,7 +295,7 @@ export function MyClassesPage() {
                             </span>
                           </div>
                         )}
-                        {cls.notifications.newAssignments > 0 && (
+                        {cls.notifications?.newAssignments > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                             <FileText className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                             <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
@@ -293,7 +304,7 @@ export function MyClassesPage() {
                             </span>
                           </div>
                         )}
-                        {cls.notifications.upcomingDeadlines > 0 && (
+                        {cls.notifications?.upcomingDeadlines > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg">
                             <Bell className="w-4 h-4 text-red-600 dark:text-red-400" />
                             <span className="text-xs font-medium text-red-600 dark:text-red-400">

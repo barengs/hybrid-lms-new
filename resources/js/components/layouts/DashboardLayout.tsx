@@ -1,12 +1,13 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import * as LucideIcons from 'lucide-react';
 import {
   LayoutDashboard,
   BookOpen,
   Users,
   Settings,
   LogOut,
-  Menu,
+  Menu as MenuIcon,
   X,
   Bell,
   ChevronDown,
@@ -33,12 +34,23 @@ import { useTheme } from '@/context';
 import { Avatar, Badge, Dropdown, LanguageSwitcher } from '@/components/ui';
 import type { DropdownItem } from '@/components/ui';
 import { cn, getTimeAgo } from '@/lib/utils';
+import { useGetInstructorDashboardQuery } from '@/store/features/instructor/instructorApiSlice';
+import { useGetMenusQuery } from '@/store/api/menuApiSlice';
+import type { MenuItem } from '@/store/api/menuApiSlice';
+
+// Icon mapper for dynamic menus
+const SidebarIcon = ({ name, className }: { name: string | null; className?: string }) => {
+  if (!name) return <BookOpen className={className} />;
+  const IconComponent = (LucideIcons as any)[name];
+  return IconComponent ? <IconComponent className={className} /> : <BookOpen className={className} />;
+};
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
   badge?: number;
+  permission?: string;
 }
 
 interface NavGroup {
@@ -63,104 +75,43 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Helper to check permission
+  const can = (permission?: string) => {
+    if (!permission) return true;
+    if (user?.role === 'admin' && !user.permissions) return true; // Fallback for old admin without permissions array
+    return user?.permissions?.includes(permission);
+  };
+
+  // API Stats for Badges
+  const { data: dashboardData } = useGetInstructorDashboardQuery(undefined, {
+    skip: user?.role !== 'instructor',
+    pollingInterval: 30000, // Refresh every 30s
+  });
+
   const toggleSidebarCollapse = () => {
     const newValue = !sidebarCollapsed;
     setSidebarCollapsed(newValue);
     localStorage.setItem('hlms_sidebar_collapsed', String(newValue));
   };
 
-  const studentNavGroups = useMemo((): NavGroup[] => [
-    {
-      items: [
-        { label: t.nav.dashboard, href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-        { label: t.nav.myCourses, href: '/my-courses', icon: <BookOpen className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Kelas Saya' : 'My Classes', href: '/my-classes', icon: <Users className="w-5 h-5" /> },
-      ],
-    },
-    {
-      title: language === 'id' ? 'Pembelajaran' : 'Learning',
-      items: [
-        { label: language === 'id' ? 'Tugas' : 'Assignments', href: '/assignments', icon: <ClipboardList className="w-5 h-5" />, badge: 3 },
-        { label: language === 'id' ? 'Forum Diskusi' : 'Discussion Forum', href: '/discussions', icon: <MessageSquare className="w-5 h-5" /> },
-        { label: t.course.certificate, href: '/certificates', icon: <Award className="w-5 h-5" /> },
-      ],
-    },
-    {
-      title: language === 'id' ? 'Gamifikasi' : 'Gamification',
-      items: [
-        { label: t.gamification.leaderboard, href: '/leaderboard', icon: <BarChart3 className="w-5 h-5" /> },
-        { label: t.gamification.myBadges, href: '/badges', icon: <Award className="w-5 h-5" /> },
-      ],
-    },
-  ], [t, language]);
-
-  const instructorNavGroups = useMemo((): NavGroup[] => [
-    {
-      items: [
-        { label: t.nav.dashboard, href: '/instructor', icon: <LayoutDashboard className="w-5 h-5" /> },
-        { label: t.nav.myCourses, href: '/instructor/courses', icon: <BookOpen className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Kelas' : 'Classes', href: '/instructor/classes', icon: <FolderOpen className="w-5 h-5" /> },
-      ],
-    },
-    {
-      title: language === 'id' ? 'Manajemen' : 'Management',
-      items: [
-        { label: language === 'id' ? 'Siswa' : 'Students', href: '/instructor/students', icon: <Users className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Penilaian' : 'Grading', href: '/instructor/grading', icon: <FileText className="w-5 h-5" />, badge: 5 },
-        { label: language === 'id' ? 'Diskusi' : 'Discussion', href: '/discussions', icon: <MessageSquare className="w-5 h-5" />, badge: 12 },
-      ],
-    },
-    {
-      title: language === 'id' ? 'Keuangan' : 'Finance',
-      items: [
-        { label: language === 'id' ? 'Pendapatan' : 'Earnings', href: '/instructor/earnings', icon: <DollarSign className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Penarikan' : 'Payouts', href: '/instructor/payouts', icon: <CreditCard className="w-5 h-5" /> },
-      ],
-    },
-  ], [t, language]);
-
-  const adminNavGroups = useMemo((): NavGroup[] => [
-    {
-      items: [
-        { label: t.nav.dashboard, href: '/admin', icon: <LayoutDashboard className="w-5 h-5" /> },
-      ],
-    },
-    {
-      title: language === 'id' ? 'Manajemen' : 'Management',
-      items: [
-        { label: language === 'id' ? 'Pengguna' : 'Users', href: '/admin/users', icon: <Users className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Instruktur' : 'Instructors', href: '/admin/instructors', icon: <UserCheck className="w-5 h-5" />, badge: 8 },
-        { label: t.course.courses, href: '/admin/courses', icon: <BookOpen className="w-5 h-5" /> },
-        { label: t.footer.categories, href: '/admin/categories', icon: <FolderOpen className="w-5 h-5" /> },
-      ],
-    },
-    {
-      title: language === 'id' ? 'Keuangan' : 'Finance',
-      items: [
-        { label: language === 'id' ? 'Transaksi' : 'Transactions', href: '/admin/transactions', icon: <CreditCard className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Pembayaran Instruktur' : 'Instructor Payouts', href: '/admin/payouts', icon: <DollarSign className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Pengaturan Komisi' : 'Commission Settings', href: '/admin/commission', icon: <Layers className="w-5 h-5" /> },
-      ],
-    },
-    {
-      title: language === 'id' ? 'Platform' : 'Platform',
-      items: [
-        { label: t.nav.settings, href: '/admin/settings', icon: <Settings className="w-5 h-5" /> },
-        { label: language === 'id' ? 'Moderasi' : 'Moderation', href: '/admin/moderation', icon: <ShieldCheck className="w-5 h-5" /> },
-      ],
-    },
-  ], [t, language]);
+  // API for Dynamic Menus
+  const { data: menuResponse, isLoading: menuLoading } = useGetMenusQuery();
 
   const navGroups = useMemo((): NavGroup[] => {
-    switch (user?.role) {
-      case 'admin':
-        return adminNavGroups;
-      case 'instructor':
-        return instructorNavGroups;
-      default:
-        return studentNavGroups;
-    }
-  }, [user?.role, adminNavGroups, instructorNavGroups, studentNavGroups]);
+    if (!menuResponse?.data) return [];
+
+    return menuResponse.data.map((group: MenuItem) => ({
+      title: language === 'id' ? group.label_id : group.label_en,
+      items: (group.children || []).map((item: MenuItem) => ({
+        label: language === 'id' ? item.label_id : item.label_en,
+        href: item.route || '#',
+        permission: item.permission_name || undefined,
+        icon: <SidebarIcon name={item.icon} className="w-5 h-5" />,
+        badge: item.key === 'instructor_grading' ? (dashboardData?.actions?.pending_grading || 0) : 
+               item.key === 'instructor_discussions' ? (dashboardData?.actions?.unanswered_questions || 0) : undefined
+      }))
+    }));
+  }, [menuResponse, language, dashboardData]);
 
   const userMenuItems: DropdownItem[] = [
     {
@@ -391,7 +342,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={() => setSidebarOpen(true)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg lg:hidden"
             >
-              <Menu className="w-6 h-6 text-gray-600" />
+              <MenuIcon className="w-6 h-6 text-gray-600" />
             </button>
 
             {/* Desktop sidebar toggle */}

@@ -1,59 +1,150 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Hybrid LMS (HLMS)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+![Hybrid LMS Banner](https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg)
 
-## About Laravel
+Hybrid LMS adalah Sistem Manajemen Pembelajaran (LMS) modern, tangguh, dan kaya fitur yang dibangun dengan **Laravel** dan **React**. Proyek ini dirancang untuk memberikan pengalaman belajar yang mulus dengan fitur bertenaga AI dan antarmuka pengguna premium.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🛠️ Teknologi Stack
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Backend
+- **Framework**: [Laravel 12](https://laravel.com)
+- **Authentication**: JWT (JSON Web Token)
+- **Permissions**: Spatie Laravel Permission
+- **Documentation**: Dedoc Scramble
+- **AI Integration**: Echolabs Prism (Gemini/OpenAI)
+- **Media**: Laravel FFmpeg & Intervention Image
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Frontend
+- **Library**: [React 19](https://reactjs.org/)
+- **Styling**: [Tailwind CSS 4.x](https://tailwindcss.com/)
+- **State Management**: Redux Toolkit
+- **Table Management**: TanStack Table
+- **Icons**: Lucide React
+- **Build Tool**: Vite
 
-## Learning Laravel
+## 📥 Instalasi
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Ikuti langkah-langkah berikut untuk menyiapkan proyek secara lokal:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 1. Prasyarat
+Pastikan Anda telah menginstal:
+- PHP >= 8.2
+- Composer
+- Node.js & NPM
+- MySQL atau database lain yang didukung
 
-## Laravel Sponsors
+### 2. Clone Repositori
+```bash
+git clone <repository-url>
+cd hybridlms
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 3. Setup Backend
+```bash
+# Instal dependensi PHP
+composer install
 
-### Premium Partners
+# Salin file environment
+cp .env.example .env
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+# Generate application key
+php artisan key:generate
 
-## Contributing
+# Konfigurasi database di .env lalu jalankan migrasi
+php artisan migrate --seed
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 4. Setup Frontend
+```bash
+# Instal dependensi JS
+npm install
 
-## Code of Conduct
+# Jalankan server pengembangan
+npm run dev
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 5. Menjalankan Aplikasi
+`composer.json` menyertakan skrip bantuan:
+```bash
+# Setup penuh (instalasi dan build)
+composer run setup
 
-## Security Vulnerabilities
+# Jalankan semua secara bersamaan (Server, Vite, dan Queue)
+composer run dev
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 🌟 Fitur Lengkap
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 1. Manajemen Multi-Role
+- **Admin**: Kontrol penuh atas sistem, manajemen pengguna, verifikasi instruktur, pengaturan komisi, dan proses payout.
+- **Instruktur**: Membuat kursus, mengelola materi (video/teks/PDF), membuat tugas, dan memantau penghasilan.
+- **Siswa**: Menjelajahi katalog, membeli kursus, belajar secara mandiri, dan mendapatkan feedback AI.
+
+### 2. AI-Powered Grading (Fitur Unggulan)
+- **Evaluasi Otomatis**: Menilai tugas dalam bentuk teks maupun file PDF secara otomatis menggunakan LLM (Gemini/OpenAI).
+- **Feedback Detail**: AI memberikan ulasan mendalam tentang kualitas jawaban, logika pemrograman, atau kerangka penulisan.
+- **Pengecekan Kode**: Mendukung analisis kode sumber untuk mata pelajaran pemrograman.
+
+### 3. Marketplace & Sistem Keuangan
+- **Katalog Kursus**: Sistem pencarian dan kategori yang responsif.
+- **E-Commerce**: Fitur Keranjang belanja (Cart) dan Checkout yang terintegrasi.
+- **Payout & Commission**: Sistem pembagian keuntungan antara platform dan instruktur yang transparan.
+
+### 4. Classroom & Batch Management
+- **Structured Learning**: Siswa dapat belajar dalam kelompok (batch) tertentu dengan kode akses unik.
+- **Progress Tracking**: Pemantauan kemajuan belajar siswa secara real-time untuk setiap batch.
+
+### 5. Media & Pengalaman Belajar
+- **Optimasi Gambar**: Konversi otomatis ke format WebP untuk performa maksimal.
+- **Video Integration**: Mendukung berbagai provider video untuk materi pembelajaran.
+- **Responsive UI**: Antarmuka modern yang dioptimalkan untuk berbagai ukuran layar.
+
+---
+
+## 🔄 Alur Kerja Sistem (Business Process)
+
+```mermaid
+graph TD
+    A[Admin/Instruktur Membuat Kursus] --> B[Kursus Dipublikasikan di Katalog]
+    B --> C[Siswa Membeli Kursus melalui Checkout]
+    C --> D[Siswa Mempelajari Materi & Video]
+    D --> E[Siswa Mengerjakan Kuis & Tugas]
+    E --> F{Jenis Evaluasi}
+    F -- Kuis --o G[Nilai Otomatis oleh Sistem]
+    F -- Tugas/Proyek --o H[Evaluasi AI / Manual Instruktur]
+    G --> I[Progress Belajar Meningkat]
+    H --> I
+    I --> J{Progress 100%?}
+    J -- Ya --o K[Kursus Selesai]
+    J -- Tidak --o D
+```
+
+### Penjelasan Proses:
+1.  **Persiapan Konten**: Instruktur menyusun kurikulum yang terdiri dari Section dan Lesson (Video, Teks, Tugas).
+2.  **Transaksi**: Siswa memilih kursus, melakukan pembayaran, dan akses kursus akan terbuka otomatis setelah verifikasi pembayaran (Webhook).
+3.  **Proses Belajar**: Siswa mengikuti alur pembelajaran. Sistem mencatat setiap pelajaran yang telah diselesaikan.
+4.  **Evaluasi AI**: Untuk tugas esai atau coding, instruktur dapat memicu **AI Grading Service**. Sistem akan mengekstrak konten dari file (termasuk PDF) dan mengirimkannya ke AI untuk dinilai berdasarkan rubrik yang telah ditentukan.
+5.  **Penyelesaian**: Setelah semua materi dan tugas selesai, siswa dinyatakan lulus dari kursus tersebut.
+6.  **Revenue Sharing**: Setiap transaksi yang berhasil akan dihitung komisinya untuk platform, dan sisanya menjadi saldo instruktur yang dapat ditarik (Payout).
+
+---
+
+## 📂 Project Structure
+
+- `app/` - Core Laravel logic (Controllers, Models, Resources, Services).
+- `app/Services/` - Logika bisnis utama termasuk **AiGradingService**.
+- `resources/js/` - React frontend source code menggunakan Redux Toolkit.
+- `database/` - Migrations dan Seeders (termasuk simulasi data AI).
+- `routes/` - API dan Web route definitions.
+- `config/` - Application configuration files.
+
+## 📜 API Documentation
+
+Setelah server berjalan, Anda dapat mengakses dokumentasi API di:
+`http://localhost:8000/docs/api` (didukung oleh Scramble)
+
+## 📄 License
+
+Proyek ini dilisensikan di bawah lisensi MIT.

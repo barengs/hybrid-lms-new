@@ -14,137 +14,43 @@ import {
   ArrowLeft,
   Download,
   MessageSquare,
+  AlertCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, Button, Badge, Avatar, Progress } from '@/components/ui';
+import { Card, CardHeader, CardTitle, Button, Badge, Avatar, Progress, Skeleton } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
+import { useGetCourseContentQuery } from '@/store/features/student/studentApiSlice';
 
-interface Lesson {
-  id: string;
+interface LearningLesson {
+  id: number;
   title: string;
   type: 'video' | 'article' | 'quiz' | 'assignment';
   duration: number;
-  isCompleted: boolean;
-  isLocked: boolean;
+  is_completed: boolean;
+  is_locked: boolean;
+  sort_order: number;
 }
 
-interface Module {
-  id: string;
+interface LearningSection {
+  id: number;
   title: string;
-  description?: string;
-  lessons: Lesson[];
+  sort_order: number;
+  lessons: LearningLesson[];
 }
-
-interface EnrolledCourse {
-  id: string;
-  title: string;
-  thumbnail: string;
-  instructorName: string;
-  instructorAvatar?: string;
-  progress: number;
-  totalDuration: number;
-  completedLessons: number;
-  totalLessons: number;
-  modules: Module[];
-  hasFinalExam: boolean;
-  finalExamUnlocked: boolean;
-  certificateEarned: boolean;
-}
-
-// Mock enrolled course data
-const mockEnrolledCourse: EnrolledCourse = {
-  id: 'course-1',
-  title: 'React Masterclass: From Zero to Hero',
-  thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800',
-  instructorName: 'Budi Santoso',
-  instructorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-  progress: 65,
-  totalDuration: 2520, // minutes
-  completedLessons: 22,
-  totalLessons: 34,
-  hasFinalExam: true,
-  finalExamUnlocked: false,
-  certificateEarned: false,
-  modules: [
-    {
-      id: 'module-1',
-      title: 'Introduction to React',
-      description: 'Learn the basics of React and set up your development environment.',
-      lessons: [
-        { id: 'lesson-1-1', title: 'What is React?', type: 'video', duration: 15, isCompleted: true, isLocked: false },
-        { id: 'lesson-1-2', title: 'Setting Up Development Environment', type: 'video', duration: 20, isCompleted: true, isLocked: false },
-        { id: 'lesson-1-3', title: 'Your First React App', type: 'video', duration: 25, isCompleted: true, isLocked: false },
-        { id: 'lesson-1-4', title: 'Understanding JSX', type: 'article', duration: 10, isCompleted: true, isLocked: false },
-        { id: 'lesson-1-5', title: 'Module 1 Quiz', type: 'quiz', duration: 15, isCompleted: true, isLocked: false },
-      ],
-    },
-    {
-      id: 'module-2',
-      title: 'Components & Props',
-      description: 'Deep dive into React components and props system.',
-      lessons: [
-        { id: 'lesson-2-1', title: 'Functional Components', type: 'video', duration: 20, isCompleted: true, isLocked: false },
-        { id: 'lesson-2-2', title: 'Class Components', type: 'video', duration: 18, isCompleted: true, isLocked: false },
-        { id: 'lesson-2-3', title: 'Props and PropTypes', type: 'video', duration: 22, isCompleted: true, isLocked: false },
-        { id: 'lesson-2-4', title: 'Component Composition', type: 'article', duration: 12, isCompleted: true, isLocked: false },
-        { id: 'lesson-2-5', title: 'Build a Component Library', type: 'assignment', duration: 60, isCompleted: true, isLocked: false },
-        { id: 'lesson-2-6', title: 'Module 2 Quiz', type: 'quiz', duration: 20, isCompleted: true, isLocked: false },
-      ],
-    },
-    {
-      id: 'module-3',
-      title: 'State & Lifecycle',
-      description: 'Master state management and component lifecycle.',
-      lessons: [
-        { id: 'lesson-3-1', title: 'Understanding State', type: 'video', duration: 25, isCompleted: true, isLocked: false },
-        { id: 'lesson-3-2', title: 'useState Hook', type: 'video', duration: 20, isCompleted: true, isLocked: false },
-        { id: 'lesson-3-3', title: 'useEffect Hook', type: 'video', duration: 22, isCompleted: true, isLocked: false },
-        { id: 'lesson-3-4', title: 'Lifecycle Methods', type: 'article', duration: 15, isCompleted: true, isLocked: false },
-        { id: 'lesson-3-5', title: 'Module 3 Quiz', type: 'quiz', duration: 15, isCompleted: true, isLocked: false },
-      ],
-    },
-    {
-      id: 'module-4',
-      title: 'Advanced Hooks',
-      description: 'Learn advanced React hooks and custom hooks.',
-      lessons: [
-        { id: 'lesson-4-1', title: 'useContext Hook', type: 'video', duration: 20, isCompleted: true, isLocked: false },
-        { id: 'lesson-4-2', title: 'useReducer Hook', type: 'video', duration: 25, isCompleted: true, isLocked: false },
-        { id: 'lesson-4-3', title: 'useRef & useMemo', type: 'video', duration: 22, isCompleted: false, isLocked: false },
-        { id: 'lesson-4-4', title: 'Custom Hooks', type: 'video', duration: 30, isCompleted: false, isLocked: false },
-        { id: 'lesson-4-5', title: 'Build Custom Hooks', type: 'assignment', duration: 45, isCompleted: false, isLocked: false },
-        { id: 'lesson-4-6', title: 'Module 4 Quiz', type: 'quiz', duration: 20, isCompleted: false, isLocked: false },
-      ],
-    },
-    {
-      id: 'module-5',
-      title: 'State Management with Redux',
-      description: 'Learn Redux for complex state management.',
-      lessons: [
-        { id: 'lesson-5-1', title: 'Introduction to Redux', type: 'video', duration: 25, isCompleted: false, isLocked: true },
-        { id: 'lesson-5-2', title: 'Actions & Reducers', type: 'video', duration: 30, isCompleted: false, isLocked: true },
-        { id: 'lesson-5-3', title: 'Redux Toolkit', type: 'video', duration: 28, isCompleted: false, isLocked: true },
-        { id: 'lesson-5-4', title: 'Async Actions with Thunk', type: 'video', duration: 25, isCompleted: false, isLocked: true },
-        { id: 'lesson-5-5', title: 'Redux Project', type: 'assignment', duration: 90, isCompleted: false, isLocked: true },
-        { id: 'lesson-5-6', title: 'Module 5 Quiz', type: 'quiz', duration: 25, isCompleted: false, isLocked: true },
-      ],
-    },
-  ],
-};
 
 export function CourseLearningPage() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug = '' } = useParams<{ slug: string }>();
   const { language } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [expandedModules, setExpandedModules] = useState<string[]>(['module-1', 'module-2', 'module-3', 'module-4']);
+  const [expandedModules, setExpandedModules] = useState<number[]>([]);
 
-  // In real app, fetch course by slug
-  const course = mockEnrolledCourse;
-  console.log('Course slug:', slug);
+  const { data: course, isLoading, error } = useGetCourseContentQuery(slug, {
+    skip: !slug
+  });
 
-  const toggleModule = (moduleId: string) => {
+  const toggleModule = (moduleId: number) => {
     setExpandedModules((prev) =>
       prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
     );
@@ -157,7 +63,7 @@ export function CourseLearningPage() {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
-  const getLessonIcon = (type: Lesson['type'], isCompleted: boolean, isLocked: boolean) => {
+  const getLessonIcon = (type: LearningLesson['type'], isCompleted: boolean, isLocked: boolean) => {
     if (isLocked) return <Lock className="w-4 h-4 text-gray-400" />;
     if (isCompleted) return <CheckCircle className="w-4 h-4 text-green-500" />;
 
@@ -175,7 +81,7 @@ export function CourseLearningPage() {
     }
   };
 
-  const getLessonTypeLabel = (type: Lesson['type']) => {
+  const getLessonTypeLabel = (type: LearningLesson['type']) => {
     switch (type) {
       case 'video':
         return 'Video';
@@ -190,34 +96,87 @@ export function CourseLearningPage() {
     }
   };
 
-  const getModuleProgress = (module: Module) => {
-    const completed = module.lessons.filter((l) => l.isCompleted).length;
+  const getModuleProgress = (module: LearningSection) => {
+    const completed = module.lessons.filter((l) => l.is_completed).length;
+    if (module.lessons.length === 0) return 0;
     return Math.round((completed / module.lessons.length) * 100);
   };
 
-  const handleLessonClick = (lesson: Lesson) => {
-    if (lesson.isLocked) return;
-
-    if (lesson.type === 'quiz') {
-      navigate(`/learn/${course.id}/quiz/${lesson.id}`);
-    } else if (lesson.type === 'assignment') {
-      navigate(`/assignments/${lesson.id}`);
-    } else {
-      navigate(`/learn/${course.id}/lesson/${lesson.id}`);
+  const handleLessonClick = (lesson: LearningLesson) => {
+    console.log('DEBUG: Lesson Clicked', lesson);
+    if (lesson.is_locked) {
+      console.warn('DEBUG: Lesson is locked');
+      return;
     }
+
+    let url = '';
+    if (lesson.type === 'quiz') {
+      url = `/learn/${slug}/quiz/${lesson.id}`;
+    } else if (lesson.type === 'assignment') {
+      url = `/assignments/${lesson.id}`;
+    } else {
+      url = `/learn/${slug}/lesson/${lesson.id}`;
+    }
+
+    console.log('DEBUG: Navigating to', url);
+    navigate(url);
   };
 
   // Find next lesson to continue
   const nextLesson = useMemo(() => {
-    for (const module of course.modules) {
+    if (!course) return null;
+    for (const module of course.sections) {
       for (const lesson of module.lessons) {
-        if (!lesson.isCompleted && !lesson.isLocked) {
+        if (!lesson.is_completed && !lesson.is_locked) {
           return { module, lesson };
         }
       }
     }
     return null;
-  }, [course.modules]);
+  }, [course]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-6xl mx-auto space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-64 h- rounded-xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-20 rounded-xl" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-48 rounded-xl" />
+              <Skeleton className="h-48 rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !course) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-6xl mx-auto text-center py-16">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {language === 'id' ? 'Gagal memuat konten' : 'Failed to load content'}
+          </h2>
+          <p className="text-gray-600 mb-6">
+            {language === 'id' ? 'Silakan coba lagi nanti atau hubungi bantuan.' : 'Please try again later or contact support.'}
+          </p>
+          <Link to="/my-courses">
+            <Button>
+              {language === 'id' ? 'Kembali ke Kursus Saya' : 'Back to My Courses'}
+            </Button>
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -237,20 +196,20 @@ export function CourseLearningPage() {
             {/* Thumbnail */}
             <div className="md:w-72 h-40 flex-shrink-0">
               <img
-                src={course.thumbnail}
+                src={`${import.meta.env.VITE_URL_API_IMAGE}/${course.thumbnail}`}
                 alt={course.title}
                 className="w-full h-full object-cover"
               />
             </div>
 
             {/* Course Info */}
-            <div className="flex-1 py-2">
+            <div className="flex-1 py-2 px-4 md:px-0">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">{course.title}</h1>
 
               {/* Instructor */}
               <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                <Avatar src={course.instructorAvatar} name={course.instructorName} size="xs" />
-                <span>{course.instructorName}</span>
+                <Avatar src={course.instructor_avatar} name={course.instructor_name} size="xs" />
+                <span>{course.instructor_name}</span>
               </div>
 
               {/* Progress */}
@@ -269,18 +228,14 @@ export function CourseLearningPage() {
                 <div className="flex items-center gap-1">
                   <BookOpen className="w-4 h-4" />
                   <span>
-                    {course.completedLessons}/{course.totalLessons} {language === 'id' ? 'Pelajaran' : 'Lessons'}
+                    {course.completed_lessons}/{course.total_lessons} {language === 'id' ? 'Pelajaran' : 'Lessons'}
                   </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  <span>{formatDuration(course.totalDuration)}</span>
                 </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col gap-2 justify-center px-4">
+            <div className="flex flex-col gap-2 justify-center px-4 mb-4 md:mb-0">
               {nextLesson && (
                 <Button
                   leftIcon={<Play className="w-4 h-4" />}
@@ -307,13 +262,13 @@ export function CourseLearningPage() {
               {language === 'id' ? 'Materi Kursus' : 'Course Content'}
             </h2>
 
-            {course.modules.map((module) => {
+            {course.sections.map((module) => {
               const isExpanded = expandedModules.includes(module.id);
               const moduleProgress = getModuleProgress(module);
-              const completedCount = module.lessons.filter((l) => l.isCompleted).length;
+              const completedCount = module.lessons.filter((l) => l.is_completed).length;
 
               return (
-                <Card key={module.id} className="overflow-hidden">
+                <Card key={module.id} padding="none" className="overflow-hidden">
                   {/* Module Header */}
                   <button
                     onClick={() => toggleModule(module.id)}
@@ -328,7 +283,7 @@ export function CourseLearningPage() {
                       <div>
                         <h3 className="font-semibold text-gray-900">{module.title}</h3>
                         <p className="text-sm text-gray-500">
-                          {completedCount}/{module.lessons.length} {language === 'id' ? 'selesai' : 'completed'} • {formatDuration(module.lessons.reduce((acc, l) => acc + l.duration, 0))}
+                          {completedCount}/{module.lessons.length} {language === 'id' ? 'selesai' : 'completed'}
                         </p>
                       </div>
                     </div>
@@ -351,26 +306,30 @@ export function CourseLearningPage() {
                         <button
                           key={lesson.id}
                           onClick={() => handleLessonClick(lesson)}
-                          disabled={lesson.isLocked}
-                          className={`w-full flex items-center gap-4 p-4 text-left transition-colors ${lesson.isLocked
-                              ? 'opacity-50 cursor-not-allowed bg-gray-50'
-                              : 'hover:bg-gray-50 cursor-pointer'
+                          disabled={lesson.is_locked}
+                          className={`w-full flex items-center gap-4 p-4 text-left transition-colors ${lesson.is_locked
+                               ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                               : 'hover:bg-gray-50 cursor-pointer'
                             } ${index < module.lessons.length - 1 ? 'border-b border-gray-50' : ''}`}
                         >
                           <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
-                            {getLessonIcon(lesson.type, lesson.isCompleted, lesson.isLocked)}
+                            {getLessonIcon(lesson.type, lesson.is_completed, lesson.is_locked)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`font-medium ${lesson.isCompleted ? 'text-gray-500' : 'text-gray-900'}`}>
+                            <p className={`font-medium ${lesson.is_completed ? 'text-gray-500' : 'text-gray-900'}`}>
                               {lesson.title}
                             </p>
                             <div className="flex items-center gap-2 text-sm text-gray-500">
                               <span>{getLessonTypeLabel(lesson.type)}</span>
-                              <span>•</span>
-                              <span>{formatDuration(lesson.duration)}</span>
+                              {lesson.duration > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span>{formatDuration(lesson.duration)}</span>
+                                </>
+                              )}
                             </div>
                           </div>
-                          {lesson.isCompleted && (
+                          {lesson.is_completed && (
                             <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
                           )}
                         </button>
@@ -380,45 +339,6 @@ export function CourseLearningPage() {
                 </Card>
               );
             })}
-
-            {/* Final Exam */}
-            {course.hasFinalExam && (
-              <Card className={`overflow-hidden ${!course.finalExamUnlocked ? 'opacity-60' : ''}`}>
-                <div className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 flex items-center justify-center rounded-full bg-red-100">
-                      {course.finalExamUnlocked ? (
-                        <Award className="w-5 h-5 text-red-500" />
-                      ) : (
-                        <Lock className="w-5 h-5 text-gray-400" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {language === 'id' ? 'Ujian Akhir Kursus' : 'Final Course Exam'}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {course.finalExamUnlocked
-                          ? language === 'id'
-                            ? 'Selesaikan untuk mendapatkan sertifikat'
-                            : 'Complete to earn your certificate'
-                          : language === 'id'
-                            ? 'Selesaikan semua materi untuk membuka ujian'
-                            : 'Complete all lessons to unlock the exam'}
-                      </p>
-                    </div>
-                  </div>
-                  {course.finalExamUnlocked && (
-                    <Link
-                      to={`/learn/${course.id}/exam`}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-red-600 text-white hover:bg-red-700 rounded-lg transition-all"
-                    >
-                      {language === 'id' ? 'Mulai Ujian' : 'Start Exam'}
-                    </Link>
-                  )}
-                </div>
-              </Card>
-            )}
           </div>
 
           {/* Sidebar */}
@@ -437,27 +357,27 @@ export function CourseLearningPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xl font-bold text-gray-900">{course.completedLessons}</p>
+                    <p className="text-xl font-bold text-gray-900">{course.completed_lessons}</p>
                     <p className="text-xs text-gray-500">{language === 'id' ? 'Pelajaran Selesai' : 'Lessons Done'}</p>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xl font-bold text-gray-900">{course.totalLessons - course.completedLessons}</p>
+                    <p className="text-xl font-bold text-gray-900">{course.total_lessons - course.completed_lessons}</p>
                     <p className="text-xs text-gray-500">{language === 'id' ? 'Tersisa' : 'Remaining'}</p>
                   </div>
                 </div>
               </div>
             </Card>
 
-            {/* Certificate Card */}
+            {/* Certificate Card placeholder */}
             <Card>
               <CardHeader>
                 <CardTitle>{language === 'id' ? 'Sertifikat' : 'Certificate'}</CardTitle>
               </CardHeader>
               <div className="text-center py-4">
-                {course.certificateEarned ? (
+                {course.progress === 100 ? (
                   <>
                     <Award className="w-16 h-16 text-yellow-500 mx-auto mb-3" />
-                    <p className="text-gray-600 mb-3">
+                    <p className="text-gray-600 mb-3 text-sm">
                       {language === 'id' ? 'Selamat! Anda telah menyelesaikan kursus ini.' : 'Congratulations! You have completed this course.'}
                     </p>
                     <Link
@@ -471,30 +391,13 @@ export function CourseLearningPage() {
                 ) : (
                   <>
                     <Award className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-gray-500 text-xs">
                       {language === 'id'
-                        ? 'Selesaikan semua materi dan ujian akhir untuk mendapatkan sertifikat.'
-                        : 'Complete all lessons and final exam to earn your certificate.'}
+                        ? 'Selesaikan semua materi untuk mendapatkan sertifikat.'
+                        : 'Complete all lessons to earn your certificate.'}
                     </p>
                   </>
                 )}
-              </div>
-            </Card>
-
-            {/* Resources */}
-            <Card>
-              <CardHeader>
-                <CardTitle>{language === 'id' ? 'Sumber Daya' : 'Resources'}</CardTitle>
-              </CardHeader>
-              <div className="space-y-2">
-                <button className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
-                  <Download className="w-5 h-5 text-blue-500" />
-                  <span className="text-sm">{language === 'id' ? 'Materi Tambahan' : 'Supplementary Materials'}</span>
-                </button>
-                <button className="w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 rounded-lg transition-colors">
-                  <FileText className="w-5 h-5 text-purple-500" />
-                  <span className="text-sm">{language === 'id' ? 'Catatan Kursus' : 'Course Notes'}</span>
-                </button>
               </div>
             </Card>
           </div>

@@ -13,6 +13,13 @@ use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
+    private function getUserWithPermissions($user)
+    {
+        return array_merge($user->load('profile', 'roles')->toArray(), [
+            'permissions' => $user->getAllPermissions()->pluck('name')->toArray()
+        ]);
+    }
+
     /**
      * Register a new user.
      */
@@ -46,7 +53,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Registration successful. Please verify your email.',
             'data' => [
-                'user' => $user->load('profile', 'roles'),
+                'user' => $this->getUserWithPermissions($user),
                 'token' => $token,
                 'token_type' => 'Bearer',
                 'expires_in' => $expiresInMinutes * 60, // in seconds
@@ -80,7 +87,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Login successful.',
             'data' => [
-                'user' => $user->load('profile', 'roles'),
+                'user' => $this->getUserWithPermissions($user),
                 'token' => $token,
                 'token_type' => 'Bearer',
                 'expires_in' => $expiresInMinutes * 60, // in seconds
@@ -119,7 +126,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Token refreshed successfully.',
             'data' => [
-                'user' => $user->load('profile', 'roles'),
+                'user' => $this->getUserWithPermissions($user),
                 'token' => $token,
                 'token_type' => 'Bearer',
                 'expires_in' => $expiresInMinutes * 60, // in seconds
@@ -135,7 +142,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'data' => [
-                'user' => $request->user()->load('profile', 'roles'),
+                'user' => $this->getUserWithPermissions($request->user()),
             ],
         ]);
     }

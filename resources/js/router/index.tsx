@@ -16,7 +16,7 @@ import { StudentDashboard, MyCoursesPage, MyClassesPage, ClassDetailPage, Discus
 import { InstructorDashboard, InstructorCoursesPage, CourseManagePage, InstructorStudentsPage, InstructorClassesPage, ClassManagePage, InstructorGradingPage, AssignmentGradingPage, ExamGradingPage, ClassGradingPage, InstructorEarningsPage, InstructorPayoutsPage, InstructorCreateCoursePage } from '@/pages/instructor';
 
 // Admin Pages
-import { AdminDashboard, AdminUsersPage, UserDetailPage, InstructorsManagementPage, InstructorDetailPage, CoursesManagementPage, CourseReviewPage, CategoriesManagementPage, TransactionsPage, TransactionDetailPage, AdminPayoutsPage, CommissionSettingsPage, AdminSettingsPage, ModerationPage } from '@/pages/admin';
+import { AdminDashboard, AdminUsersPage, UserDetailPage, InstructorsManagementPage, InstructorDetailPage, CoursesManagementPage, CourseReviewPage, CategoriesManagementPage, TransactionsPage, TransactionDetailPage, AdminPayoutsPage, CommissionSettingsPage, AdminSettingsPage, ModerationPage, RoleManagementPage } from '@/pages/admin';
 
 // Gamification Pages
 import { LeaderboardPage, BadgesPage } from '@/pages/gamification';
@@ -436,6 +436,14 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: '/admin/roles',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <RoleManagementPage />
+          </ProtectedRoute>
+        ),
+      },
 
       // Certificate Routes (Protected)
       {
@@ -483,7 +491,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: '/learn/:courseId/lesson/:lessonId',
+        path: '/learn/:slug/lesson/:lessonId',
         element: (
           <ProtectedRoute allowedRoles={['student']}>
             <LessonPage />
@@ -491,7 +499,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: '/learn/:courseId/quiz/:quizId',
+        path: '/learn/:slug/quiz/:quizId',
         element: (
           <ProtectedRoute allowedRoles={['student']}>
             <QuizPage />
@@ -499,7 +507,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: '/learn/:courseId/exam',
+        path: '/learn/:slug/exam',
         element: (
           <ProtectedRoute allowedRoles={['student']}>
             <ExamPage />

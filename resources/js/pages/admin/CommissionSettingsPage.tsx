@@ -9,11 +9,12 @@ import {
   Info,
   Settings,
   TrendingUp,
+  Clock,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
 import { Card, Button, Badge, Modal } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 
 // Settings history type
 interface SettingChange {
@@ -48,25 +49,54 @@ const mockHistory: SettingChange[] = [
   },
 ];
 
+import { 
+  useGetCommissionSettingsQuery, 
+  useUpdateCommissionSettingsMutation 
+} from '@/store/features/admin/adminSettingApiSlice';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import toast from 'react-hot-toast';
+import { useEffect } from 'react';
+
 export function CommissionSettingsPage() {
   const { language } = useLanguage();
 
+  const { data: settingsResponse, isLoading } = useGetCommissionSettingsQuery();
+  const [updateSettings, { isLoading: isUpdating }] = useUpdateCommissionSettingsMutation();
+
   // Current settings state
-  const [platformCommission, setPlatformCommission] = useState(20); // 20%
-  const [minimumPayout, setMinimumPayout] = useState(100000); // Rp 100,000
-  const [maximumPayout, setMaximumPayout] = useState(50000000); // Rp 50,000,000
-  const [taxWithholding, setTaxWithholding] = useState(5); // 5%
+  const [platformCommission, setPlatformCommission] = useState(20);
+  const [minimumPayout, setMinimumPayout] = useState(100000);
+  const [maximumPayout, setMaximumPayout] = useState(50000000);
+  const [taxWithholding, setTaxWithholding] = useState(5);
+  const [payoutDelayDays, setPayoutDelayDays] = useState(7);
 
   // Temporary editing state
   const [editingCommission, setEditingCommission] = useState(platformCommission);
   const [editingMinPayout, setEditingMinPayout] = useState(minimumPayout);
   const [editingMaxPayout, setEditingMaxPayout] = useState(maximumPayout);
   const [editingTax, setEditingTax] = useState(taxWithholding);
+  const [editingDelay, setEditingDelay] = useState(payoutDelayDays);
 
   // Modals
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [changeReason, setChangeReason] = useState('');
+
+  // Update local state when API data arrives
+  useEffect(() => {
+    if (settingsResponse?.data) {
+      const s = settingsResponse.data;
+      setPlatformCommission(s.platform_commission);
+      setMinimumPayout(s.minimum_payout);
+      setTaxWithholding(s.tax_withholding);
+      setPayoutDelayDays(s.payout_delay_days);
+
+      setEditingCommission(s.platform_commission);
+      setEditingMinPayout(s.minimum_payout);
+      setEditingTax(s.tax_withholding);
+      setEditingDelay(s.payout_delay_days);
+    }
+  }, [settingsResponse]);
 
   // Calculate instructor earnings
   const instructorEarning = 100 - editingCommission;
@@ -81,31 +111,30 @@ export function CommissionSettingsPage() {
   const hasChanges =
     editingCommission !== platformCommission ||
     editingMinPayout !== minimumPayout ||
-    editingMaxPayout !== maximumPayout ||
-    editingTax !== taxWithholding;
+    editingTax !== taxWithholding ||
+    editingDelay !== payoutDelayDays;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!changeReason.trim()) {
-      alert(language === 'id' ? 'Mohon masukkan alasan perubahan' : 'Please enter reason for change');
+      toast.error(language === 'id' ? 'Mohon masukkan alasan perubahan' : 'Please enter reason for change');
       return;
     }
 
-    // Save changes
-    setPlatformCommission(editingCommission);
-    setMinimumPayout(editingMinPayout);
-    setMaximumPayout(editingMaxPayout);
-    setTaxWithholding(editingTax);
+    try {
+      await updateSettings({
+        platform_commission: editingCommission,
+        tax_withholding: editingTax,
+        minimum_payout: editingMinPayout,
+        payout_delay_days: editingDelay,
+        reason: changeReason, // Logs could be handled on backend later
+      }).unwrap();
 
-    console.log('Saving commission settings:', {
-      platformCommission: editingCommission,
-      minimumPayout: editingMinPayout,
-      maximumPayout: editingMaxPayout,
-      taxWithholding: editingTax,
-      reason: changeReason,
-    });
-
-    setShowConfirmModal(false);
-    setChangeReason('');
+      toast.success(language === 'id' ? 'Pengaturan berhasil diperbarui' : 'Settings updated successfully');
+      setShowConfirmModal(false);
+      setChangeReason('');
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to update settings');
+    }
   };
 
   const handleCancel = () => {
@@ -113,72 +142,57 @@ export function CommissionSettingsPage() {
     setEditingMinPayout(minimumPayout);
     setEditingMaxPayout(maximumPayout);
     setEditingTax(taxWithholding);
+    setEditingDelay(payoutDelayDays);
   };
+
+  if (isLoading) return <LoadingScreen />;
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto p-6 lg:p-8">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {language === 'id' ? 'Pengaturan Komisi' : 'Commission Settings'}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             {language === 'id'
               ? 'Atur pembagian revenue antara platform dan instruktur'
               : 'Configure revenue sharing between platform and instructors'}
           </p>
         </div>
 
-        {/* Current Settings Overview */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Percent className="w-6 h-6 text-blue-600" />
+        {/* Current Settings Overview - Matching Instructor Style */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+          {[
+            { label: language === 'id' ? 'Komisi Platform' : 'Platform Fee', value: `${platformCommission}%`, icon: Percent, color: 'blue' },
+            { label: language === 'id' ? 'Instruktur Dapat' : 'Instructor Earns', value: `${100 - platformCommission}%`, icon: TrendingUp, color: 'green' },
+            { label: language === 'id' ? 'Min. Payout' : 'Min. Payout', value: formatCurrency(minimumPayout), icon: DollarSign, color: 'orange' },
+            { label: language === 'id' ? 'Pajak' : 'Tax', value: `${taxWithholding}%`, icon: Percent, color: 'purple' },
+            { label: language === 'id' ? 'Penundaan' : 'Delay', value: `${payoutDelayDays} ${language === 'id' ? 'Hari' : 'Days'}`, icon: Clock, color: 'yellow' },
+          ].map((item, i) => (
+            <Card key={i} className="flex items-center gap-3">
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", 
+                 item.color === 'blue' && "bg-blue-100",
+                 item.color === 'green' && "bg-green-100",
+                 item.color === 'orange' && "bg-orange-100",
+                 item.color === 'purple' && "bg-purple-100",
+                 item.color === 'yellow' && "bg-yellow-100",
+              )}>
+                <item.icon className={cn("w-5 h-5", 
+                  item.color === 'blue' && "text-blue-600",
+                  item.color === 'green' && "text-green-600",
+                  item.color === 'orange' && "text-orange-600",
+                  item.color === 'purple' && "text-purple-600",
+                  item.color === 'yellow' && "text-yellow-600",
+                )} />
               </div>
-              <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Komisi Platform' : 'Platform Fee'}</p>
-                <p className="text-xl font-bold text-gray-900">{platformCommission}%</p>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-gray-900 dark:text-white truncate">{item.value}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.label}</p>
               </div>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Instruktur Dapat' : 'Instructor Earns'}</p>
-                <p className="text-xl font-bold text-gray-900">{100 - platformCommission}%</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Min. Payout' : 'Min. Payout'}</p>
-                <p className="text-lg font-bold text-gray-900">{formatCurrency(minimumPayout)}</p>
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <Percent className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Pajak' : 'Tax'}</p>
-                <p className="text-xl font-bold text-gray-900">{taxWithholding}%</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          ))}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -281,28 +295,39 @@ export function CommissionSettingsPage() {
               <div className="flex items-center gap-2 mb-4">
                 <Settings className="w-5 h-5 text-gray-600" />
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {language === 'id' ? 'Pengaturan Pajak' : 'Tax Settings'}
+                  {language === 'id' ? 'Pengaturan Lainnya' : 'Other Settings'}
                 </h2>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {language === 'id' ? 'Potongan Pajak' : 'Tax Withholding'} (%)
-                </label>
-                <input
-                  type="number"
-                  value={editingTax}
-                  onChange={(e) => setEditingTax(Number(e.target.value))}
-                  step="0.5"
-                  min="0"
-                  max="30"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {language === 'id'
-                    ? 'Persentase pajak yang dipotong dari earning instruktur'
-                    : 'Percentage of tax withheld from instructor earnings'}
-                </p>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {language === 'id' ? 'Potongan Pajak' : 'Tax Withholding'} (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingTax}
+                    onChange={(e) => setEditingTax(Number(e.target.value))}
+                    step="0.5"
+                    min="0"
+                    max="30"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {language === 'id' ? 'Penundaan Penarikan' : 'Payout Delay'} ({language === 'id' ? 'Hari' : 'Days'})
+                  </label>
+                  <input
+                    type="number"
+                    value={editingDelay}
+                    onChange={(e) => setEditingDelay(Number(e.target.value))}
+                    min="0"
+                    max="30"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </Card>
 
@@ -414,11 +439,11 @@ export function CommissionSettingsPage() {
                 {editingMinPayout !== minimumPayout && (
                   <li>• {language === 'id' ? 'Min. Payout' : 'Min. Payout'}: {formatCurrency(minimumPayout)} → {formatCurrency(editingMinPayout)}</li>
                 )}
-                {editingMaxPayout !== maximumPayout && (
-                  <li>• {language === 'id' ? 'Max. Payout' : 'Max. Payout'}: {formatCurrency(maximumPayout)} → {formatCurrency(editingMaxPayout)}</li>
-                )}
                 {editingTax !== taxWithholding && (
                   <li>• {language === 'id' ? 'Pajak' : 'Tax'}: {taxWithholding}% → {editingTax}%</li>
+                )}
+                {editingDelay !== payoutDelayDays && (
+                  <li>• {language === 'id' ? 'Penundaan' : 'Delay'}: {payoutDelayDays} → {editingDelay} {language === 'id' ? 'Hari' : 'Days'}</li>
                 )}
               </ul>
             </div>
@@ -438,11 +463,11 @@ export function CommissionSettingsPage() {
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowConfirmModal(false)}>
+              <Button variant="outline" onClick={() => setShowConfirmModal(false)} disabled={isUpdating}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
-              <Button onClick={handleSave} disabled={!changeReason.trim()}>
-                {language === 'id' ? 'Simpan' : 'Save'}
+              <Button onClick={handleSave} disabled={!changeReason.trim() || isUpdating}>
+                {language === 'id' ? (isUpdating ? 'Menyimpan...' : 'Simpan') : (isUpdating ? 'Saving...' : 'Save')}
               </Button>
             </div>
           </div>

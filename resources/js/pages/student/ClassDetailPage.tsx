@@ -20,175 +20,58 @@ import { DashboardLayout } from '@/components/layouts';
 import { Card, Badge, Button, Avatar, Tabs } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatDate, getTimeAgo } from '@/lib/utils';
+import { useGetClassQuery } from '@/store/features/classes/classesApiSlice';
+import { Loader2 } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 
-// Mock data untuk detail kelas
-const mockClassDetail = {
-  id: 'class-1',
-  courseId: 'course-1',
-  courseName: 'React Masterclass Professional',
-  instructor: {
-    id: 'inst-1',
-    name: 'Budi Pengajar',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-    email: 'budi@example.com',
-  },
-  schedule: {
-    day: 'Senin & Rabu',
-    time: '19:00 - 21:00',
-    location: 'Online (Zoom)',
-  },
-  startDate: '2024-01-15',
-  endDate: '2024-03-15',
-  progress: 65,
-  students: 28,
-  maxStudents: 30,
-  status: 'ongoing' as const,
-  nextSession: '2024-01-24T19:00:00',
-  description: 'Kelas intensif React.js dengan pendekatan hybrid learning. Gabungan sesi live terjadwal dengan instruktur, kursus terstruktur, dan materi tambahan untuk pembelajaran yang komprehensif.',
-
-  // Kursus yang di-include dalam kelas (dipilih saat membuat kelas)
-  includedCourses: [
-    {
-      id: 'course-1',
-      title: 'Full Stack Web Development dengan Node.js & Express',
-      slug: 'full-stack-nodejs-express',
-      instructor: 'Budi Pengajar',
-      thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400',
-      duration: '40 jam',
-      studentsCount: '3.2K',
-      rating: 4.7,
-      reviewsCount: 890,
-      level: 'Menengah',
-      lessonsCount: 45,
-      progress: 75,
-      type: 'class-based' as const,
-    },
-    {
-      id: 'course-2',
-      title: 'AWS Cloud Practitioner: Persiapan Sertifikasi',
-      slug: 'aws-cloud-practitioner',
-      instructor: 'Budi Pengajar',
-      thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400',
-      duration: '25 jam',
-      studentsCount: '1.8K',
-      rating: 4.8,
-      reviewsCount: 520,
-      level: 'Pemula',
-      lessonsCount: 30,
-      progress: 45,
-      type: 'class-based' as const,
-    },
-  ],
-
-  // Sesi kelas terjadwal (Class Sessions)
-  sessions: [
-    {
-      id: 'session-1',
-      title: 'Kickoff & Introduction to React',
-      type: 'live',
-      sessionDate: '2024-01-15T19:00:00',
-      duration: '2 jam',
-      status: 'completed' as const,
-      recordingUrl: 'https://zoom.us/rec/123',
-      materials: ['Slide Presentasi', 'Starter Code'],
-    },
-    {
-      id: 'session-2',
-      title: 'Deep Dive: React Hooks & State Management',
-      type: 'live',
-      sessionDate: '2024-01-17T19:00:00',
-      duration: '2 jam',
-      status: 'completed' as const,
-      recordingUrl: 'https://zoom.us/rec/124',
-      materials: ['Slide Presentasi', 'Exercise Code'],
-    },
-    {
-      id: 'session-3',
-      title: 'Building Real-World Applications',
-      type: 'live',
-      sessionDate: '2024-01-22T19:00:00',
-      duration: '2 jam',
-      status: 'upcoming' as const,
-      recordingUrl: null,
-      materials: [],
-    },
-  ],
-
-  // Materi tambahan yang ditambahkan instruktur
-  additionalMaterials: [
-    {
-      id: 'mat-1',
-      title: 'Cheat Sheet: React Hooks Reference',
-      type: 'document',
-      size: '2.5 MB',
-      uploadedAt: '2024-01-15T10:00:00',
-    },
-    {
-      id: 'mat-2',
-      title: 'Video Tutorial: Debugging React Applications',
-      type: 'video',
-      duration: '25 menit',
-      uploadedAt: '2024-01-17T10:00:00',
-    },
-    {
-      id: 'mat-3',
-      title: 'Sample Project: E-commerce Cart',
-      type: 'document',
-      size: '5.1 MB',
-      uploadedAt: '2024-01-20T10:00:00',
-    },
-  ],
-
-  assignments: [
-    {
-      id: 'asg-1',
-      title: 'Membuat Component Library',
-      description: 'Buat library component reusable dengan React',
-      dueDate: '2024-01-25T23:59:00',
-      totalPoints: 100,
-      submitted: true,
-      submittedAt: '2024-01-24T15:30:00',
-      grade: 95,
-      feedback: 'Pekerjaan yang sangat bagus! Component yang dibuat sudah reusable dan well-documented.',
-      status: 'graded' as const,
-    },
-    {
-      id: 'asg-2',
-      title: 'Mini Project - Todo App dengan Hooks',
-      description: 'Buat aplikasi Todo menggunakan useState, useEffect, dan custom hooks',
-      dueDate: '2024-02-01T23:59:00',
-      totalPoints: 100,
-      submitted: true,
-      submittedAt: '2024-01-31T20:00:00',
-      grade: 88,
-      feedback: 'Bagus! Namun ada beberapa edge cases yang perlu dihandle.',
-      status: 'graded' as const,
-    },
-    {
-      id: 'asg-3',
-      title: 'State Management dengan Context API',
-      description: 'Implementasi global state management menggunakan Context API',
-      dueDate: '2024-02-08T23:59:00',
-      totalPoints: 100,
-      submitted: false,
-      status: 'pending' as const,
-    },
-  ],
-};
 
 export function ClassDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'info' | 'materials' | 'assignments' | 'grades'>('info');
 
-  const classData = mockClassDetail;
+  const { data: response, isLoading, isError } = useGetClassQuery(id || '');
+  const classData = response?.data;
 
-  // Calculate grades statistics
-  const completedAssignments = classData.assignments.filter((a) => a.status === 'graded');
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (isError || !classData) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-[60vh]">
+          <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            {language === 'id' ? 'Kelas tidak ditemukan' : 'Class not found'}
+          </h2>
+          <Link to="/my-classes">
+            <Button variant="outline">
+              {language === 'id' ? 'Kembali ke Kelas Saya' : 'Back to My Classes'}
+            </Button>
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Calculate internal state/helpers
+  const isActive = classData.status === 'active' || classData.status === 'in_progress' || !classData.status;
+
+  // Assignments Mapping (Backend might provide this differently, placeholder for now)
+  const assignments = classData.assignments || [];
+  const completedAssignments = assignments.filter((a) => a.status === 'graded');
   const averageGrade = completedAssignments.length > 0
     ? completedAssignments.reduce((sum, a) => sum + (a.grade || 0), 0) / completedAssignments.length
     : 0;
   const totalPoints = completedAssignments.reduce((sum, a) => sum + (a.grade || 0), 0);
-  const maxPoints = completedAssignments.reduce((sum, a) => sum + a.totalPoints, 0);
+  const maxPoints = completedAssignments.reduce((sum, a) => sum + (a.totalPoints || 100), 0);
 
   return (
     <DashboardLayout>
@@ -207,24 +90,28 @@ export function ClassDetailPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {classData.courseName}
+                {classData.name}
               </h1>
-              <Badge variant={classData.status === 'ongoing' ? 'success' : 'secondary'} size="sm">
-                {classData.status === 'ongoing'
+              <Badge variant={isActive ? 'success' : 'secondary'} size="sm">
+                {isActive
                   ? language === 'id' ? 'Aktif' : 'Active'
                   : language === 'id' ? 'Selesai' : 'Completed'}
               </Badge>
             </div>
             <div className="flex items-center gap-3 mb-3">
-              <Avatar src={classData.instructor.avatar} name={classData.instructor.name} size="sm" />
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {classData.instructor.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {classData.instructor.email}
-                </p>
-              </div>
+              {classData.instructor && (
+                <>
+                  <Avatar src={classData.instructor.avatar} name={classData.instructor.name} size="sm" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {classData.instructor.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {classData.instructor.email}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
             <p className="text-gray-600 dark:text-gray-400">{classData.description}</p>
           </div>
@@ -257,7 +144,7 @@ export function ClassDetailPage() {
               </p>
             </div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {classData.schedule.day}
+              {classData.schedule?.day || (language === 'id' ? 'Senin - Jumat' : 'Mon - Fri')}
             </p>
           </Card>
 
@@ -269,7 +156,7 @@ export function ClassDetailPage() {
               </p>
             </div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {classData.schedule.time}
+              {classData.schedule?.time || '09:00 - 12:00'}
             </p>
           </Card>
 
@@ -281,7 +168,7 @@ export function ClassDetailPage() {
               </p>
             </div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {classData.schedule.location}
+              {classData.schedule?.location || (language === 'id' ? 'Ruang Virtual' : 'Virtual Room')}
             </p>
           </Card>
 
@@ -293,14 +180,14 @@ export function ClassDetailPage() {
               </p>
             </div>
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {classData.students}/{classData.maxStudents}
+              {classData.students_count}/{classData.max_students || 50}
             </p>
           </Card>
         </div>
       </div>
 
       {/* Progress */}
-      {classData.status === 'ongoing' && (
+      {isActive && (
         <Card className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -311,7 +198,7 @@ export function ClassDetailPage() {
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
             <div
               className="bg-blue-600 h-3 rounded-full transition-all"
-              style={{ width: `${classData.progress}%` }}
+              style={{ width: `${classData.progress || 0}%` }}
             />
           </div>
         </Card>
@@ -329,13 +216,13 @@ export function ClassDetailPage() {
             id: 'materials',
             label: language === 'id' ? 'Materi' : 'Materials',
             icon: <Video className="w-4 h-4" />,
-            badge: classData.includedCourses.length + classData.sessions.length + classData.additionalMaterials.length,
+            badge: (classData.courses?.length || 0) + (classData.sessions?.length || 0) + (classData.additionalMaterials?.length || 0),
           },
           {
             id: 'assignments',
             label: language === 'id' ? 'Tugas' : 'Assignments',
             icon: <FileText className="w-4 h-4" />,
-            badge: classData.assignments.filter((a) => a.status === 'pending').length,
+            badge: assignments.filter((a: any) => a.status === 'pending').length,
           },
           {
             id: 'grades',
@@ -367,7 +254,7 @@ export function ClassDetailPage() {
                     {language === 'id' ? 'Tanggal Mulai' : 'Start Date'}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatDate(classData.startDate)}
+                    {formatDate(classData.start_date || classData.created_at)}
                   </p>
                 </div>
                 <div>
@@ -375,7 +262,7 @@ export function ClassDetailPage() {
                     {language === 'id' ? 'Tanggal Selesai' : 'End Date'}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatDate(classData.endDate)}
+                    {classData.end_date ? formatDate(classData.end_date) : '-'}
                   </p>
                 </div>
               </div>
@@ -389,22 +276,22 @@ export function ClassDetailPage() {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {language === 'id' ? 'Kursus' : 'Included Courses'}
+                  {language === 'id' ? 'Kursus Utama' : 'Main Courses'}
                 </h3>
-                <Badge size="sm">{classData.includedCourses.length}</Badge>
+                <Badge size="sm">{classData.courses?.length || 0}</Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {classData.includedCourses.map((course) => (
+                {(classData.courses || []).map((course: any) => (
                   <Card key={course.id} hover className="overflow-hidden">
                     <div className="relative">
                       <img
-                        src={course.thumbnail}
+                        src={course.thumbnail || 'https://api.placeholder.com/640/360'}
                         alt={course.title}
                         className="w-full h-40 object-cover"
                       />
                       <div className="absolute top-2 left-2 flex gap-2">
-                        <Badge size="sm">{language === 'id' ? 'Kelas' : 'Class'}</Badge>
-                        <Badge size="sm" variant="secondary">{course.level}</Badge>
+                        <Badge size="sm">{language === 'id' ? 'Materi' : 'Content'}</Badge>
+                        <Badge size="sm" variant="secondary">{course.level || 'Intermediate'}</Badge>
                       </div>
                     </div>
                     <div className="p-4">
@@ -414,39 +301,19 @@ export function ClassDetailPage() {
                       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-3">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {course.duration}
+                          {course.duration || 'Auto'}
                         </span>
                         <span className="flex items-center gap-1">
                           <BookOpen className="w-3 h-3" />
-                          {course.lessonsCount} {language === 'id' ? 'pelajaran' : 'lessons'}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                          {course.rating}
+                          {course.topics?.length || 0} {language === 'id' ? 'topik' : 'topics'}
                         </span>
                       </div>
 
-                      {/* Progress */}
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-gray-600 dark:text-gray-400">
-                            {language === 'id' ? 'Progress' : 'Progress'}
-                          </span>
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {course.progress}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                          <div
-                            className="bg-blue-600 h-1.5 rounded-full transition-all"
-                            style={{ width: `${course.progress}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <Button size="sm" className="w-full" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                        {language === 'id' ? 'Lanjutkan Belajar' : 'Continue Learning'}
-                      </Button>
+                      <Link to={`/learn/${course.slug}`}>
+                        <Button size="sm" className="w-full" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                          {language === 'id' ? 'Buka Materi' : 'Open Content'}
+                        </Button>
+                      </Link>
                     </div>
                   </Card>
                 ))}
@@ -459,10 +326,10 @@ export function ClassDetailPage() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {language === 'id' ? 'Sesi Kelas Terjadwal' : 'Scheduled Class Sessions'}
                 </h3>
-                <Badge size="sm">{classData.sessions.length}</Badge>
+                <Badge size="sm">{classData.sessions?.length || 0}</Badge>
               </div>
               <div className="space-y-3">
-                {classData.sessions.map((session) => (
+                {(classData.sessions || []).map((session: any) => (
                   <Card key={session.id} hover>
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
@@ -534,10 +401,10 @@ export function ClassDetailPage() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {language === 'id' ? 'Materi Tambahan' : 'Additional Materials'}
                 </h3>
-                <Badge size="sm">{classData.additionalMaterials.length}</Badge>
+                <Badge size="sm">{classData.additionalMaterials?.length || 0}</Badge>
               </div>
               <div className="space-y-3">
-                {classData.additionalMaterials.map((material) => (
+                {(classData.additionalMaterials || []).map((material: any) => (
                   <Card key={material.id} hover>
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
@@ -582,7 +449,7 @@ export function ClassDetailPage() {
 
         {activeTab === 'assignments' && (
           <div className="space-y-4">
-            {classData.assignments.map((assignment) => (
+            {assignments.map((assignment: any) => (
               <Card key={assignment.id} hover>
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div className="flex-1">
@@ -693,7 +560,7 @@ export function ClassDetailPage() {
                     {language === 'id' ? 'Tugas Dinilai' : 'Graded Assignments'}
                   </p>
                   <p className="text-3xl font-bold text-green-600">
-                    {completedAssignments.length}/{classData.assignments.length}
+                    {completedAssignments.length}/{assignments.length}
                   </p>
                 </div>
               </Card>
@@ -705,9 +572,9 @@ export function ClassDetailPage() {
                 {language === 'id' ? 'Rincian Nilai' : 'Grade Details'}
               </h3>
               <div className="space-y-4">
-                {classData.assignments
-                  .filter((a) => a.status === 'graded')
-                  .map((assignment) => (
+                {assignments
+                  .filter((a: any) => a.status === 'graded')
+                  .map((assignment: any) => (
                     <div
                       key={assignment.id}
                       className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"

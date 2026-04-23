@@ -2,22 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Grid, List, Play, Clock, Award, Filter } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, Badge, Progress, Button, Select } from '@/components/ui';
-import { mockCourses } from '@/data/mockData';
+import { Card, Badge, Progress, Button, Select, Skeleton } from '@/components/ui';
 import { formatDuration, getCourseLevelLabel } from '@/lib/utils';
+import { useGetMyLearningQuery } from '@/store/features/student/studentApiSlice';
 
 export function MyCoursesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock enrolled courses with progress
-  const enrolledCourses = mockCourses.map((course, index) => ({
-    ...course,
-    progress: [100, 65, 30, 10, 0, 80][index % 6],
-    lastAccessed: new Date(Date.now() - index * 86400000 * 2).toISOString(),
-    completedAt: index === 0 ? new Date(Date.now() - 604800000).toISOString() : undefined,
-  }));
+  const { data: enrolledCourses = [], isLoading } = useGetMyLearningQuery();
 
   const filteredCourses = enrolledCourses.filter((course) => {
     if (searchQuery && !course.title.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -53,50 +47,58 @@ export function MyCoursesPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <button
-          onClick={() => setFilter('all')}
-          className={`p-4 rounded-xl border-2 transition-colors text-left ${
-            filter === 'all'
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          <p className="text-sm text-gray-500">Semua Kursus</p>
-        </button>
-        <button
-          onClick={() => setFilter('in-progress')}
-          className={`p-4 rounded-xl border-2 transition-colors text-left ${
-            filter === 'in-progress'
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
-          <p className="text-sm text-gray-500">Sedang Berjalan</p>
-        </button>
-        <button
-          onClick={() => setFilter('completed')}
-          className={`p-4 rounded-xl border-2 transition-colors text-left ${
-            filter === 'completed'
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-          <p className="text-sm text-gray-500">Selesai</p>
-        </button>
-        <button
-          onClick={() => setFilter('not-started')}
-          className={`p-4 rounded-xl border-2 transition-colors text-left ${
-            filter === 'not-started'
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-        >
-          <p className="text-2xl font-bold text-gray-400">{stats.notStarted}</p>
-          <p className="text-sm text-gray-500">Belum Dimulai</p>
-        </button>
+        {isLoading ? (
+          Array(4).fill(0).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))
+        ) : (
+          <>
+            <button
+              onClick={() => setFilter('all')}
+              className={`p-4 rounded-xl border-2 transition-colors text-left ${
+                filter === 'all'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-sm text-gray-500">Semua Kursus</p>
+            </button>
+            <button
+              onClick={() => setFilter('in-progress')}
+              className={`p-4 rounded-xl border-2 transition-colors text-left ${
+                filter === 'in-progress'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
+              <p className="text-sm text-gray-500">Sedang Berjalan</p>
+            </button>
+            <button
+              onClick={() => setFilter('completed')}
+              className={`p-4 rounded-xl border-2 transition-colors text-left ${
+                filter === 'completed'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+              <p className="text-sm text-gray-500">Selesai</p>
+            </button>
+            <button
+              onClick={() => setFilter('not-started')}
+              className={`p-4 rounded-xl border-2 transition-colors text-left ${
+                filter === 'not-started'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="text-2xl font-bold text-gray-400">{stats.notStarted}</p>
+              <p className="text-sm text-gray-500">Belum Dimulai</p>
+            </button>
+          </>
+        )}
       </div>
 
       {/* Toolbar */}
@@ -149,7 +151,13 @@ export function MyCoursesPage() {
       </div>
 
       {/* Courses */}
-      {filteredCourses.length === 0 ? (
+      {isLoading ? (
+        <div className={viewMode === 'grid' ? "grid md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+           {Array(6).fill(0).map((_, i) => (
+             <Skeleton key={i} className={viewMode === 'grid' ? "h-[320px] rounded-xl" : "h-32 rounded-xl"} />
+           ))}
+        </div>
+      ) : filteredCourses.length === 0 ? (
         <Card className="text-center py-12">
           <Filter className="w-12 h-12 mx-auto mb-4 text-gray-300" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -190,13 +198,10 @@ export function MyCoursesPage() {
                 </Link>
               </div>
               <div className="p-4">
-                <Badge size="sm" className="mb-2">
-                  {getCourseLevelLabel(course.level)}
-                </Badge>
-                <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2">
+                <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2 min-h-[3rem]">
                   {course.title}
                 </h3>
-                <p className="text-sm text-gray-500 mb-3">{course.instructor?.name}</p>
+                <p className="text-sm text-gray-500 mb-3">{course.instructor || 'Instructor'}</p>
 
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-sm mb-1">
@@ -211,8 +216,7 @@ export function MyCoursesPage() {
 
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    {formatDuration(course.totalDuration)}
+                    <Badge variant="outline" size="sm">{course.type.toUpperCase()}</Badge>
                   </span>
                   <Link to={`/learn/${course.slug}`}>
                     <Button size="sm">
@@ -250,11 +254,9 @@ export function MyCoursesPage() {
               <div className="flex-1 py-1">
                 <div className="flex items-start justify-between">
                   <div>
-                    <Badge size="sm" className="mb-1">
-                      {getCourseLevelLabel(course.level)}
-                    </Badge>
                     <h3 className="font-semibold text-gray-900 mb-1">{course.title}</h3>
-                    <p className="text-sm text-gray-500">{course.instructor?.name}</p>
+                    <p className="text-sm text-gray-500">{course.instructor || 'Instructor'}</p>
+                    <Badge variant="outline" size="sm" className="mt-2">{course.type.toUpperCase()}</Badge>
                   </div>
                   <Link to={`/learn/${course.slug}`}>
                     <Button size="sm">
@@ -268,9 +270,6 @@ export function MyCoursesPage() {
                 </div>
                 <div className="mt-3">
                   <div className="flex items-center gap-4 mb-2">
-                    <span className="text-sm text-gray-500">
-                      {formatDuration(course.totalDuration)} • {course.totalLessons} pelajaran
-                    </span>
                     <span className="text-sm font-medium text-gray-900">
                       {course.progress}% selesai
                     </span>

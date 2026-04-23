@@ -13,10 +13,18 @@ use App\Http\Controllers\Api\V1\Instructor\BatchController;
 use App\Http\Controllers\Api\V1\Instructor\CourseController;
 use App\Http\Controllers\Api\V1\Instructor\LessonController;
 use App\Http\Controllers\Api\V1\Instructor\SectionController;
+use App\Http\Controllers\Api\V1\Instructor\SubmissionController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\SettingController as AdminSettingController;
+use App\Http\Controllers\Api\V1\Admin\CommissionController as AdminCommissionController;
+use App\Http\Controllers\Api\V1\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Api\V1\Admin\RoleManagementController;
 use App\Http\Controllers\Api\V1\Instructor\DashboardController as InstructorDashboardController;
+use App\Http\Controllers\Api\V1\Instructor\EarningsController as InstructorEarningsController;
+use App\Http\Controllers\Api\V1\Instructor\PayoutController as InstructorPayoutController;
 use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\Student\DashboardController as StudentDashboardController;
+use App\Http\Controllers\Api\V1\Student\LearningController as StudentLearningController;
 use App\Http\Controllers\Api\V1\Student\RecommendationController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,16 +59,11 @@ Route::prefix('v1')->group(function () {
             ->middleware(['signed', 'throttle:6,1'])
             ->name('verification.verify');
 
-        // Protected routes
-        Route::middleware('auth:api')->group(function () {
-            Route::post('/logout', [AuthController::class, 'logout']);
-            Route::post('/refresh', [AuthController::class, 'refresh']);
-            Route::get('/user', [AuthController::class, 'user']);
-
-            // Email verification resend
-            Route::post('/email/resend', [EmailVerificationController::class, 'resend'])
-                ->middleware('throttle:6,1');
         });
+
+    // Global protected routes
+    Route::middleware('auth:api')->group(function () {
+        Route::get('/menus', [\App\Http\Controllers\Api\V1\MenuController::class, 'index']);
     });
 
     /*
@@ -100,23 +103,64 @@ Route::prefix('v1')->group(function () {
             Route::post('learning-paths/{learningPath}/reorder', [\App\Http\Controllers\Api\V1\Admin\LearningPathController::class, 'reorder']);
         });
 
-        // Batch Management - permission checks in controller (already dynamic)
-        Route::get('batches', [\App\Http\Controllers\Api\V1\Admin\BatchController::class, 'index']);
-        Route::post('batches', [\App\Http\Controllers\Api\V1\Admin\BatchController::class, 'store']);
-        Route::post('batches/{batch}/instructors', [\App\Http\Controllers\Api\V1\Admin\BatchController::class, 'assignInstructor']);
-        Route::delete('batches/{batch}/instructors/{instructor}', [\App\Http\Controllers\Api\V1\Admin\BatchController::class, 'removeInstructor']);
-        Route::get('batches/{batch}/instructors', [\App\Http\Controllers\Api\V1\Admin\BatchController::class, 'getInstructors']);
+        // User Management CRUD
+        Route::middleware('permission:manage users')->group(function () {
+            Route::get('users/stats', [AdminUserController::class, 'stats']);
+            Route::post('users/bulk', [AdminUserController::class, 'bulkActions']);
+            Route::post('users/{id}/restore', [AdminUserController::class, 'restore']);
+            Route::post('users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus']);
+            Route::apiResource('users', AdminUserController::class);
+
+            // Instructor Management
+            Route::get('instructors/stats', [\App\Http\Controllers\Api\V1\Admin\InstructorManagementController::class, 'stats']);
+            Route::patch('instructors/{instructor}/status', [\App\Http\Controllers\Api\V1\Admin\InstructorManagementController::class, 'updateStatus']);
+            Route::apiResource('instructors', \App\Http\Controllers\Api\V1\Admin\InstructorManagementController::class);
+
+            // Course Management
+            Route::prefix('courses')->group(function () {
+                Route::get('stats', [\App\Http\Controllers\Api\V1\Admin\CourseManagementController::class, 'stats']);
+                Route::patch('{course}/status', [\App\Http\Controllers\Api\V1\Admin\CourseManagementController::class, 'updateStatus']);
+            });
+            Route::apiResource('courses', \App\Http\Controllers\Api\V1\Admin\CourseManagementController::class)->names('admin.courses');
+        });
 
         // Role & Permission Management (Dynamic RBAC)
-        Route::get('roles', [\App\Http\Controllers\Api\V1\Admin\RoleManagementController::class, 'index']);
-        Route::post('roles', [\App\Http\Controllers\Api\V1\Admin\RoleManagementController::class, 'store']);
-        Route::put('roles/{role}', [\App\Http\Controllers\Api\V1\Admin\RoleManagementController::class, 'update']);
-        Route::delete('roles/{role}', [\App\Http\Controllers\Api\V1\Admin\RoleManagementController::class, 'destroy']);
-        Route::get('permissions', [\App\Http\Controllers\Api\V1\Admin\RoleManagementController::class, 'permissions']);
+        Route::get('roles', [RoleManagementController::class, 'index']);
+        Route::get('roles/matrix', [RoleManagementController::class, 'matrix']);
+        Route::post('roles', [RoleManagementController::class, 'store']);
+        Route::put('roles/{role}', [RoleManagementController::class, 'update']);
+        Route::delete('roles/{role}', [RoleManagementController::class, 'destroy']);
+        Route::get('permissions', [RoleManagementController::class, 'permissions']);
         
         // User Role Assignment
-        Route::post('users/{user}/roles', [\App\Http\Controllers\Api\V1\Admin\RoleManagementController::class, 'assignRoleToUser']);
-        Route::delete('users/{user}/roles/{role}', [\App\Http\Controllers\Api\V1\Admin\RoleManagementController::class, 'removeRoleFromUser']);
+        Route::post('users/{user}/roles', [RoleManagementController::class, 'assignRoleToUser']);
+        Route::delete('users/{user}/roles/{role}', [RoleManagementController::class, 'removeRoleFromUser']);
+
+        // App Settings
+        Route::middleware('permission:manage settings')->group(function () {
+            Route::get('settings', [AdminSettingController::class, 'index']);
+            Route::post('settings/bulk', [AdminSettingController::class, 'updateBulk']);
+        });
+
+        // Commission & Finance Settings
+        Route::middleware('permission:manage commission')->group(function () {
+            Route::get('commission/settings', [AdminCommissionController::class, 'getSettings']);
+            Route::post('commission/settings', [AdminCommissionController::class, 'updateSettings']);
+        });
+
+        // Transaction Management
+        Route::middleware('permission:manage transactions')->group(function () {
+            Route::get('transactions/stats', [\App\Http\Controllers\Api\V1\Admin\TransactionController::class, 'stats']);
+            Route::apiResource('transactions', \App\Http\Controllers\Api\V1\Admin\TransactionController::class)->only(['index', 'show']);
+        });
+
+        // Payout Management
+        Route::middleware('permission:manage commission')->group(function () {
+            Route::get('payouts/stats', [\App\Http\Controllers\Api\V1\Admin\PayoutController::class, 'stats']);
+            Route::post('payouts/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\PayoutController::class, 'approve']);
+            Route::post('payouts/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\PayoutController::class, 'reject']);
+            Route::apiResource('payouts', \App\Http\Controllers\Api\V1\Admin\PayoutController::class)->only(['index', 'show']);
+        });
     });
 
     /*
@@ -158,12 +202,21 @@ Route::prefix('v1')->group(function () {
         Route::post('courses/{course}/sections/{section}/lessons/{lesson}/attachments', [LessonController::class, 'uploadAttachment']);
         Route::delete('courses/{course}/sections/{section}/lessons/{lesson}/attachments/{attachment}', [LessonController::class, 'deleteAttachment']);
 
-        // Assignments CRUD
+        // Assignments & Submissions
         Route::apiResource('assignments', AssignmentController::class);
         Route::post('assignments/{assignment}/grade-submission/{submission}', [AssignmentController::class, 'gradeSubmission']);
+        Route::get('submissions', [SubmissionController::class, 'index']);
+        Route::get('submissions/{submission}', [SubmissionController::class, 'show']);
+        Route::post('submissions/{submission}/grade', [SubmissionController::class, 'grade']);
+        Route::post('submissions/{submission}/ai-grade', [SubmissionController::class, 'aiGrade']);
 
         // Students List
         Route::get('students', [\App\Http\Controllers\Api\V1\Instructor\StudentController::class, 'index']);
+
+        // Earnings & Payouts
+        Route::get('earnings', [InstructorEarningsController::class, 'index']);
+        Route::get('payouts', [InstructorPayoutController::class, 'index']);
+        Route::post('payouts', [InstructorPayoutController::class, 'store']);
     });
 
     /*
@@ -175,6 +228,9 @@ Route::prefix('v1')->group(function () {
         // Dashboard
         Route::get('dashboard', [StudentDashboardController::class, 'index']);
         Route::get('my-learning', [StudentDashboardController::class, 'myLearning']);
+        Route::get('courses/{slug}/learning', [StudentLearningController::class, 'show']);
+        Route::get('courses/{slug}/lessons/{lessonId}', [StudentLearningController::class, 'showLesson']);
+        Route::post('courses/{slug}/lessons/{lessonId}/complete', [StudentLearningController::class, 'markComplete']);
         
         // AI Recommendations
         Route::get('recommendations', [RecommendationController::class, 'recommend']);

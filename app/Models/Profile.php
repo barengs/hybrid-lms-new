@@ -19,6 +19,7 @@ class Profile extends Model
         'user_id',
         'avatar',
         'bio',
+        'address',
         'phone',
         'headline',
         'website',

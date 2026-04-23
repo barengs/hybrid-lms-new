@@ -16,8 +16,10 @@ class DiscussionController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        
         $query = Discussion::approved()
-            ->with(['user:id,name', 'replies'])
+            ->with(['user:id,name,avatar', 'replies'])
             ->when($request->batch_id, function ($query, $batchId) {
                 $query->where('batch_id', $batchId);
             })
@@ -28,8 +30,23 @@ class DiscussionController extends Controller
                 $query->where('type', $type);
             })
             ->when($request->search, function ($query, $search) {
-                $query->where('title', 'LIKE', "%{$search}%")
+                $query->where(function($q) use ($search) {
+                    $q->where('title', 'LIKE', "%{$search}%")
                       ->orWhere('content', 'LIKE', "%{$search}%");
+                });
+            })
+            // Instructor Filter: Only see discussions related to their courses
+            ->when($user->role === 'instructor' && !$request->batch_id && !$request->lesson_id, function ($query) use ($user) {
+                $query->where(function($q) use ($user) {
+                    // Via Batches
+                    $q->whereHas('batch.course', function($bq) use ($user) {
+                        $bq->where('instructor_id', $user->id);
+                    })
+                    // Via Lessons
+                    ->orWhereHas('lesson.section.course', function($lq) use ($user) {
+                        $lq->where('instructor_id', $user->id);
+                    });
+                });
             })
             ->orderByDesc('is_pinned')
             ->orderByDesc('created_at');

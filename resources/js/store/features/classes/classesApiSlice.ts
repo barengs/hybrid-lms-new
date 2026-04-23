@@ -1,4 +1,4 @@
-import { apiSlice } from '../../api/apiSlice';
+﻿import { apiSlice } from '../../api/apiSlice';
 
 export interface ClassInstructor {
   id: string | number;
@@ -130,16 +130,16 @@ export interface UpdateClassRequest extends Partial<CreateClassRequest> {
 export const classesApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getClasses: builder.query<ClassesResponse, void>({
-      query: () => 'v1/classes', // URL matches v1/classes via baseURL config
+      query: () => 'classes', // URL matches classes via baseURL config
       providesTags: ['Class'],
     }),
     getClass: builder.query<ClassDetailResponse, string | number>({
-        query: (id) => `v1/classes/${id}`,
+        query: (id) => `classes/${id}`,
         providesTags: (_result, _error, id) => [{ type: 'Class', id }],
     }),
     createClass: builder.mutation<void, CreateClassRequest>({
       query: (body) => ({
-        url: 'v1/classes',
+        url: 'classes',
         method: 'POST',
         body,
       }),
@@ -147,7 +147,7 @@ export const classesApiSlice = apiSlice.injectEndpoints({
     }),
     updateClass: builder.mutation<void, UpdateClassRequest>({
       query: ({ id, ...body }) => ({
-        url: `v1/classes/${id}`,
+        url: `classes/${id}`,
         method: 'PUT',
         body,
       }),
@@ -155,7 +155,7 @@ export const classesApiSlice = apiSlice.injectEndpoints({
     }),
     deleteClass: builder.mutation<void, string | number>({
       query: (id) => ({
-        url: `v1/classes/${id}`,
+        url: `classes/${id}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['Class'],

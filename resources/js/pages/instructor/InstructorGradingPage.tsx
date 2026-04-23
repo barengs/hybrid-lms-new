@@ -21,282 +21,150 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, Button, Badge, Input, Dropdown, Avatar } from '@/components/ui';
+import { Card, CardHeader, CardTitle, Button, Badge, Input, Dropdown, Avatar, Progress } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatNumber, getTimeAgo } from '@/lib/utils';
-
-type GradingType = 'assignment' | 'exam' | 'class';
-type StatusFilter = 'all' | 'pending' | 'graded' | 'late';
-type SortOption = 'newest' | 'oldest' | 'highest' | 'lowest';
-
-interface Submission {
-  id: string;
-  student: {
-    id: string;
-    name: string;
-    avatar?: string;
-    email: string;
-  };
-  course: {
-    id: string;
-    title: string;
-    isClassBased: boolean;
-    classInfo?: {
-      id: string;
-      name: string;
-    };
-  };
-  assignment: {
-    id: string;
-    title: string;
-    type: 'assignment' | 'exam';
-    dueDate: string;
-    maxPoints: number;
-  };
-  submittedAt: string;
-  status: 'pending' | 'graded' | 'late';
-  points?: number;
-  grade?: number; // 0-100
-  feedback?: string;
-  attachments: string[];
-}
-
-// Mock data
-const mockSubmissions: Submission[] = [
-  {
-    id: 'sub-1',
-    student: {
-      id: 'student-1',
-      name: 'Ahmad Rizki',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
-      email: 'ahmad.rizki@email.com',
-    },
-    course: {
-      id: 'course-1',
-      title: 'React Masterclass: From Zero to Hero',
-      isClassBased: false,
-    },
-    assignment: {
-      id: 'assign-1',
-      title: 'React Component Design',
-      type: 'assignment',
-      dueDate: '2024-12-15T23:59:59Z',
-      maxPoints: 100,
-    },
-    submittedAt: '2024-12-15T14:30:00Z',
-    status: 'pending',
-    attachments: ['solution.pdf'],
-  },
-  {
-    id: 'sub-2',
-    student: {
-      id: 'student-2',
-      name: 'Siti Nurhaliza',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-      email: 'siti.nur@email.com',
-    },
-    course: {
-      id: 'course-1',
-      title: 'React Masterclass: From Zero to Hero',
-      isClassBased: false,
-    },
-    assignment: {
-      id: 'assign-1',
-      title: 'React Component Design',
-      type: 'assignment',
-      dueDate: '2024-12-15T23:59:59Z',
-      maxPoints: 100,
-    },
-    submittedAt: '2024-12-16T09:15:00Z',
-    status: 'late',
-    attachments: ['solution.pdf', 'extra-notes.docx'],
-  },
-  {
-    id: 'sub-3',
-    student: {
-      id: 'student-3',
-      name: 'Budi Hartono',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BudiH',
-      email: 'budi.hartono@email.com',
-    },
-    course: {
-      id: 'course-2',
-      title: 'Full Stack Development with Node.js',
-      isClassBased: true,
-      classInfo: {
-        id: 'class-1',
-        name: 'Batch A - Evening Class',
-      },
-    },
-    assignment: {
-      id: 'exam-1',
-      title: 'Final Project Evaluation',
-      type: 'exam',
-      dueDate: '2024-12-20T23:59:59Z',
-      maxPoints: 150,
-    },
-    submittedAt: '2024-12-16T11:30:00Z',
-    status: 'graded',
-    points: 135,
-    grade: 90,
-    feedback: 'Excellent work! Your project demonstrates a strong understanding of full-stack development concepts. The API design is clean and the frontend is well-structured.',
-    attachments: ['project.zip', 'documentation.pdf'],
-  },
-  {
-    id: 'sub-4',
-    student: {
-      id: 'student-4',
-      name: 'Dewi Lestari',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dewi',
-      email: 'dewi.lestari@email.com',
-    },
-    course: {
-      id: 'course-3',
-      title: 'UI/UX Design Fundamentals',
-      isClassBased: true,
-      classInfo: {
-        id: 'class-2',
-        name: 'Batch B - Weekend Class',
-      },
-    },
-    assignment: {
-      id: 'assign-2',
-      title: 'Design System Implementation',
-      type: 'assignment',
-      dueDate: '2024-12-18T23:59:59Z',
-      maxPoints: 100,
-    },
-    submittedAt: '2024-12-17T16:45:00Z',
-    status: 'pending',
-    attachments: ['design-system.fig'],
-  },
-  {
-    id: 'sub-5',
-    student: {
-      id: 'student-5',
-      name: 'Eko Prasetyo',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Eko',
-      email: 'eko.prasetyo@email.com',
-    },
-    course: {
-      id: 'course-1',
-      title: 'React Masterclass: From Zero to Hero',
-      isClassBased: false,
-    },
-    assignment: {
-      id: 'assign-1',
-      title: 'React Component Design',
-      type: 'assignment',
-      dueDate: '2024-12-15T23:59:59Z',
-      maxPoints: 100,
-    },
-    submittedAt: '2024-12-15T20:10:00Z',
-    status: 'graded',
-    points: 85,
-    grade: 85,
-    feedback: 'Good job overall. The component structure is well-organized, but consider adding more PropTypes for better type checking.',
-    attachments: ['solution.pdf'],
-  },
-];
+import { 
+  useGetInstructorSubmissionsQuery, 
+  useGradeSubmissionMutation, 
+  useAiGradeSubmissionMutation,
+  type InstructorSubmission
+} from '@/store/features/instructor/instructorApiSlice';
+import toast from 'react-hot-toast';
 
 export function InstructorGradingPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
-  const [gradingType, setGradingType] = useState<GradingType>('assignment');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'graded' | 'late'>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<InstructorSubmission | null>(null);
+
+  // Form states
+  const [manualPoints, setManualPoints] = useState<number | ''>('');
+  const [manualFeedback, setManualFeedback] = useState('');
+
+  // API Hooks
+  const { data: submissions = [], isLoading } = useGetInstructorSubmissionsQuery({ 
+    status: statusFilter !== 'all' ? statusFilter : undefined 
+  });
+  const [gradeSubmission, { isLoading: isGrading }] = useGradeSubmissionMutation();
+  const [aiGradeSubmission, { isLoading: isAiGrading }] = useAiGradeSubmissionMutation();
 
   // Stats
   const stats = useMemo(() => {
-    const total = mockSubmissions.length;
-    const pending = mockSubmissions.filter(s => s.status === 'pending').length;
-    const graded = mockSubmissions.filter(s => s.status === 'graded').length;
-    const late = mockSubmissions.filter(s => s.status === 'late').length;
-    const avgGrade = mockSubmissions
-      .filter(s => s.grade !== undefined)
-      .reduce((sum, s) => sum + (s.grade || 0), 0) /
-      mockSubmissions.filter(s => s.grade !== undefined).length || 0;
+    const total = submissions.length;
+    const pending = submissions.filter(s => s.status === 'submitted' || s.status === 'late').length;
+    const graded = submissions.filter(s => s.status === 'graded').length;
+    const late = submissions.filter(s => s.status === 'late').length;
+    const gradedSubmissions = submissions.filter(s => s.points_awarded !== null);
+    const avgGrade = gradedSubmissions.length > 0
+      ? (gradedSubmissions.reduce((sum, s) => sum + (s.points_awarded || 0), 0) / 
+         gradedSubmissions.reduce((sum, s) => sum + s.assignment.max_points, 0)) * 100
+      : 0;
 
     return { total, pending, graded, late, avgGrade };
-  }, []);
+  }, [submissions]);
 
   // Filter submissions
   const filteredSubmissions = useMemo(() => {
-    return mockSubmissions
+    return [...submissions]
       .filter(submission => {
         const matchesSearch =
           submission.student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          submission.course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          submission.assignment.course_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           submission.assignment.title.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesStatus = statusFilter === 'all' || submission.status === statusFilter;
-
-        return matchesSearch && matchesStatus;
+        return matchesSearch;
       })
       .sort((a, b) => {
         switch (sortBy) {
           case 'newest':
-            return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+            return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime();
           case 'oldest':
-            return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+            return new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
           case 'highest':
-            return (b.grade || 0) - (a.grade || 0);
+            return (b.points_awarded || 0) - (a.points_awarded || 0);
           case 'lowest':
-            return (a.grade || 0) - (b.grade || 0);
+            return (a.points_awarded || 0) - (b.points_awarded || 0);
           default:
-            return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+            return new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime();
         }
       });
-  }, [searchQuery, statusFilter, sortBy]);
+  }, [submissions, searchQuery, sortBy]);
 
-  const getStatusBadge = (status: Submission['status']) => {
+  const handleOpenSubmission = (submission: InstructorSubmission) => {
+    setSelectedSubmission(submission);
+    setManualPoints(submission.points_awarded ?? '');
+    setManualFeedback(submission.instructor_feedback ?? '');
+  };
+
+  const handleManualGrade = async () => {
+    if (!selectedSubmission) return;
+    try {
+      await gradeSubmission({
+        id: selectedSubmission.id,
+        points_awarded: Number(manualPoints),
+        instructor_feedback: manualFeedback,
+      }).unwrap();
+      toast.success(language === 'id' ? 'Nilai berhasil disimpan' : 'Grade saved successfully');
+      setSelectedSubmission(null);
+    } catch (err) {
+      toast.error('Failed to save grade');
+    }
+  };
+
+  const handleAiGrade = async () => {
+    if (!selectedSubmission) return;
+    try {
+      const result = await aiGradeSubmission(selectedSubmission.id).unwrap();
+      setManualPoints(result.ai_score ?? '');
+      setManualFeedback(result.ai_feedback ?? '');
+      toast.success(language === 'id' ? 'AI berhasil menganalisis tugas' : 'AI successfully analyzed the submission');
+      // Update local state for immediate feedback
+      setSelectedSubmission(prev => prev ? { ...prev, ...result } : null);
+    } catch (err) {
+      toast.error('AI analysis failed');
+    }
+  };
+
+  const getStatusBadge = (status: InstructorSubmission['status']) => {
     switch (status) {
-      case 'pending':
+      case 'submitted':
         return <Badge variant="warning">{language === 'id' ? 'Menunggu' : 'Pending'}</Badge>;
       case 'graded':
         return <Badge variant="success">{language === 'id' ? 'Dinilai' : 'Graded'}</Badge>;
       case 'late':
         return <Badge variant="danger">{language === 'id' ? 'Terlambat' : 'Late'}</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const getTypeBadge = (type: 'assignment' | 'exam') => {
+  const getTypeBadge = (type: string) => {
     return (
-      <Badge variant={type === 'assignment' ? 'primary' : 'secondary'}>
-        {type === 'assignment'
-          ? (language === 'id' ? 'Tugas' : 'Assignment')
-          : (language === 'id' ? 'Ujian' : 'Exam')}
+      <Badge variant={type === 'quiz' ? 'secondary' : 'primary'}>
+        {type === 'quiz' 
+          ? (language === 'id' ? 'Kuis' : 'Quiz') 
+          : (type === 'project' ? (language === 'id' ? 'Proyek' : 'Project') : (language === 'id' ? 'Tugas' : 'Assignment'))}
       </Badge>
     );
   };
 
-  const getSubmissionActions = (submission: Submission) => [
+  const getSubmissionActions = (submission: InstructorSubmission) => [
     {
-      label: language === 'id' ? 'Lihat Detail' : 'View Details',
-      icon: <Eye className="w-4 h-4" />,
-      onClick: () => setSelectedSubmission(submission),
-    },
-    {
-      label: language === 'id' ? 'Beri Nilai' : 'Grade',
+      label: language === 'id' ? 'Lihat & Nilai' : 'View & Grade',
       icon: <Edit3 className="w-4 h-4" />,
-      onClick: () => setSelectedSubmission(submission),
+      onClick: () => handleOpenSubmission(submission),
     },
     {
       label: language === 'id' ? 'Lihat Kursus' : 'View Course',
       icon: <BookOpen className="w-4 h-4" />,
       onClick: () => navigate(
-        submission.course.isClassBased
-          ? `/instructor/classes/${submission.course.classInfo?.id}`
-          : `/instructor/courses/${submission.course.id}/edit`
+        submission.assignment.is_class_based
+          ? `/instructor/classes/${submission.assignment.class_info?.id}`
+          : `/instructor/courses/${submission.assignment.id}/edit`
       ),
-    },
-    { divider: true, label: '' },
-    {
-      label: language === 'id' ? 'Unduh Lampiran' : 'Download Attachments',
-      icon: <Download className="w-4 h-4" />,
-      onClick: () => console.log('Download attachments for:', submission.id),
     },
   ];
 
@@ -399,11 +267,11 @@ export function InstructorGradingPage() {
               <Filter className="w-5 h-5 text-gray-400" />
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">{language === 'id' ? 'Semua Status' : 'All Status'}</option>
-                <option value="pending">{language === 'id' ? 'Menunggu' : 'Pending'}</option>
+                <option value="submitted">{language === 'id' ? 'Menunggu' : 'Pending'}</option>
                 <option value="graded">{language === 'id' ? 'Dinilai' : 'Graded'}</option>
                 <option value="late">{language === 'id' ? 'Terlambat' : 'Late'}</option>
               </select>
@@ -481,17 +349,17 @@ export function InstructorGradingPage() {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                          {submission.course.isClassBased ? (
+                          {submission.assignment.is_class_based ? (
                             <FolderOpen className="w-4 h-4 text-gray-400" />
                           ) : (
                             <BookOpen className="w-4 h-4 text-gray-400" />
                           )}
                           <div>
-                            <p className="font-medium text-gray-900">{submission.course.title}</p>
-                            {submission.course.isClassBased && submission.course.classInfo && (
+                            <p className="font-medium text-gray-900">{submission.assignment.course_title}</p>
+                            {submission.assignment.is_class_based && submission.assignment.class_info && (
                               <div className="flex items-center gap-1 text-xs text-gray-500">
                                 <Users className="w-3 h-3" />
-                                <span>{submission.course.classInfo.name}</span>
+                                <span>{submission.assignment.class_info.name}</span>
                               </div>
                             )}
                           </div>
@@ -501,21 +369,26 @@ export function InstructorGradingPage() {
                         <div className="flex items-center gap-2">
                           {getTypeBadge(submission.assignment.type)}
                           <span className="line-clamp-1">{submission.assignment.title}</span>
+                          {submission.assignment.type === 'quiz' && (
+                            <Badge variant="outline" size="sm" className="text-[10px] text-blue-500 border-blue-200 bg-blue-50">
+                              {language === 'id' ? 'Otomatis' : 'Auto'}
+                            </Badge>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-4">
                         <div className="text-sm text-gray-500">
-                          {getTimeAgo(submission.submittedAt)}
+                          {getTimeAgo(submission.submitted_at)}
                         </div>
                       </td>
                       <td className="py-4 px-4">
                         {getStatusBadge(submission.status)}
                       </td>
                       <td className="py-4 px-4">
-                        {submission.grade !== undefined ? (
+                        {submission.points_awarded !== null ? (
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{submission.grade}%</span>
-                            <span className="text-gray-400">/ 100%</span>
+                            <span className="font-medium">{submission.points_awarded}</span>
+                            <span className="text-gray-400">/ {submission.assignment.max_points}</span>
                           </div>
                         ) : (
                           <span className="text-gray-400">-</span>
@@ -576,7 +449,7 @@ export function InstructorGradingPage() {
                     <div className="ml-auto text-right">
                       {getStatusBadge(selectedSubmission.status)}
                       <p className="mt-2 text-sm text-gray-500">
-                        {language === 'id' ? 'Dikirim' : 'Submitted'}: {getTimeAgo(selectedSubmission.submittedAt)}
+                        {language === 'id' ? 'Dikirim' : 'Submitted'}: {getTimeAgo(selectedSubmission.submitted_at)}
                       </p>
                     </div>
                   </div>
@@ -586,7 +459,7 @@ export function InstructorGradingPage() {
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          {selectedSubmission.course.isClassBased ? (
+                          {selectedSubmission.assignment.is_class_based ? (
                             <FolderOpen className="w-5 h-5" />
                           ) : (
                             <BookOpen className="w-5 h-5" />
@@ -595,16 +468,16 @@ export function InstructorGradingPage() {
                         </CardTitle>
                       </CardHeader>
                       <div className="p-4">
-                        <p className="font-medium text-gray-900">{selectedSubmission.course.title}</p>
-                        {selectedSubmission.course.isClassBased && selectedSubmission.course.classInfo && (
+                        <p className="font-medium text-gray-900">{selectedSubmission.assignment.course_title}</p>
+                        {selectedSubmission.assignment.is_class_based && selectedSubmission.assignment.class_info && (
                           <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
                             <Users className="w-4 h-4" />
-                            <span>{selectedSubmission.course.classInfo.name}</span>
+                            <span>{selectedSubmission.assignment.class_info.name}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
                           <Calendar className="w-4 h-4" />
-                          <span>{language === 'id' ? 'Batas waktu' : 'Due'}: {new Date(selectedSubmission.assignment.dueDate).toLocaleDateString()}</span>
+                          <span>{language === 'id' ? 'Batas waktu' : 'Due'}: {new Date(selectedSubmission.assignment.due_date).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </Card>
@@ -619,52 +492,93 @@ export function InstructorGradingPage() {
                       <div className="p-4">
                         <p className="font-medium text-gray-900">{selectedSubmission.assignment.title}</p>
                         <div className="mt-2 text-sm text-gray-500">
-                          {language === 'id' ? 'Poin Maksimal' : 'Max Points'}: {selectedSubmission.assignment.maxPoints}
+                          {language === 'id' ? 'Poin Maksimal' : 'Max Points'}: {selectedSubmission.assignment.max_points}
                         </div>
                       </div>
                     </Card>
                   </div>
 
+                   {/* Text Content */}
+                   {selectedSubmission.content && (
+                    <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <h4 className="font-medium text-gray-900 mb-2">
+                        {language === 'id' ? 'Konten Jawaban' : 'Submission Content'}
+                      </h4>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap">{selectedSubmission.content}</div>
+                    </div>
+                  )}
+
                   {/* Attachments */}
                   <div className="mb-6">
                     <h4 className="font-medium text-gray-900 mb-2">
-                      {language === 'id' ? 'Lampiran' : 'Attachments'}
+                      {language === 'id' ? 'Lampiran File' : 'File Attachments'}
                     </h4>
-                    {selectedSubmission.attachments.length > 0 ? (
+                    {selectedSubmission.files && selectedSubmission.files.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
-                        {selectedSubmission.attachments.map((attachment, index) => (
-                          <div key={index} className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-                            <FileText className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{attachment}</span>
-                            <button className="text-blue-600 hover:text-blue-800">
+                        {selectedSubmission.files.map((file, index) => (
+                          <div key={index} className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
+                            <FileText className="w-4 h-4 text-blue-500" />
+                            <span className="text-sm font-medium">{file.name}</span>
+                            <a 
+                              href={`${import.meta.env.VITE_URL_API_IMAGE}/${file.path}`} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-blue-600 hover:text-blue-800 ml-2"
+                            >
                               <Download className="w-4 h-4" />
-                            </button>
+                            </a>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-gray-500 text-sm italic">
                         {language === 'id' ? 'Tidak ada lampiran' : 'No attachments'}
                       </p>
                     )}
                   </div>
 
                   {/* Grading Form */}
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-gray-900">
-                      {language === 'id' ? 'Form Penilaian' : 'Grading Form'}
-                    </h4>
+                  <div className="space-y-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-gray-900">
+                        {language === 'id' ? 'Form Penilaian' : 'Grading Form'}
+                      </h4>
+                      {selectedSubmission.assignment.type !== 'quiz' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                          leftIcon={<Edit3 className="w-4 h-4" />}
+                          onClick={handleAiGrade}
+                          isLoading={isAiGrading}
+                        >
+                          {language === 'id' ? 'Nilai dengan AI' : 'Grade with AI'}
+                        </Button>
+                      )}
+                    </div>
+
+                    {selectedSubmission.ai_status === 'completed' && (
+                      <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-purple-600" />
+                          <span className="text-sm font-bold text-purple-900">{language === 'id' ? 'Saran AI' : 'AI Suggestion'}</span>
+                          <Badge variant="outline" className="bg-white ml-auto">{selectedSubmission.ai_score} / {selectedSubmission.assignment.max_points}</Badge>
+                        </div>
+                        <p className="text-sm text-purple-800 italic">{selectedSubmission.ai_feedback}</p>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {language === 'id' ? 'Poin' : 'Points'} ({selectedSubmission.assignment.maxPoints} {language === 'id' ? 'maksimal' : 'maximum'})
+                          {language === 'id' ? 'Poin' : 'Points'} ({selectedSubmission.assignment.max_points} {language === 'id' ? 'maksimal' : 'maximum'})
                         </label>
                         <Input
                           type="number"
                           min="0"
-                          max={selectedSubmission.assignment.maxPoints}
-                          defaultValue={selectedSubmission.points}
+                          max={selectedSubmission.assignment.max_points}
+                          value={manualPoints}
+                          onChange={(e) => setManualPoints(Number(e.target.value))}
                           placeholder={language === 'id' ? 'Masukkan poin' : 'Enter points'}
                         />
                       </div>
@@ -676,11 +590,9 @@ export function InstructorGradingPage() {
                         <div className="relative">
                           <Input
                             type="number"
-                            min="0"
-                            max="100"
-                            defaultValue={selectedSubmission.grade}
-                            placeholder="0"
-                            className="pr-12"
+                            readOnly
+                            value={manualPoints && selectedSubmission.assignment.max_points ? Math.round((Number(manualPoints) / selectedSubmission.assignment.max_points) * 100) : 0}
+                            className="pr-12 bg-gray-50"
                           />
                           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                             <span className="text-gray-500">%</span>
@@ -691,63 +603,29 @@ export function InstructorGradingPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'id' ? 'Umpan Balik' : 'Feedback'}
+                        {language === 'id' ? 'Umpan Balik Instruktur' : 'Instructor Feedback'}
                       </label>
                       <textarea
-                        defaultValue={selectedSubmission.feedback}
+                        value={manualFeedback}
+                        onChange={(e) => setManualFeedback(e.target.value)}
                         placeholder={language === 'id' ? 'Berikan umpan balik kepada siswa...' : 'Provide feedback to the student...'}
                         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         rows={4}
                       />
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'id' ? 'Rubrik Penilaian' : 'Grading Rubric'}
-                      </label>
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">{language === 'id' ? 'Struktur dan organisasi' : 'Structure and organization'}</span>
-                            <div className="flex gap-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button key={star} className="text-gray-300 hover:text-yellow-400">
-                                  <Star className="w-5 h-5 fill-current" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">{language === 'id' ? 'Kualitas konten' : 'Content quality'}</span>
-                            <div className="flex gap-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button key={star} className="text-gray-300 hover:text-yellow-400">
-                                  <Star className="w-5 h-5 fill-current" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">{language === 'id' ? 'Kreativitas dan inovasi' : 'Creativity and innovation'}</span>
-                            <div className="flex gap-1">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button key={star} className="text-gray-300 hover:text-yellow-400">
-                                  <Star className="w-5 h-5 fill-current" />
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setSelectedSubmission(null)}>
+                  <Button variant="outline" onClick={() => setSelectedSubmission(null)} disabled={isGrading}>
                     {language === 'id' ? 'Batal' : 'Cancel'}
                   </Button>
-                  <Button leftIcon={<Check className="w-4 h-4" />}>
+                  <Button 
+                    leftIcon={<Check className="w-4 h-4" />} 
+                    onClick={handleManualGrade} 
+                    isLoading={isGrading}
+                    disabled={manualPoints === ''}
+                  >
                     {language === 'id' ? 'Simpan Nilai' : 'Save Grade'}
                   </Button>
                 </div>

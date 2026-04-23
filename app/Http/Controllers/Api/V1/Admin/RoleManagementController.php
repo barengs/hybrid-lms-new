@@ -21,7 +21,7 @@ class RoleManagementController extends Controller
     public function index(): JsonResponse
     {
         $roles = Role::with('permissions')
-            ->where('guard_name', 'sanctum')
+            ->where('guard_name', 'api')
             ->get();
 
         return $this->successResponse($roles);
@@ -42,12 +42,12 @@ class RoleManagementController extends Controller
 
         $role = Role::create([
             'name' => $request->name,
-            'guard_name' => 'sanctum'
+            'guard_name' => 'api'
         ]);
 
         if ($request->permissions) {
             $permissions = Permission::whereIn('name', $request->permissions)
-                ->where('guard_name', 'sanctum')
+                ->where('guard_name', 'api')
                 ->get();
             $role->syncPermissions($permissions);
         }
@@ -72,7 +72,7 @@ class RoleManagementController extends Controller
             'permissions.*' => 'exists:permissions,name',
         ]);
 
-        $role = Role::where('guard_name', 'sanctum')->findOrFail($roleId);
+        $role = Role::where('guard_name', 'api')->findOrFail($roleId);
 
         if ($request->has('name')) {
             $role->update(['name' => $request->name]);
@@ -80,7 +80,7 @@ class RoleManagementController extends Controller
 
         if ($request->has('permissions')) {
             $permissions = Permission::whereIn('name', $request->permissions)
-                ->where('guard_name', 'sanctum')
+                ->where('guard_name', 'api')
                 ->get();
             $role->syncPermissions($permissions);
         }
@@ -98,10 +98,10 @@ class RoleManagementController extends Controller
      */
     public function destroy(string $roleId): JsonResponse
     {
-        $role = Role::where('guard_name', 'sanctum')->findOrFail($roleId);
+        $role = Role::where('guard_name', 'api')->findOrFail($roleId);
 
         // Prevent deletion of critical roles
-        if (in_array($role->name, ['super-admin', 'admin'])) {
+        if (in_array($role->name, ['super-admin', 'admin', 'instructor', 'student'])) {
             return $this->errorResponse('Cannot delete system role.', 403);
         }
 
@@ -117,11 +117,24 @@ class RoleManagementController extends Controller
      */
     public function permissions(): JsonResponse
     {
-        $permissions = Permission::where('guard_name', 'sanctum')
+        $permissions = Permission::where('guard_name', 'api')
             ->orderBy('name')
             ->get();
 
         return $this->successResponse($permissions);
+    }
+
+    /**
+     * Get dynamic module matrix for UI
+     */
+    public function matrix(): JsonResponse
+    {
+        $modules = \App\Models\Menu::where('role_group', 'admin')
+            ->whereNotNull('permissions')
+            ->orderBy('order')
+            ->get();
+
+        return $this->successResponse($modules);
     }
 
     /**

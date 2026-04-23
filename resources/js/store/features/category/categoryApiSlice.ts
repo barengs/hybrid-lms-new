@@ -1,4 +1,4 @@
-import { apiSlice } from '../../api/apiSlice';
+﻿import { apiSlice } from '../../api/apiSlice';
 
 export interface Category {
   id: number;
@@ -46,13 +46,13 @@ export interface CategoryResponse {
 export const categoryApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getCategories: builder.query<Category[], void>({
-      query: () => '/v1/admin/categories',
+      query: () => '/admin/categories',
       transformResponse: (response: CategoriesResponse) => response.data,
       providesTags: ['Category'],
     }),
     createCategory: builder.mutation<void, CreateCategoryPayload>({
       query: (body) => ({
-        url: '/v1/admin/categories',
+        url: '/admin/categories',
         method: 'POST',
         body,
       }),
@@ -60,7 +60,7 @@ export const categoryApiSlice = apiSlice.injectEndpoints({
     }),
     updateCategory: builder.mutation<void, UpdateCategoryPayload>({
       query: ({ id, ...body }) => ({
-        url: `/v1/admin/categories/${id}?_method=PUT`, // Using method override as common in Laravel for FormData/API consistency, or just PUT
+        url: `/admin/categories/${id}?_method=PUT`, // Using method override as common in Laravel for FormData/API consistency, or just PUT
         method: 'POST',
         body,
       }),
@@ -68,7 +68,7 @@ export const categoryApiSlice = apiSlice.injectEndpoints({
     }),
     deleteCategory: builder.mutation<void, number>({
       query: (id) => ({
-        url: `/v1/admin/categories/${id}`,
+        url: `/admin/categories/${id}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['Category'],

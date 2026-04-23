@@ -56,7 +56,7 @@ function Modal({
             >
               <DialogPanel
                 className={cn(
-                  'w-full transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all',
+                  'w-full transform overflow-hidden rounded-xl bg-white dark:bg-gray-900 p-6 shadow-2xl transition-all border border-gray-100 dark:border-gray-800',
                   sizes[size]
                 )}
               >
@@ -71,9 +71,9 @@ function Modal({
                       <button
                         aria-label="Close modal"
                         onClick={onClose}
-                        className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                       >
-                        <X className="w-5 h-5 text-gray-500" />
+                        <X className="w-5 h-5" />
                       </button>
                     )}
                   </div>

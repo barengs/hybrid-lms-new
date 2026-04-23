@@ -163,35 +163,45 @@ const mockTransactions: Transaction[] = [
   },
 ];
 
+import { useGetInstructorEarningsQuery } from '@/store/features/instructor/instructorApiSlice';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+
 export function InstructorEarningsPage() {
   const { language } = useLanguage();
   const [timeRange, setTimeRange] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'revenue' | 'students' | 'growth'>('revenue');
 
-  // Calculate total stats
+  const { data: earningsData, isLoading } = useGetInstructorEarningsQuery();
+
+  // Statistics from API
   const stats = useMemo(() => {
-    const totalRevenue = mockCourseEarnings.reduce((acc, course) => acc + course.netRevenue, 0);
-    const monthlyRevenue = mockCourseEarnings.reduce((acc, course) => acc + course.monthlyRevenue, 0);
-    const totalStudents = mockCourseEarnings.reduce((acc, course) => acc + course.totalStudents, 0);
-    const pendingAmount = mockTransactions
-      .filter(t => t.status === 'pending')
-      .reduce((acc, t) => acc + t.netAmount, 0);
-    const avgRevenuePerStudent = totalRevenue / totalStudents;
+    if (!earningsData?.stats) return {
+      totalRevenue: 0,
+      monthlyRevenue: 0,
+      availableForWithdraw: 0,
+      pendingClearance: 0,
+      totalStudents: 0,
+      avgRevenuePerStudent: 0,
+      settings: { commission_rate: 20, tax_rate: 5, minimum_payout: 100000, payout_delay_days: 7 }
+    };
 
     return {
-      totalRevenue,
-      monthlyRevenue,
-      availableForWithdraw: totalRevenue * 0.7, // 70% available
-      pendingClearance: pendingAmount,
-      totalStudents,
-      avgRevenuePerStudent,
+      totalRevenue: earningsData.stats.total_revenue,
+      monthlyRevenue: earningsData.stats.monthly_revenue,
+      availableForWithdraw: earningsData.stats.available_for_withdraw,
+      pendingClearance: earningsData.stats.pending_clearance,
+      totalStudents: earningsData.stats.total_students,
+      avgRevenuePerStudent: earningsData.stats.avg_revenue_per_student,
+      settings: earningsData.stats.settings,
     };
-  }, []);
+  }, [earningsData]);
 
   // Filter and sort courses
   const filteredCourses = useMemo(() => {
-    let courses = [...mockCourseEarnings];
+    if (!earningsData?.course_earnings) return [];
+    
+    let courses = [...earningsData.course_earnings];
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -211,7 +221,11 @@ export function InstructorEarningsPage() {
     });
 
     return courses;
-  }, [searchQuery, sortBy]);
+  }, [searchQuery, sortBy, earningsData]);
+
+  const recentTransactions = earningsData?.recent_transactions || [];
+
+  if (isLoading) return <LoadingScreen />;
 
   return (
     <DashboardLayout>
@@ -320,7 +334,7 @@ export function InstructorEarningsPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-green-100">{language === 'id' ? 'Total Kursus' : 'Total Courses'}</span>
-                <span className="font-bold">{mockCourseEarnings.length}</span>
+                <span className="font-bold">{filteredCourses.length}</span>
               </div>
             </div>
           </Card>
@@ -456,7 +470,7 @@ export function InstructorEarningsPage() {
           </CardHeader>
 
           <div className="space-y-3">
-            {mockTransactions.map((transaction) => (
+            {recentTransactions.map((transaction) => (
               <div
                 key={transaction.id}
                 className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors"

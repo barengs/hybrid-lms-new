@@ -25,6 +25,14 @@ import { useLanguage } from '@/context/LanguageContext';
 import { formatNumber, formatCurrency, getTimeAgo } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
 import { Dropdown } from '@/components/ui';
+import { toast } from 'react-hot-toast';
+import {
+  useGetInstructorsQuery,
+  useGetInstructorStatsQuery,
+  useUpdateInstructorStatusMutation,
+  useDeleteInstructorMutation,
+  type Instructor as InstructorType
+} from '@/store/api/instructorManagementApiSlice';
 
 // Instructor interface
 interface Instructor {
@@ -128,98 +136,110 @@ const mockInstructors: Instructor[] = [
 export function InstructorsManagementPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  
+  // States for filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedInstructors, setSelectedInstructors] = useState<Instructor[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  
+  // API Queries
+  const { data: statsData, isLoading: isStatsLoading } = useGetInstructorStatsQuery();
+  const { data: instructorsData, isLoading: isListLoading, refetch: refetchList } = useGetInstructorsQuery({
+    search: searchQuery,
+    status: statusFilter,
+    page: currentPage,
+    per_page: pageSize
+  });
+
+  // API Mutations
+  const [updateStatus] = useUpdateInstructorStatusMutation();
+  const [deleteInstructor] = useDeleteInstructorMutation();
+
+  const [selectedInstructors, setSelectedInstructors] = useState<InstructorType[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [processingInstructor, setProcessingInstructor] = useState<Instructor | null>(null);
+  const [processingInstructor, setProcessingInstructor] = useState<InstructorType | null>(null);
 
-  // Calculate stats
-  const stats = useMemo(() => {
-    const total = mockInstructors.length;
-    const active = mockInstructors.filter(i => i.status === 'active').length;
-    const pending = mockInstructors.filter(i => i.status === 'pending').length;
-    const suspended = mockInstructors.filter(i => i.status === 'suspended').length;
-    const totalCourses = mockInstructors.reduce((sum, i) => sum + i.stats.coursesCreated, 0);
-    const totalStudents = mockInstructors.reduce((sum, i) => sum + i.stats.totalStudents, 0);
-    const totalRevenue = mockInstructors.reduce((sum, i) => sum + i.stats.totalRevenue, 0);
+  // Derived stats
+  const stats = statsData?.data || { total: 0, active: 0, pending: 0, suspended: 0 };
+  const instructors = instructorsData?.data?.data || [];
 
-    return { total, active, pending, suspended, totalCourses, totalStudents, totalRevenue };
-  }, []);
+  // Pending instructors (from list)
+  const pendingInstructors = instructors.filter((i: InstructorType) => i.status === 'pending');
 
-  // Filter instructors
-  const filteredInstructors = useMemo(() => {
-    let instructors = [...mockInstructors];
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      instructors = instructors.filter(i =>
-        i.name.toLowerCase().includes(query) ||
-        i.email.toLowerCase().includes(query)
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      instructors = instructors.filter(i => i.status === statusFilter);
-    }
-
-    return instructors;
-  }, [searchQuery, statusFilter]);
-
-  // Pending instructors
-  const pendingInstructors = useMemo(() => {
-    return mockInstructors.filter(i => i.status === 'pending');
-  }, []);
 
   // Handlers
-  const handleApprove = (instructor: Instructor) => {
+  const handleApprove = (instructor: InstructorType) => {
     setProcessingInstructor(instructor);
     setShowApproveModal(true);
   };
 
-  const confirmApprove = () => {
-    console.log('Approving instructor:', processingInstructor?.id);
-    setShowApproveModal(false);
-    setProcessingInstructor(null);
+  const confirmApprove = async () => {
+    if (!processingInstructor) return;
+    try {
+      await updateStatus({ id: processingInstructor.id, status: 'active' }).unwrap();
+      toast.success(language === 'id' ? 'Instruktur disetujui' : 'Instructor approved');
+      setShowApproveModal(false);
+      setProcessingInstructor(null);
+    } catch (error) {
+      toast.error(language === 'id' ? 'Gagal menyetujui instruktur' : 'Failed to approve instructor');
+    }
   };
 
-  const handleReject = (instructor: Instructor) => {
+  const handleReject = (instructor: InstructorType) => {
     setProcessingInstructor(instructor);
     setShowRejectModal(true);
   };
 
-  const confirmReject = () => {
-    console.log('Rejecting instructor:', processingInstructor?.id);
-    setShowRejectModal(false);
-    setProcessingInstructor(null);
+  const confirmReject = async () => {
+    if (!processingInstructor) return;
+    try {
+      await updateStatus({ id: processingInstructor.id, status: 'rejected' }).unwrap();
+      toast.success(language === 'id' ? 'Aplikasi ditolak' : 'Application rejected');
+      setShowRejectModal(false);
+      setProcessingInstructor(null);
+    } catch (error) {
+      toast.error(language === 'id' ? 'Gagal menolak aplikasi' : 'Failed to reject application');
+    }
   };
 
-  const handleSuspend = (instructorId: string) => {
-    console.log('Toggling suspend for instructor:', instructorId);
+  const handleSuspend = async (instructorId: string | number, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    try {
+      await updateStatus({ id: instructorId, status: newStatus }).unwrap();
+      toast.success(language === 'id' ? 'Status diperbarui' : 'Status updated');
+    } catch (error) {
+      toast.error(language === 'id' ? 'Gagal memperbarui status' : 'Failed to update status');
+    }
   };
 
-  const handleDelete = (instructor: Instructor) => {
+  const handleDelete = (instructor: InstructorType) => {
     setProcessingInstructor(instructor);
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    console.log('Deleting instructor:', processingInstructor?.id);
-    setShowDeleteModal(false);
-    setProcessingInstructor(null);
+  const confirmDelete = async () => {
+    if (!processingInstructor) return;
+    try {
+      await deleteInstructor(processingInstructor.id).unwrap();
+      toast.success(language === 'id' ? 'Instruktur dihapus' : 'Instructor deleted');
+      setShowDeleteModal(false);
+      setProcessingInstructor(null);
+    } catch (error) {
+      toast.error(language === 'id' ? 'Gagal menghapus instruktur' : 'Failed to delete instructor');
+    }
   };
 
-  const getStatusBadge = (status: Instructor['status']) => {
+  const getStatusBadge = (status: InstructorType['status']) => {
     const config = {
       active: { variant: 'success' as const, label: language === 'id' ? 'Aktif' : 'Active', icon: CheckCircle },
       pending: { variant: 'warning' as const, label: language === 'id' ? 'Menunggu' : 'Pending', icon: Clock },
       suspended: { variant: 'danger' as const, label: language === 'id' ? 'Suspend' : 'Suspended', icon: Ban },
+      rejected: { variant: 'danger' as const, label: language === 'id' ? 'Ditolak' : 'Rejected', icon: XCircle },
     };
-    const { variant, label, icon: Icon } = config[status];
+    const { variant, label, icon: Icon } = config[status] || config.suspended;
     return (
       <Badge variant={variant} size="sm">
         <Icon className="w-3 h-3 mr-1" />
@@ -259,7 +279,7 @@ export function InstructorsManagementPage() {
           ? (language === 'id' ? 'Suspend' : 'Suspend')
           : (language === 'id' ? 'Aktifkan' : 'Activate'),
         icon: instructor.status === 'active' ? <Ban className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />,
-        onClick: () => handleSuspend(instructor.id),
+        onClick: () => handleSuspend(instructor.id, instructor.status),
       });
     }
 
@@ -275,7 +295,7 @@ export function InstructorsManagementPage() {
   };
 
   // Column definitions
-  const columns = useMemo<ColumnDef<Instructor>[]>(
+  const columns = useMemo<ColumnDef<InstructorType>[]>(
     () => [
       {
         id: 'select',
@@ -304,7 +324,7 @@ export function InstructorsManagementPage() {
           const instructor = row.original;
           return (
             <div className="flex items-center gap-3">
-              <Avatar src={instructor.avatar} name={instructor.name} size="sm" />
+              <Avatar src={instructor.profile?.avatar || ''} name={instructor.name} size="sm" />
               <div>
                 <p className="font-medium text-gray-900 dark:text-white text-sm">{instructor.name}</p>
                 <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
@@ -321,7 +341,7 @@ export function InstructorsManagementPage() {
         header: language === 'id' ? 'Pendapatan' : 'Revenue',
         cell: ({ row }) => (
           <div className="text-sm font-medium text-gray-900 dark:text-white">
-            {formatCurrency(row.original.stats.totalRevenue)}
+            {formatCurrency(row.original.stats?.totalRevenue || 0)}
           </div>
         ),
       },
@@ -329,7 +349,7 @@ export function InstructorsManagementPage() {
         accessorKey: 'stats.rating',
         header: 'Rating',
         cell: ({ row }) => {
-          const rating = row.original.stats.rating;
+          const rating = row.original.stats?.rating || 0;
           return rating > 0 ? (
             <div className="flex items-center gap-1 text-sm">
               <Award className="w-4 h-4 text-yellow-500" />
@@ -349,7 +369,7 @@ export function InstructorsManagementPage() {
         accessorKey: 'createdAt',
         header: language === 'id' ? 'Terdaftar' : 'Registered',
         cell: ({ row }) => {
-          const date = row.original.createdAt;
+          const date = row.original.created_at;
           return (
             <div className="text-xs text-gray-700">
               <div className="flex items-center gap-1">
@@ -451,23 +471,23 @@ export function InstructorsManagementPage() {
             <CardContent>
               <div className="space-y-3">
                 {pendingInstructors.map((instructor) => (
-                  <div key={instructor.id} className="flex items-center justify-between bg-white p-3 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Avatar src={instructor.avatar} name={instructor.name} size="sm" />
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white text-sm">{instructor.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{instructor.email}</p>
+                    <div key={instructor.id} className="flex items-center justify-between bg-white p-3 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Avatar src={instructor.profile?.avatar || ''} name={instructor.name} size="sm" />
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white text-sm">{instructor.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{instructor.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleApprove(instructor)}>
+                          {language === 'id' ? 'Setujui' : 'Approve'}
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => handleReject(instructor)}>
+                          {language === 'id' ? 'Tolak' : 'Reject'}
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => handleApprove(instructor)}>
-                        {language === 'id' ? 'Setujui' : 'Approve'}
-                      </Button>
-                      <Button size="sm" variant="danger" onClick={() => handleReject(instructor)}>
-                        {language === 'id' ? 'Tolak' : 'Reject'}
-                      </Button>
-                    </div>
-                  </div>
                 ))}
               </div>
             </CardContent>
@@ -533,11 +553,12 @@ export function InstructorsManagementPage() {
           {/* Table */}
           <DataTable
             columns={columns}
-            data={filteredInstructors}
+            data={instructors}
             enableRowSelection={true}
             enablePagination={true}
-            pageSize={10}
+            pageSize={pageSize}
             onRowSelectionChange={setSelectedInstructors}
+            isLoading={isListLoading}
           />
         </Card>
 

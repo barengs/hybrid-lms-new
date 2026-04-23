@@ -128,10 +128,11 @@ class AssignmentController extends Controller
             $request->validate([
                 'file' => ['nullable', 'file', 'max:10240'], 
                 'content' => ['nullable', 'string'],
+                'answers' => ['nullable', 'array'],
             ]);
 
-            if (!$request->hasFile('file') && !$request->filled('content')) {
-                return $this->errorResponse('Please provide a file or text content.', 422);
+            if (!$request->hasFile('file') && !$request->filled('content') && !$request->filled('answers')) {
+                return $this->errorResponse('Please provide a file, text content, or quiz answers.', 422);
             }
 
             // 2. Submission Handling
@@ -175,13 +176,40 @@ class AssignmentController extends Controller
                 ];
             }
 
+            // 3. Automated Grading for MCQ (Quiz)
+            $pointsAwarded = null;
+            $status = 'submitted';
+            
+            if ($assignment->type === 'quiz' && $request->filled('answers')) {
+                $questions = $assignment->content['questions'] ?? [];
+                $totalQuestions = count($questions);
+                $correctCount = 0;
+                
+                if ($totalQuestions > 0) {
+                    foreach ($questions as $question) {
+                        $qId = $question['id'] ?? null;
+                        $correctAnswer = $question['correct_answer'] ?? null;
+                        
+                        if ($qId && isset($request->answers[$qId]) && $request->answers[$qId] === $correctAnswer) {
+                            $correctCount++;
+                        }
+                    }
+                    
+                    $pointsAwarded = ($correctCount / $totalQuestions) * $assignment->max_points;
+                    $status = 'graded';
+                }
+            }
+
             // 4. Save/Update
             if ($submission) {
                 $submission->update([
                     'files' => $files, 
                     'content' => $request->content ?? $submission->content,
+                    'answers' => $request->answers ?? $submission->answers,
                     'submitted_at' => now(),
-                    'status' => 'submitted',
+                    'status' => $status,
+                    'points_awarded' => $pointsAwarded ?? $submission->points_awarded,
+                    'graded_at' => $status === 'graded' ? now() : $submission->graded_at,
                 ]);
             } else {
                 $submission = Submission::create([
@@ -189,8 +217,11 @@ class AssignmentController extends Controller
                     'user_id' => $user->id,
                     'files' => $files,
                     'content' => $request->content,
+                    'answers' => $request->answers,
                     'submitted_at' => now(),
-                    'status' => 'submitted',
+                    'status' => $status,
+                    'points_awarded' => $pointsAwarded,
+                    'graded_at' => $status === 'graded' ? now() : null,
                 ]);
             }
 

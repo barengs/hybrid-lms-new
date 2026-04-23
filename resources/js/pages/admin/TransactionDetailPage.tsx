@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,102 +17,8 @@ import { DashboardLayout } from '@/components/layouts';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Avatar, Modal } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, cn } from '@/lib/utils';
-
-// Transaction interface (same as TransactionsPage)
-interface Transaction {
-  id: string;
-  transactionId: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
-  course: {
-    id: string;
-    title: string;
-    thumbnail?: string;
-    instructor: string;
-  };
-  amount: number;
-  discount: number;
-  tax: number;
-  total: number;
-  paymentMethod: 'credit_card' | 'bank_transfer' | 'e_wallet' | 'virtual_account';
-  status: 'completed' | 'pending' | 'failed' | 'refunded' | 'cancelled';
-  createdAt: string;
-  completedAt?: string;
-  paymentDetails?: {
-    cardNumber?: string;
-    bankName?: string;
-    accountName?: string;
-    transactionRef?: string;
-  };
-  notes?: string;
-  ipAddress?: string;
-  userAgent?: string;
-}
-
-interface TimelineEvent {
-  id: string;
-  status: string;
-  timestamp: string;
-  description: string;
-}
-
-// Mock transaction data
-const mockTransactionDetail: Transaction = {
-  id: 'tx-1',
-  transactionId: 'TRX-2024-001234',
-  user: {
-    id: 'user-1',
-    name: 'Ahmad Rizki',
-    email: 'ahmad.rizki@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
-  },
-  course: {
-    id: 'course-1',
-    title: 'React Masterclass - From Zero to Hero',
-    thumbnail: 'https://picsum.photos/seed/react/400/300',
-    instructor: 'Budi Pengajar',
-  },
-  amount: 299000,
-  discount: 0,
-  tax: 29900,
-  total: 328900,
-  paymentMethod: 'credit_card',
-  status: 'completed',
-  createdAt: new Date(Date.now() - 7200000).toISOString(),
-  completedAt: new Date(Date.now() - 7000000).toISOString(),
-  paymentDetails: {
-    cardNumber: '**** **** **** 1234',
-    transactionRef: 'REF-2024-ABC123',
-  },
-  notes: 'Pembayaran berhasil diproses melalui gateway Midtrans',
-  ipAddress: '103.123.45.67',
-  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-};
-
-const mockTimeline: TimelineEvent[] = [
-  {
-    id: 'evt-1',
-    status: 'created',
-    timestamp: new Date(Date.now() - 7200000).toISOString(),
-    description: 'Transaksi dibuat',
-  },
-  {
-    id: 'evt-2',
-    status: 'processing',
-    timestamp: new Date(Date.now() - 7100000).toISOString(),
-    description: 'Memproses pembayaran',
-  },
-  {
-    id: 'evt-3',
-    status: 'completed',
-    timestamp: new Date(Date.now() - 7000000).toISOString(),
-    description: 'Pembayaran berhasil dikonfirmasi',
-  },
-];
+import { useGetAdminTransactionDetailQuery } from '@/store/api/transactionManagementApiSlice';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
 export function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -121,9 +27,9 @@ export function TransactionDetailPage() {
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
-  // In real app, fetch transaction by ID
-  const transaction = mockTransactionDetail;
-  const timeline = mockTimeline;
+  const { data: response, isLoading, error } = useGetAdminTransactionDetailQuery(id || '');
+
+  const order = response?.data;
 
   const handleRefund = () => {
     console.log('Processing refund for transaction:', id);
@@ -140,12 +46,14 @@ export function TransactionDetailPage() {
   };
 
   const handleContactUser = () => {
-    console.log('Opening contact form for user:', transaction.user.id);
+    if (order?.user?.id) {
+        console.log('Opening contact form for user:', order.user.id);
+    }
   };
 
-  const getStatusConfig = (status: Transaction['status']) => {
-    const configs = {
-      completed: {
+  const getStatusConfig = (status: string) => {
+    const configs: Record<string, any> = {
+      paid: {
         variant: 'success' as const,
         label: language === 'id' ? 'Selesai' : 'Completed',
         icon: CheckCircle,
@@ -163,6 +71,12 @@ export function TransactionDetailPage() {
         icon: XCircle,
         color: 'text-red-600 bg-red-100',
       },
+      expired: {
+        variant: 'danger' as const,
+        label: language === 'id' ? 'Kadaluarsa' : 'Expired',
+        icon: XCircle,
+        color: 'text-red-600 bg-red-100',
+      },
       refunded: {
         variant: 'secondary' as const,
         label: language === 'id' ? 'Refund' : 'Refunded',
@@ -176,25 +90,63 @@ export function TransactionDetailPage() {
         color: 'text-gray-600 bg-gray-100',
       },
     };
-    return configs[status];
+    return configs[status] || configs.pending;
   };
 
-  const getPaymentMethodLabel = (method: Transaction['paymentMethod']) => {
-    const labels = {
+  const getPaymentMethodLabel = (method?: string) => {
+    if (!method) return language === 'id' ? 'Lainnya' : 'Other';
+    const labels: Record<string, string> = {
       credit_card: language === 'id' ? 'Kartu Kredit' : 'Credit Card',
       bank_transfer: language === 'id' ? 'Transfer Bank' : 'Bank Transfer',
       e_wallet: language === 'id' ? 'E-Wallet' : 'E-Wallet',
       virtual_account: language === 'id' ? 'Virtual Account' : 'Virtual Account',
     };
-    return labels[method];
+    return labels[method] || method;
   };
 
-  const statusConfig = getStatusConfig(transaction.status);
+  const timeline = useMemo(() => {
+    if (!order) return [];
+    const events = [
+      {
+        id: 'created',
+        status: 'created',
+        timestamp: order.created_at,
+        description: language === 'id' ? 'Transaksi dibuat' : 'Transaction created',
+      }
+    ];
+
+    if (order.paid_at) {
+        events.unshift({
+            id: 'completed',
+            status: 'completed',
+            timestamp: order.paid_at,
+            description: language === 'id' ? 'Pembayaran berhasil dikonfirmasi' : 'Payment confirmed successfully',
+        });
+    }
+
+    return events;
+  }, [order, language]);
+
+  if (isLoading) return <LoadingScreen />;
+  if (error || !order) return (
+    <DashboardLayout>
+        <div className="text-center py-20">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {language === 'id' ? 'Transaksi tidak ditemukan' : 'Transaction not found'}
+            </h2>
+            <Button onClick={() => navigate('/admin/transactions')} className="mt-4">
+                {language === 'id' ? 'Kembali' : 'Back'}
+            </Button>
+        </div>
+    </DashboardLayout>
+  );
+
+  const statusConfig = getStatusConfig(order.status);
   const StatusIcon = statusConfig.icon;
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
           <Button
@@ -206,14 +158,14 @@ export function TransactionDetailPage() {
           >
             {language === 'id' ? 'Kembali ke Transaksi' : 'Back to Transactions'}
           </Button>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {language === 'id' ? 'Detail Transaksi' : 'Transaction Details'}
               </h1>
-              <p className="text-gray-600 mt-1 font-mono">{transaction.transactionId}</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-1 font-mono">{order.order_number}</p>
             </div>
-            <Badge variant={statusConfig.variant} size="md">
+            <Badge variant={statusConfig.variant} size="lg">
               <StatusIcon className="w-4 h-4 mr-1.5" />
               {statusConfig.label}
             </Badge>
@@ -230,44 +182,44 @@ export function TransactionDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">{language === 'id' ? 'ID Transaksi' : 'Transaction ID'}</span>
-                    <span className="text-sm font-mono font-medium text-gray-900">{transaction.transactionId}</span>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'ID Transaksi' : 'Transaction ID'}</span>
+                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{order.order_number}</span>
                   </div>
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">{language === 'id' ? 'Tanggal Dibuat' : 'Created Date'}</span>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Tanggal Dibuat' : 'Created Date'}</span>
                     <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        {new Date(transaction.createdAt).toLocaleDateString('id-ID', {
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {new Date(order.created_at).toLocaleDateString('id-ID', {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric',
                         })}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {new Date(transaction.createdAt).toLocaleTimeString('id-ID')}
+                        {new Date(order.created_at).toLocaleTimeString('id-ID')}
                       </p>
                     </div>
                   </div>
-                  {transaction.completedAt && (
-                    <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                      <span className="text-sm text-gray-600">{language === 'id' ? 'Tanggal Selesai' : 'Completed Date'}</span>
+                  {order.paid_at && (
+                    <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Tanggal Selesai' : 'Completed Date'}</span>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">
-                          {new Date(transaction.completedAt).toLocaleDateString('id-ID', {
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                          {new Date(order.paid_at).toLocaleDateString('id-ID', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric',
                           })}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {new Date(transaction.completedAt).toLocaleTimeString('id-ID')}
+                          {new Date(order.paid_at).toLocaleTimeString('id-ID')}
                         </p>
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">{language === 'id' ? 'Status' : 'Status'}</span>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Status' : 'Status'}</span>
                     <Badge variant={statusConfig.variant} size="sm">
                       <StatusIcon className="w-3 h-3 mr-1" />
                       {statusConfig.label}
@@ -287,40 +239,64 @@ export function TransactionDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">{language === 'id' ? 'Metode Pembayaran' : 'Payment Method'}</span>
-                    <span className="text-sm font-medium text-gray-900">{getPaymentMethodLabel(transaction.paymentMethod)}</span>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Metode Pembayaran' : 'Payment Method'}</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{getPaymentMethodLabel(order.payments?.[0]?.payment_method)}</span>
                   </div>
-                  {transaction.paymentDetails?.cardNumber && (
-                    <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                      <span className="text-sm text-gray-600">{language === 'id' ? 'Nomor Kartu' : 'Card Number'}</span>
-                      <span className="text-sm font-mono font-medium text-gray-900">{transaction.paymentDetails.cardNumber}</span>
+                  {order.payments?.[0]?.transaction_id && (
+                    <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Referensi Gateway' : 'Gateway Ref'}</span>
+                      <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{order.payments[0].transaction_id}</span>
                     </div>
                   )}
-                  {transaction.paymentDetails?.transactionRef && (
-                    <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                      <span className="text-sm text-gray-600">{language === 'id' ? 'Referensi' : 'Reference'}</span>
-                      <span className="text-sm font-mono font-medium text-gray-900">{transaction.paymentDetails.transactionRef}</span>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Subtotal' : 'Subtotal'}</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(order.subtotal)}</span>
+                  </div>
+                  {Number(order.discount) > 0 && (
+                    <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Diskon' : 'Discount'}</span>
+                      <span className="text-sm font-medium text-green-600">-{formatCurrency(order.discount)}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">{language === 'id' ? 'Harga Kursus' : 'Course Price'}</span>
-                    <span className="text-sm font-medium text-gray-900">{formatCurrency(transaction.amount)}</span>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{language === 'id' ? 'Pajak' : 'Tax'}</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrency(order.tax)}</span>
                   </div>
-                  {transaction.discount > 0 && (
-                    <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                      <span className="text-sm text-gray-600">{language === 'id' ? 'Diskon' : 'Discount'}</span>
-                      <span className="text-sm font-medium text-green-600">-{formatCurrency(transaction.discount)}</span>
+                  <div className="flex items-center justify-between py-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-4">
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">{language === 'id' ? 'Total' : 'Total'}</span>
+                    <span className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(order.total)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Order Items */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5" />
+                  {language === 'id' ? 'Item Pesanan' : 'Order Items'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {order.items?.map((item: any) => (
+                    <div key={item.id} className="p-4 flex gap-4">
+                        <img 
+                            src={item.course?.thumbnail || `https://picsum.photos/seed/${item.id}/400/300`} 
+                            alt={item.course_title} 
+                            className="w-20 h-12 object-cover rounded shadow-sm"
+                        />
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.course_title}</h4>
+                            <p className="text-xs text-gray-500 mt-1">ID: {item.course?.id || 'N/A'}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(item.price)}</p>
+                        </div>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">{language === 'id' ? 'Pajak' : 'Tax'}</span>
-                    <span className="text-sm font-medium text-gray-900">{formatCurrency(transaction.tax)}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-3 bg-gray-50 rounded-lg px-4">
-                    <span className="text-base font-semibold text-gray-900">{language === 'id' ? 'Total' : 'Total'}</span>
-                    <span className="text-lg font-bold text-gray-900">{formatCurrency(transaction.total)}</span>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -340,7 +316,7 @@ export function TransactionDetailPage() {
                       <div className="flex flex-col items-center">
                         <div className={cn(
                           'w-8 h-8 rounded-full flex items-center justify-center',
-                          index === 0 ? 'bg-green-100' : 'bg-gray-100'
+                          index === 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'
                         )}>
                           {index === 0 ? (
                             <CheckCircle className="w-4 h-4 text-green-600" />
@@ -349,12 +325,12 @@ export function TransactionDetailPage() {
                           )}
                         </div>
                         {index < timeline.length - 1 && (
-                          <div className="w-0.5 h-12 bg-gray-200" />
+                          <div className="w-0.5 h-12 bg-gray-200 dark:bg-gray-700" />
                         )}
                       </div>
                       <div className="flex-1 pb-4">
-                        <h4 className="text-sm font-medium text-gray-900">{event.description}</h4>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-white">{event.description}</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {new Date(event.timestamp).toLocaleDateString('id-ID')} •{' '}
                           {new Date(event.timestamp).toLocaleTimeString('id-ID')}
                         </p>
@@ -364,37 +340,6 @@ export function TransactionDetailPage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Notes & Metadata */}
-            {(transaction.notes || transaction.ipAddress) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{language === 'id' ? 'Metadata' : 'Metadata'}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {transaction.notes && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">{language === 'id' ? 'Catatan' : 'Notes'}</p>
-                        <p className="text-sm text-gray-900">{transaction.notes}</p>
-                      </div>
-                    )}
-                    {transaction.ipAddress && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">{language === 'id' ? 'IP Address' : 'IP Address'}</p>
-                        <p className="text-sm font-mono text-gray-900">{transaction.ipAddress}</p>
-                      </div>
-                    )}
-                    {transaction.userAgent && (
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">{language === 'id' ? 'User Agent' : 'User Agent'}</p>
-                        <p className="text-xs text-gray-700 break-all">{transaction.userAgent}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* Sidebar */}
@@ -424,7 +369,7 @@ export function TransactionDetailPage() {
                   >
                     {language === 'id' ? 'Hubungi Pembeli' : 'Contact Buyer'}
                   </Button>
-                  {transaction.status === 'completed' && (
+                  {order.status === 'paid' && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -435,7 +380,7 @@ export function TransactionDetailPage() {
                       {language === 'id' ? 'Proses Refund' : 'Process Refund'}
                     </Button>
                   )}
-                  {transaction.status === 'pending' && (
+                  {order.status === 'pending' && (
                     <Button
                       size="sm"
                       variant="danger"
@@ -460,46 +405,35 @@ export function TransactionDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3 mb-4">
-                  <Avatar src={transaction.user.avatar} name={transaction.user.name} size="md" />
-                  <div>
-                    <h4 className="font-medium text-gray-900">{transaction.user.name}</h4>
-                    <p className="text-sm text-gray-500">{transaction.user.email}</p>
+                  <Avatar src={order.user?.profile?.avatar} name={order.user?.name} size="md" />
+                  <div className="min-w-0">
+                    <h4 className="font-medium text-gray-900 dark:text-white truncate">{order.user?.name}</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{order.user?.email}</p>
                   </div>
                 </div>
-                <Link to={`/admin/users/${transaction.user.id}`}>
-                  <Button size="sm" variant="outline" className="w-full">
-                    {language === 'id' ? 'Lihat Profil' : 'View Profile'}
-                  </Button>
-                </Link>
+                {order.user?.id && (
+                    <Link to={`/admin/users/${order.user.id}`}>
+                    <Button size="sm" variant="outline" className="w-full">
+                        {language === 'id' ? 'Lihat Profil' : 'View Profile'}
+                    </Button>
+                    </Link>
+                )}
               </CardContent>
             </Card>
 
-            {/* Course Information */}
+            {/* Notes & Backend Info */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5" />
-                  {language === 'id' ? 'Informasi Kursus' : 'Course Information'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  {transaction.course.thumbnail && (
-                    <img
-                      src={transaction.course.thumbnail}
-                      alt={transaction.course.title}
-                      className="w-full h-32 object-cover rounded-lg mb-3"
-                    />
-                  )}
-                  <h4 className="font-medium text-gray-900 mb-1">{transaction.course.title}</h4>
-                  <p className="text-sm text-gray-500">{language === 'id' ? 'Instruktur' : 'Instructor'}: {transaction.course.instructor}</p>
-                </div>
-                <Link to={`/admin/courses/${transaction.course.id}`}>
-                  <Button size="sm" variant="outline" className="w-full">
-                    {language === 'id' ? 'Lihat Kursus' : 'View Course'}
-                  </Button>
-                </Link>
-              </CardContent>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5" />
+                        {language === 'id' ? 'Catatan' : 'Notes'}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed italic">
+                        {order.notes || (language === 'id' ? 'Tidak ada catatan tambahan.' : 'No additional notes.')}
+                    </p>
+                </CardContent>
             </Card>
           </div>
         </div>
@@ -512,14 +446,14 @@ export function TransactionDetailPage() {
           size="sm"
         >
           <div className="space-y-4">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
               <div className="flex gap-3">
                 <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-yellow-900 mb-1">
+                  <p className="text-sm font-medium text-yellow-900 dark:text-yellow-100 mb-1">
                     {language === 'id' ? 'Peringatan' : 'Warning'}
                   </p>
-                  <p className="text-sm text-yellow-700">
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
                     {language === 'id'
                       ? 'Tindakan ini akan mengembalikan dana kepada pembeli dan mencabut akses kursus. Tindakan ini tidak dapat dibatalkan.'
                       : 'This action will refund the payment to the buyer and revoke course access. This cannot be undone.'}
@@ -546,7 +480,7 @@ export function TransactionDetailPage() {
           size="sm"
         >
           <div className="space-y-4">
-            <p className="text-gray-700">
+            <p className="text-gray-700 dark:text-gray-300">
               {language === 'id'
                 ? 'Apakah Anda yakin ingin membatalkan transaksi ini?'
                 : 'Are you sure you want to cancel this transaction?'}

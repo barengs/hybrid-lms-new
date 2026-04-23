@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
@@ -21,22 +21,27 @@ import {
 import { DashboardLayout } from '@/components/layouts';
 import { Card, Button, Badge, Avatar, Select, DataTable } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
-import { formatNumber, formatCurrency, getTimeAgo } from '@/lib/utils';
+import { formatNumber, formatCurrency, getTimeAgo, cn } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
 import { Dropdown } from '@/components/ui';
+import { 
+  useGetAdminTransactionsQuery, 
+  useGetAdminTransactionStatsQuery 
+} from '@/store/api/transactionManagementApiSlice';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
 
-// Transaction interface
+// Transaction interface for UI
 interface Transaction {
-  id: string;
+  id: string | number;
   transactionId: string;
   user: {
-    id: string;
+    id: string | number;
     name: string;
     email: string;
     avatar?: string;
   };
   course: {
-    id: string;
+    id: string | number;
     title: string;
     thumbnail?: string;
   };
@@ -44,173 +49,11 @@ interface Transaction {
   discount: number;
   tax: number;
   total: number;
-  paymentMethod: 'credit_card' | 'bank_transfer' | 'e_wallet' | 'virtual_account';
+  paymentMethod: string;
   status: 'completed' | 'pending' | 'failed' | 'refunded' | 'cancelled';
   createdAt: string;
   completedAt?: string;
 }
-
-// Mock transactions data
-const mockTransactions: Transaction[] = [
-  {
-    id: 'tx-1',
-    transactionId: 'TRX-2024-001234',
-    user: {
-      id: 'user-1',
-      name: 'Ahmad Rizki',
-      email: 'ahmad.rizki@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
-    },
-    course: {
-      id: 'course-1',
-      title: 'React Masterclass - From Zero to Hero',
-      thumbnail: 'https://picsum.photos/seed/react/400/300',
-    },
-    amount: 299000,
-    discount: 0,
-    tax: 29900,
-    total: 328900,
-    paymentMethod: 'credit_card',
-    status: 'completed',
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-    completedAt: new Date(Date.now() - 7000000).toISOString(),
-  },
-  {
-    id: 'tx-2',
-    transactionId: 'TRX-2024-001235',
-    user: {
-      id: 'user-2',
-      name: 'Siti Nurhaliza',
-      email: 'siti.nur@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-    },
-    course: {
-      id: 'course-2',
-      title: 'Full Stack Web Development Bootcamp',
-      thumbnail: 'https://picsum.photos/seed/fullstack/400/300',
-    },
-    amount: 499000,
-    discount: 50000,
-    tax: 44900,
-    total: 493900,
-    paymentMethod: 'bank_transfer',
-    status: 'completed',
-    createdAt: new Date(Date.now() - 10800000).toISOString(),
-    completedAt: new Date(Date.now() - 10600000).toISOString(),
-  },
-  {
-    id: 'tx-3',
-    transactionId: 'TRX-2024-001236',
-    user: {
-      id: 'user-3',
-      name: 'Budi Hartono',
-      email: 'budi.h@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Budi',
-    },
-    course: {
-      id: 'course-3',
-      title: 'Python Data Science & Machine Learning',
-      thumbnail: 'https://picsum.photos/seed/python/400/300',
-    },
-    amount: 349000,
-    discount: 0,
-    tax: 34900,
-    total: 383900,
-    paymentMethod: 'e_wallet',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 14400000).toISOString(),
-  },
-  {
-    id: 'tx-4',
-    transactionId: 'TRX-2024-001237',
-    user: {
-      id: 'user-4',
-      name: 'Dewi Sartika',
-      email: 'dewi.s@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dewi',
-    },
-    course: {
-      id: 'course-4',
-      title: 'UI/UX Design Fundamentals',
-      thumbnail: 'https://picsum.photos/seed/uiux/400/300',
-    },
-    amount: 249000,
-    discount: 0,
-    tax: 24900,
-    total: 273900,
-    paymentMethod: 'virtual_account',
-    status: 'completed',
-    createdAt: new Date(Date.now() - 18000000).toISOString(),
-    completedAt: new Date(Date.now() - 17800000).toISOString(),
-  },
-  {
-    id: 'tx-5',
-    transactionId: 'TRX-2024-001238',
-    user: {
-      id: 'user-5',
-      name: 'Andi Prasetyo',
-      email: 'andi.p@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Andi',
-    },
-    course: {
-      id: 'course-5',
-      title: 'Digital Marketing Mastery',
-      thumbnail: 'https://picsum.photos/seed/marketing/400/300',
-    },
-    amount: 199000,
-    discount: 0,
-    tax: 19900,
-    total: 218900,
-    paymentMethod: 'credit_card',
-    status: 'failed',
-    createdAt: new Date(Date.now() - 21600000).toISOString(),
-  },
-  {
-    id: 'tx-6',
-    transactionId: 'TRX-2024-001239',
-    user: {
-      id: 'user-6',
-      name: 'Rina Wulandari',
-      email: 'rina.w@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rina',
-    },
-    course: {
-      id: 'course-6',
-      title: 'Mobile App Development with Flutter',
-      thumbnail: 'https://picsum.photos/seed/flutter/400/300',
-    },
-    amount: 399000,
-    discount: 40000,
-    tax: 35900,
-    total: 394900,
-    paymentMethod: 'e_wallet',
-    status: 'refunded',
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    completedAt: new Date(Date.now() - 86400000 * 2 + 3600000).toISOString(),
-  },
-  {
-    id: 'tx-7',
-    transactionId: 'TRX-2024-001240',
-    user: {
-      id: 'user-7',
-      name: 'Joko Widodo',
-      email: 'joko.w@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Joko',
-    },
-    course: {
-      id: 'course-7',
-      title: 'Advanced JavaScript & TypeScript',
-      thumbnail: 'https://picsum.photos/seed/javascript/400/300',
-    },
-    amount: 299000,
-    discount: 0,
-    tax: 29900,
-    total: 328900,
-    paymentMethod: 'bank_transfer',
-    status: 'cancelled',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-];
 
 export function TransactionsPage() {
   const { language } = useLanguage();
@@ -219,65 +62,57 @@ export function TransactionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
   const [selectedTransactions, setSelectedTransactions] = useState<Transaction[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  // Calculate stats
-  const stats = useMemo(() => {
-    const total = mockTransactions.length;
-    const completed = mockTransactions.filter(t => t.status === 'completed').length;
-    const pending = mockTransactions.filter(t => t.status === 'pending').length;
-    const failed = mockTransactions.filter(t => t.status === 'failed').length;
-    const refunded = mockTransactions.filter(t => t.status === 'refunded').length;
+  // Fetch real data
+  const { data: statsResponse, isLoading: statsLoading } = useGetAdminTransactionStatsQuery();
+  const { 
+    data: transactionsResponse, 
+    isLoading: transactionsLoading,
+    isFetching: transactionsFetching 
+  } = useGetAdminTransactionsQuery({
+    page,
+    per_page: pageSize,
+    search: searchQuery,
+    status: statusFilter === 'completed' ? 'paid' : (statusFilter === 'all' ? undefined : statusFilter),
+  });
 
-    const totalRevenue = mockTransactions
-      .filter(t => t.status === 'completed')
-      .reduce((sum, t) => sum + t.total, 0);
+  const stats = statsResponse?.data;
+  const rawTransactions = transactionsResponse?.data?.data || [];
+  const meta = transactionsResponse?.data;
 
-    const thisMonthRevenue = mockTransactions
-      .filter(t => {
-        const txDate = new Date(t.createdAt);
-        const now = new Date();
-        return t.status === 'completed' &&
-          txDate.getMonth() === now.getMonth() &&
-          txDate.getFullYear() === now.getFullYear();
-      })
-      .reduce((sum, t) => sum + t.total, 0);
+  // Map backend data to UI format
+  const mappedTransactions = useMemo(() => {
+    return rawTransactions.map((order: any) => ({
+      id: order.id,
+      transactionId: order.order_number,
+      user: {
+        id: order.user?.id,
+        name: order.user?.name || 'N/A',
+        email: order.user?.email || 'N/A',
+        avatar: order.user?.profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${order.user?.name}`,
+      },
+      course: {
+        id: order.items?.[0]?.course?.id,
+        title: order.items?.[0]?.course_title || (order.items?.length > 1 ? `${order.items[0].course_title} (+${order.items.length - 1} lainnya)` : 'N/A'),
+        thumbnail: order.items?.[0]?.course?.thumbnail,
+      },
+      amount: Number(order.subtotal),
+      discount: Number(order.discount),
+      tax: Number(order.tax),
+      total: Number(order.total),
+      paymentMethod: order.payments?.[0]?.payment_method || 'other',
+      status: order.status === 'paid' ? 'completed' : 
+              (order.status === 'expired' ? 'failed' : 
+              (['pending', 'failed', 'refunded', 'cancelled'].includes(order.status) ? order.status as any : 'pending')),
+      createdAt: order.created_at,
+      completedAt: order.paid_at,
+    }));
+  }, [rawTransactions]);
 
-    const averageTransaction = completed > 0 ? totalRevenue / completed : 0;
-
-    return { total, completed, pending, failed, refunded, totalRevenue, thisMonthRevenue, averageTransaction };
-  }, []);
-
-  // Filter transactions
-  const filteredTransactions = useMemo(() => {
-    let transactions = [...mockTransactions];
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      transactions = transactions.filter(t =>
-        t.transactionId.toLowerCase().includes(query) ||
-        t.user.name.toLowerCase().includes(query) ||
-        t.user.email.toLowerCase().includes(query) ||
-        t.course.title.toLowerCase().includes(query)
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      transactions = transactions.filter(t => t.status === statusFilter);
-    }
-
-    // Payment method filter
-    if (paymentMethodFilter !== 'all') {
-      transactions = transactions.filter(t => t.paymentMethod === paymentMethodFilter);
-    }
-
-    return transactions;
-  }, [searchQuery, statusFilter, paymentMethodFilter]);
-
-  // Handlers
-  const handleViewDetails = (transactionId: string) => {
-    navigate(`/admin/transactions/${transactionId}`);
+  const handleViewDetails = (id: string | number) => {
+    navigate(`/admin/transactions/${id}`);
   };
 
   const handleExport = () => {
@@ -293,7 +128,7 @@ export function TransactionsPage() {
       refunded: { variant: 'secondary' as const, label: language === 'id' ? 'Refund' : 'Refunded', icon: RefreshCcw },
       cancelled: { variant: 'secondary' as const, label: language === 'id' ? 'Dibatalkan' : 'Cancelled', icon: AlertCircle },
     };
-    const { variant, label, icon: Icon } = config[status];
+    const { variant, label, icon: Icon } = config[status] || { variant: 'secondary', label: status, icon: AlertCircle };
     return (
       <Badge variant={variant} size="sm">
         <Icon className="w-3 h-3 mr-1" />
@@ -302,14 +137,15 @@ export function TransactionsPage() {
     );
   };
 
-  const getPaymentMethodLabel = (method: Transaction['paymentMethod']) => {
-    const labels = {
+  const getPaymentMethodLabel = (method: string) => {
+    const labels: Record<string, string> = {
       credit_card: language === 'id' ? 'Kartu Kredit' : 'Credit Card',
       bank_transfer: language === 'id' ? 'Transfer Bank' : 'Bank Transfer',
       e_wallet: language === 'id' ? 'E-Wallet' : 'E-Wallet',
       virtual_account: language === 'id' ? 'Virtual Account' : 'Virtual Account',
+      other: language === 'id' ? 'Lainnya' : 'Other',
     };
-    return labels[method];
+    return labels[method] || method;
   };
 
   const getTransactionActions = (transaction: Transaction): DropdownItem[] => {
@@ -376,8 +212,8 @@ export function TransactionsPage() {
         header: language === 'id' ? 'ID Transaksi' : 'Transaction ID',
         cell: ({ row }) => (
           <button
-            onClick={() => navigate(`/admin/transactions/${row.original.id}`)}
-            className="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+            onClick={() => handleViewDetails(row.original.id)}
+            className="font-mono text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 hover:underline cursor-pointer"
           >
             {row.original.transactionId}
           </button>
@@ -389,11 +225,11 @@ export function TransactionsPage() {
         cell: ({ row }) => {
           const user = row.original.user;
           return (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Avatar src={user.avatar} name={user.name} size="sm" />
-              <div>
-                <p className="font-medium text-gray-900 text-sm">{user.name}</p>
-                <p className="text-xs text-gray-500">{user.email}</p>
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 dark:text-white text-xs truncate">{user.name}</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
               </div>
             </div>
           );
@@ -403,8 +239,8 @@ export function TransactionsPage() {
         accessorKey: 'course.title',
         header: language === 'id' ? 'Kursus' : 'Course',
         cell: ({ row }) => (
-          <div className="max-w-[250px]">
-            <p className="font-medium text-gray-900 text-sm truncate">
+          <div className="max-w-[180px]">
+            <p className="text-xs text-gray-900 dark:text-gray-100 truncate font-medium">
               {row.original.course.title}
             </p>
           </div>
@@ -414,7 +250,7 @@ export function TransactionsPage() {
         accessorKey: 'total',
         header: language === 'id' ? 'Total' : 'Total',
         cell: ({ row }) => (
-          <div className="text-sm font-semibold text-gray-900">
+          <div className="text-xs font-semibold text-gray-900 dark:text-white">
             {formatCurrency(row.original.total)}
           </div>
         ),
@@ -423,7 +259,7 @@ export function TransactionsPage() {
         accessorKey: 'paymentMethod',
         header: language === 'id' ? 'Metode' : 'Method',
         cell: ({ row }) => (
-          <div className="text-xs text-gray-600">
+          <div className="text-[10px] text-gray-600 dark:text-gray-300">
             {getPaymentMethodLabel(row.original.paymentMethod)}
           </div>
         ),
@@ -439,12 +275,12 @@ export function TransactionsPage() {
         cell: ({ row }) => {
           const date = row.original.createdAt;
           return (
-            <div className="text-xs text-gray-700">
+            <div className="text-[10px] text-gray-700 dark:text-gray-300">
               <div className="flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-gray-400" />
                 {new Date(date).toLocaleDateString('id-ID')}
               </div>
-              <div className="text-gray-500">{getTimeAgo(date)}</div>
+              <div className="text-gray-400">{getTimeAgo(date)}</div>
             </div>
           );
         },
@@ -455,8 +291,8 @@ export function TransactionsPage() {
         cell: ({ row }) => (
           <Dropdown
             trigger={
-              <button className="p-2 hover:bg-gray-100 rounded-lg">
-                <MoreVertical className="w-5 h-5 text-gray-400" />
+              <button className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <MoreVertical className="w-4 h-4 text-gray-400" />
               </button>
             }
             items={getTransactionActions(row.original)}
@@ -468,15 +304,17 @@ export function TransactionsPage() {
     [language]
   );
 
+  if (statsLoading || transactionsLoading) return <LoadingScreen />;
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {language === 'id' ? 'Manajemen Transaksi' : 'Transaction Management'}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             {language === 'id'
               ? 'Kelola semua transaksi pembayaran platform'
               : 'Manage all platform payment transactions'}
@@ -484,102 +322,113 @@ export function TransactionsPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-500">{language === 'id' ? 'Total Transaksi' : 'Total Transactions'}</span>
-              <ShoppingCart className="w-5 h-5 text-gray-400" />
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-blue-600" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.total)}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatNumber(stats?.total || 0)}</p>
             <div className="flex items-center gap-1 mt-1 text-sm">
-              <span className="text-green-600">{stats.completed} {language === 'id' ? 'selesai' : 'completed'}</span>
+              <span className="text-green-600 font-medium">{stats?.completed || 0} {language === 'id' ? 'selesai' : 'completed'}</span>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-500">{language === 'id' ? 'Total Pendapatan' : 'Total Revenue'}</span>
-              <DollarSign className="w-5 h-5 text-gray-400" />
+              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-green-600" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-            <div className="flex items-center gap-1 mt-1 text-sm">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span className="text-green-600">+15%</span>
-              <span className="text-gray-400">{language === 'id' ? 'bulan ini' : 'this month'}</span>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.total_revenue || 0)}</p>
+            <div className={cn(
+              "flex items-center gap-1 mt-1 text-sm",
+              (stats?.revenue_growth || 0) >= 0 ? "text-green-600" : "text-red-600"
+            )}>
+              <TrendingUp className={cn("w-4 h-4", (stats?.revenue_growth || 0) < 0 && "rotate-180")} />
+              <span className="font-medium">{stats?.revenue_growth || 0}%</span>
+              <span className="text-gray-400 dark:text-gray-500">{language === 'id' ? 'bulan ini' : 'this month'}</span>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-500">{language === 'id' ? 'Pendapatan Bulan Ini' : 'This Month Revenue'}</span>
-              <CreditCard className="w-5 h-5 text-gray-400" />
+              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                <CreditCard className="w-4 h-4 text-purple-600" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.thisMonthRevenue)}</p>
-            <div className="flex items-center gap-1 mt-1 text-sm">
-              <span className="text-gray-600">{formatNumber(stats.completed)} {language === 'id' ? 'transaksi' : 'transactions'}</span>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.this_month_revenue || 0)}</p>
+            <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
+               <span>{language === 'id' ? 'Target tercapai' : 'Target reached'}</span>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-500">{language === 'id' ? 'Rata-rata Transaksi' : 'Average Transaction'}</span>
-              <TrendingUp className="w-5 h-5 text-gray-400" />
+              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-orange-600" />
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.averageTransaction)}</p>
-            <div className="flex items-center gap-1 mt-1 text-sm">
-              <span className="text-gray-600">{language === 'id' ? 'per transaksi' : 'per transaction'}</span>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.average_transaction || 0)}</p>
+            <div className="flex items-center gap-1 mt-1 text-sm text-gray-500">
+              <span>{language === 'id' ? 'per transaksi' : 'per transaction'}</span>
             </div>
           </Card>
         </div>
 
         {/* Status Summary */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="border-l-4 border-l-green-500 dark:bg-gray-800/50">
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
+              <CheckCircle className="w-8 h-8 text-green-600 opacity-20" />
               <div>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Selesai' : 'Completed'}</p>
-                <p className="text-xl font-bold text-gray-900">{stats.completed}</p>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">{language === 'id' ? 'Selesai' : 'Completed'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.completed || 0}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="border-l-4 border-l-yellow-500">
+          <Card className="border-l-4 border-l-yellow-500 dark:bg-gray-800/50">
             <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-yellow-600" />
+              <Clock className="w-8 h-8 text-yellow-600 opacity-20" />
               <div>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Menunggu' : 'Pending'}</p>
-                <p className="text-xl font-bold text-gray-900">{stats.pending}</p>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">{language === 'id' ? 'Menunggu' : 'Pending'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.pending || 0}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="border-l-4 border-l-red-500">
+          <Card className="border-l-4 border-l-red-500 dark:bg-gray-800/50">
             <div className="flex items-center gap-2">
-              <XCircle className="w-5 h-5 text-red-600" />
+              <XCircle className="w-8 h-8 text-red-600 opacity-20" />
               <div>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Gagal' : 'Failed'}</p>
-                <p className="text-xl font-bold text-gray-900">{stats.failed}</p>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">{language === 'id' ? 'Gagal' : 'Failed'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.failed || 0}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="border-l-4 border-l-blue-500 dark:bg-gray-800/50">
             <div className="flex items-center gap-2">
-              <RefreshCcw className="w-5 h-5 text-blue-600" />
+              <RefreshCcw className="w-8 h-8 text-blue-600 opacity-20" />
               <div>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Refund' : 'Refunded'}</p>
-                <p className="text-xl font-bold text-gray-900">{stats.refunded}</p>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">{language === 'id' ? 'Refund' : 'Refunded'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{stats?.refunded || 0}</p>
               </div>
             </div>
           </Card>
 
-          <Card className="border-l-4 border-l-gray-500">
+          <Card className="border-l-4 border-l-gray-400 dark:bg-gray-800/50">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-gray-600" />
+              <AlertCircle className="w-8 h-8 text-gray-600 opacity-20" />
               <div>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Dibatalkan' : 'Cancelled'}</p>
-                <p className="text-xl font-bold text-gray-900">{mockTransactions.filter(t => t.status === 'cancelled').length}</p>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-500">{language === 'id' ? 'Dibatalkan' : 'Cancelled'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{(stats?.total || 0) - (stats?.completed || 0) - (stats?.pending || 0) - (stats?.failed || 0) - (stats?.refunded || 0)}</p>
               </div>
             </div>
           </Card>
@@ -587,9 +436,9 @@ export function TransactionsPage() {
 
         {/* Bulk Actions */}
         {selectedTransactions.length > 0 && (
-          <Card className="mb-6 bg-blue-50 border-blue-200">
+          <Card className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-blue-900">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                 {selectedTransactions.length} {language === 'id' ? 'transaksi dipilih' : 'transactions selected'}
               </p>
               <div className="flex gap-2">
@@ -602,9 +451,9 @@ export function TransactionsPage() {
         )}
 
         {/* Transactions Table */}
-        <Card>
+        <Card className="overflow-hidden">
           {/* Filters */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1 relative min-w-0">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -613,13 +462,13 @@ export function TransactionsPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={language === 'id' ? 'Cari transaksi, pengguna, atau kursus...' : 'Search transaction, user, or course...'}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="flex flex-col sm:flex-row gap-3 sm:flex-shrink-0">
                 <Select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
                   options={[
                     { value: 'all', label: language === 'id' ? 'Semua Status' : 'All Status' },
                     { value: 'completed', label: language === 'id' ? 'Selesai' : 'Completed' },
@@ -650,14 +499,16 @@ export function TransactionsPage() {
           </div>
 
           {/* Table */}
-          <DataTable
-            columns={columns}
-            data={filteredTransactions}
-            enableRowSelection={true}
-            enablePagination={true}
-            pageSize={10}
-            onRowSelectionChange={setSelectedTransactions}
-          />
+          <div className={cn("transition-opacity", transactionsFetching && "opacity-50")}>
+            <DataTable
+              columns={columns}
+              data={mappedTransactions}
+              enableRowSelection={true}
+              enablePagination={true}
+              pageSize={pageSize}
+              onRowSelectionChange={setSelectedTransactions}
+            />
+          </div>
         </Card>
       </div>
     </DashboardLayout>

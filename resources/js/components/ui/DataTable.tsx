@@ -22,6 +22,7 @@ interface DataTableProps<TData, TValue> {
   enableRowSelection?: boolean;
   enablePagination?: boolean;
   pageSize?: number;
+  isLoading?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -31,6 +32,7 @@ export function DataTable<TData, TValue>({
   enableRowSelection = false,
   enablePagination = true,
   pageSize = 10,
+  isLoading = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -112,7 +114,17 @@ export function DataTable<TData, TValue>({
             ))}
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  {columns.map((_, j) => (
+                    <td key={j} className="px-3 py-4">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   DollarSign,
@@ -18,16 +19,24 @@ import {
 import { DashboardLayout } from '@/components/layouts';
 import { Card, Button, Badge, Avatar, Select, DataTable, Modal } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
-import { formatCurrency, getTimeAgo } from '@/lib/utils';
+import { formatCurrency, getTimeAgo, formatNumber, cn } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
 import { Dropdown } from '@/components/ui';
+import {
+  useGetAdminPayoutsQuery,
+  useGetAdminPayoutStatsQuery,
+  useApprovePayoutMutation,
+  useRejectPayoutMutation,
+} from '@/store/api/payoutManagementApiSlice';
+import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { toast } from 'react-hot-toast';
 
-// Payout interface
+// Payout interface for UI
 interface InstructorPayout {
-  id: string;
+  id: number;
   payoutId: string;
   instructor: {
-    id: string;
+    id: number;
     name: string;
     email: string;
     avatar?: string;
@@ -35,117 +44,21 @@ interface InstructorPayout {
   amount: number;
   requestDate: string;
   processedDate?: string;
-  status: 'pending' | 'processing' | 'completed' | 'rejected';
-  method: 'bank_transfer' | 'paypal' | 'e_wallet';
+  status: 'pending' | 'completed' | 'rejected' | 'processing';
+  method: string;
   accountInfo: string;
   notes?: string;
   adminNotes?: string;
 }
 
-// Mock data
-const mockPayouts: InstructorPayout[] = [
-  {
-    id: 'po-1',
-    payoutId: 'PO-2024-001',
-    instructor: {
-      id: 'inst-1',
-      name: 'Budi Santoso',
-      email: 'budi@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Budi',
-    },
-    amount: 25000000,
-    requestDate: new Date(Date.now() - 86400000 * 1).toISOString(),
-    status: 'pending',
-    method: 'bank_transfer',
-    accountInfo: 'BCA - 1234567890',
-  },
-  {
-    id: 'po-2',
-    payoutId: 'PO-2024-002',
-    instructor: {
-      id: 'inst-2',
-      name: 'Siti Nurhaliza',
-      email: 'siti@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-    },
-    amount: 15000000,
-    requestDate: new Date(Date.now() - 86400000 * 2).toISOString(),
-    status: 'pending',
-    method: 'bank_transfer',
-    accountInfo: 'Mandiri - 9876543210',
-  },
-  {
-    id: 'po-3',
-    payoutId: 'PO-2024-003',
-    instructor: {
-      id: 'inst-3',
-      name: 'Ahmad Rizki',
-      email: 'ahmad@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
-    },
-    amount: 18500000,
-    requestDate: new Date(Date.now() - 86400000 * 5).toISOString(),
-    processedDate: new Date(Date.now() - 86400000 * 4).toISOString(),
-    status: 'processing',
-    method: 'bank_transfer',
-    accountInfo: 'BNI - 5555666677',
-  },
-  {
-    id: 'po-4',
-    payoutId: 'PO-2024-004',
-    instructor: {
-      id: 'inst-4',
-      name: 'Dewi Sartika',
-      email: 'dewi@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dewi',
-    },
-    amount: 32000000,
-    requestDate: new Date(Date.now() - 86400000 * 10).toISOString(),
-    processedDate: new Date(Date.now() - 86400000 * 9).toISOString(),
-    status: 'completed',
-    method: 'bank_transfer',
-    accountInfo: 'BCA - 1111222233',
-  },
-  {
-    id: 'po-5',
-    payoutId: 'PO-2024-005',
-    instructor: {
-      id: 'inst-5',
-      name: 'Eko Prasetyo',
-      email: 'eko@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Eko',
-    },
-    amount: 12000000,
-    requestDate: new Date(Date.now() - 86400000 * 15).toISOString(),
-    processedDate: new Date(Date.now() - 86400000 * 14).toISOString(),
-    status: 'completed',
-    method: 'bank_transfer',
-    accountInfo: 'BRI - 9999888877',
-  },
-  {
-    id: 'po-6',
-    payoutId: 'PO-2024-006',
-    instructor: {
-      id: 'inst-6',
-      name: 'Rina Wijaya',
-      email: 'rina@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rina',
-    },
-    amount: 8500000,
-    requestDate: new Date(Date.now() - 86400000 * 20).toISOString(),
-    processedDate: new Date(Date.now() - 86400000 * 19).toISOString(),
-    status: 'rejected',
-    method: 'bank_transfer',
-    accountInfo: 'BCA - 4444555566',
-    notes: 'Insufficient balance verification',
-  },
-];
-
 export function AdminPayoutsPage() {
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedPayouts, setSelectedPayouts] = useState<string[]>([]);
+  const [selectedPayoutIds, setSelectedPayoutIds] = useState<number[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
 
   // Modals
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -155,52 +68,44 @@ export function AdminPayoutsPage() {
   const [adminNotes, setAdminNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
 
-  // Filter and search
-  const filteredPayouts = useMemo(() => {
-    let payouts = [...mockPayouts];
+  // Fetch real data
+  const { data: statsResponse, isLoading: statsLoading } = useGetAdminPayoutStatsQuery();
+  const { data: payoutsResponse, isLoading: payoutsLoading, isFetching: payoutsFetching } = useGetAdminPayoutsQuery({
+    page,
+    per_page: pageSize,
+    search: searchQuery,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+  });
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      payouts = payouts.filter(
-        p =>
-          p.instructor.name.toLowerCase().includes(query) ||
-          p.instructor.email.toLowerCase().includes(query) ||
-          p.payoutId.toLowerCase().includes(query)
-      );
-    }
+  const [approvePayout, { isLoading: isApproving }] = useApprovePayoutMutation();
+  const [rejectPayout, { isLoading: isRejecting }] = useRejectPayoutMutation();
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      payouts = payouts.filter(p => p.status === statusFilter);
-    }
+  const stats = statsResponse?.data;
+  const rawPayouts = payoutsResponse?.data?.data || [];
+  const meta = payoutsResponse?.data;
 
-    return payouts;
-  }, [searchQuery, statusFilter]);
+  // Map backend data to UI format
+  const mappedPayouts: InstructorPayout[] = useMemo(() => {
+    return rawPayouts.map((p: any) => ({
+      id: p.id,
+      payoutId: `PO-${p.id.toString().padStart(5, '0')}`,
+      instructor: {
+        id: p.instructor?.id,
+        name: p.instructor?.name || 'N/A',
+        email: p.instructor?.email || 'N/A',
+        avatar: p.instructor?.profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.instructor?.name}`,
+      },
+      amount: Number(p.amount),
+      requestDate: p.created_at,
+      processedDate: p.processed_at,
+      status: p.status,
+      method: p.method,
+      accountInfo: p.account_info,
+      notes: p.notes,
+    }));
+  }, [rawPayouts]);
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    return {
-      totalPayouts: mockPayouts
-        .filter(p => p.status === 'completed')
-        .reduce((sum, p) => sum + p.amount, 0),
-      pendingCount: mockPayouts.filter(p => p.status === 'pending').length,
-      pendingAmount: mockPayouts
-        .filter(p => p.status === 'pending')
-        .reduce((sum, p) => sum + p.amount, 0),
-      thisMonthPayouts: mockPayouts
-        .filter(p => p.status === 'completed' && new Date(p.processedDate!) >= startOfMonth)
-        .reduce((sum, p) => sum + p.amount, 0),
-      averagePayout: mockPayouts.length > 0
-        ? mockPayouts.reduce((sum, p) => sum + p.amount, 0) / mockPayouts.length
-        : 0,
-    };
-  }, []);
-
-  const pendingPayouts = mockPayouts.filter(p => p.status === 'pending');
+  const pendingPayouts = mappedPayouts.filter((p: InstructorPayout) => p.status === 'pending');
 
   const handleApprove = (payout: InstructorPayout) => {
     setSelectedPayout(payout);
@@ -217,23 +122,35 @@ export function AdminPayoutsPage() {
     setShowDetailModal(true);
   };
 
-  const confirmApproval = () => {
-    console.log('Approving payout:', selectedPayout?.id, 'Notes:', adminNotes);
-    setShowApprovalModal(false);
-    setAdminNotes('');
-    setSelectedPayout(null);
+  const confirmApproval = async () => {
+    if (!selectedPayout) return;
+    try {
+      await approvePayout({ id: selectedPayout.id, notes: adminNotes }).unwrap();
+      toast.success(language === 'id' ? 'Payout berhasil disetujui' : 'Payout approved successfully');
+      setShowApprovalModal(false);
+      setAdminNotes('');
+      setSelectedPayout(null);
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to approve payout');
+    }
   };
 
-  const confirmRejection = () => {
-    console.log('Rejecting payout:', selectedPayout?.id, 'Reason:', rejectionReason);
-    setShowRejectionModal(false);
-    setRejectionReason('');
-    setSelectedPayout(null);
+  const confirmRejection = async () => {
+    if (!selectedPayout) return;
+    try {
+      await rejectPayout({ id: selectedPayout.id, reason: rejectionReason }).unwrap();
+      toast.success(language === 'id' ? 'Payout berhasil ditolak' : 'Payout rejected successfully');
+      setShowRejectionModal(false);
+      setRejectionReason('');
+      setSelectedPayout(null);
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to reject payout');
+    }
   };
 
   const handleBulkApprove = () => {
-    console.log('Bulk approving payouts:', selectedPayouts);
-    setSelectedPayouts([]);
+    console.log('Bulk approving payouts:', selectedPayoutIds);
+    // TODO: Implement bulk approval in API
   };
 
   const getStatusConfig = (status: InstructorPayout['status']) => {
@@ -243,7 +160,7 @@ export function AdminPayoutsPage() {
       completed: { variant: 'success' as const, label: language === 'id' ? 'Selesai' : 'Completed', icon: CheckCircle },
       rejected: { variant: 'danger' as const, label: language === 'id' ? 'Ditolak' : 'Rejected', icon: XCircle },
     };
-    return configs[status];
+    return configs[status] || configs.pending;
   };
 
   // Table columns
@@ -257,25 +174,18 @@ export function AdminPayoutsPage() {
             checked={table.getIsAllPageRowsSelected()}
             onChange={(e) => {
               table.toggleAllPageRowsSelected(e.target.checked);
-              if (e.target.checked) {
-                setSelectedPayouts(filteredPayouts.map(p => p.id));
-              } else {
-                setSelectedPayouts([]);
-              }
             }}
+            className="rounded border-gray-300"
           />
         ),
         cell: ({ row }) => (
           <input
             type="checkbox"
-            checked={selectedPayouts.includes(row.original.id)}
+            checked={row.getIsSelected()}
             onChange={(e) => {
-              if (e.target.checked) {
-                setSelectedPayouts([...selectedPayouts, row.original.id]);
-              } else {
-                setSelectedPayouts(selectedPayouts.filter(id => id !== row.original.id));
-              }
+              row.toggleSelected(e.target.checked);
             }}
+            className="rounded border-gray-300"
           />
         ),
         enableSorting: false,
@@ -284,18 +194,18 @@ export function AdminPayoutsPage() {
         accessorKey: 'payoutId',
         header: language === 'id' ? 'ID Payout' : 'Payout ID',
         cell: ({ row }) => (
-          <span className="font-mono text-sm font-medium text-gray-900">{row.original.payoutId}</span>
+          <span className="font-mono text-xs font-medium text-gray-600 dark:text-gray-400">{row.original.payoutId}</span>
         ),
       },
       {
         accessorKey: 'instructor',
         header: language === 'id' ? 'Instruktur' : 'Instructor',
         cell: ({ row }) => (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Avatar src={row.original.instructor.avatar} name={row.original.instructor.name} size="sm" />
-            <div>
-              <p className="font-medium text-gray-900">{row.original.instructor.name}</p>
-              <p className="text-sm text-gray-500">{row.original.instructor.email}</p>
+            <div className="min-w-0">
+              <p className="font-medium text-gray-900 dark:text-white text-xs truncate">{row.original.instructor.name}</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{row.original.instructor.email}</p>
             </div>
           </div>
         ),
@@ -305,7 +215,7 @@ export function AdminPayoutsPage() {
         accessorKey: 'amount',
         header: language === 'id' ? 'Jumlah' : 'Amount',
         cell: ({ row }) => (
-          <span className="font-semibold text-gray-900">{formatCurrency(row.original.amount)}</span>
+          <span className="font-semibold text-gray-900 dark:text-white text-xs">{formatCurrency(row.original.amount)}</span>
         ),
       },
       {
@@ -313,11 +223,11 @@ export function AdminPayoutsPage() {
         header: language === 'id' ? 'Tanggal Request' : 'Request Date',
         cell: ({ row }) => (
           <div>
-            <div className="flex items-center gap-1.5 text-sm text-gray-900">
-              <Calendar className="w-3.5 h-3.5 text-gray-400" />
+            <div className="flex items-center gap-1 text-[10px] text-gray-900 dark:text-gray-300">
+              <Calendar className="w-3 h-3 text-gray-400" />
               {new Date(row.original.requestDate).toLocaleDateString('id-ID')}
             </div>
-            <div className="text-xs text-gray-500">{getTimeAgo(row.original.requestDate)}</div>
+            <div className="text-[9px] text-gray-400">{getTimeAgo(row.original.requestDate)}</div>
           </div>
         ),
       },
@@ -362,24 +272,16 @@ export function AdminPayoutsPage() {
             );
           }
 
-          if (row.original.status === 'completed') {
-            items.push({
-              label: language === 'id' ? 'Unduh Receipt' : 'Download Receipt',
-              icon: <Download className="w-4 h-4" />,
-              onClick: () => console.log('Download receipt:', row.original.id),
-            });
-          }
-
           items.push({
-            label: language === 'id' ? 'Lihat Profil Instruktur' : 'View Instructor Profile',
+            label: language === 'id' ? 'Lihat Profil Instruktur' : 'Instructor Profile',
             icon: <UserCheck className="w-4 h-4" />,
-            onClick: () => console.log('View instructor:', row.original.instructor.id),
+            onClick: () => navigate(`/admin/instructors/${row.original.instructor.id}`),
           });
 
           return (
             <Dropdown
               trigger={
-                <button className="p-2 hover:bg-gray-100 rounded-lg">
+                <button className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                   <MoreVertical className="w-4 h-4 text-gray-400" />
                 </button>
               }
@@ -393,15 +295,17 @@ export function AdminPayoutsPage() {
     [language]
   );
 
+  if (statsLoading || payoutsLoading) return <LoadingScreen />;
+
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto p-6 lg:p-8">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {language === 'id' ? 'Pembayaran Instruktur' : 'Instructor Payouts'}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             {language === 'id'
               ? 'Kelola dan proses pembayaran untuk instruktur'
               : 'Manage and process instructor payments'}
@@ -409,52 +313,52 @@ export function AdminPayoutsPage() {
         </div>
 
         {/* Statistics */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
                 <DollarSign className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Total Payout' : 'Total Payouts'}</p>
-                <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalPayouts)}</p>
+                <p className="text-xs text-gray-500">{language === 'id' ? 'Total Payout' : 'Total Payouts'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.total_payouts || 0)}</p>
               </div>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
                 <Clock className="w-6 h-6 text-orange-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Pending' : 'Pending'}</p>
-                <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.pendingAmount)}</p>
-                <p className="text-xs text-gray-500">{stats.pendingCount} requests</p>
+                <p className="text-xs text-gray-500">{language === 'id' ? 'Pending' : 'Pending'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.pending_amount || 0)}</p>
+                <p className="text-[10px] text-gray-400">{stats?.pending_count || 0} {language === 'id' ? 'permintaan' : 'requests'}</p>
               </div>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Bulan Ini' : 'This Month'}</p>
-                <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.thisMonthPayouts)}</p>
+                <p className="text-xs text-gray-500">{language === 'id' ? 'Bulan Ini' : 'This Month'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.this_month_payouts || 0)}</p>
               </div>
             </div>
           </Card>
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
                 <FileText className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Rata-rata' : 'Average'}</p>
-                <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.averagePayout)}</p>
+                <p className="text-xs text-gray-500">{language === 'id' ? 'Rata-rata' : 'Average'}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.average_payout || 0)}</p>
               </div>
             </div>
           </Card>
@@ -462,51 +366,51 @@ export function AdminPayoutsPage() {
 
         {/* Pending Requests */}
         {pendingPayouts.length > 0 && (
-          <Card className="mb-8">
+          <Card className="mb-8 border-l-4 border-l-orange-500 bg-orange-50/10">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {language === 'id' ? 'Request Pending' : 'Pending Requests'}
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {language === 'id' ? 'Permintaan Menunggu' : 'Pending Requests'}
               </h2>
-              <Badge variant="warning">{pendingPayouts.length}</Badge>
+              <Badge variant="warning" size="md">{pendingPayouts.length}</Badge>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {pendingPayouts.map((payout) => (
-                <div key={payout.id} className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingPayouts.map((payout: InstructorPayout) => (
+                <div key={payout.id} className="p-4 bg-white dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition-all">
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <Avatar src={payout.instructor.avatar} name={payout.instructor.name} size="md" />
-                      <div>
-                        <p className="font-medium text-gray-900">{payout.instructor.name}</p>
-                        <p className="text-sm text-gray-500">{payout.instructor.email}</p>
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{payout.instructor.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{payout.instructor.email}</p>
                       </div>
                     </div>
+                    <Badge variant="warning" size="sm" className="flex-shrink-0">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {getTimeAgo(payout.requestDate)}
+                    </Badge>
                   </div>
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{language === 'id' ? 'Jumlah' : 'Amount'}:</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(payout.amount)}</span>
+                  <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">{language === 'id' ? 'Jumlah' : 'Amount'}</span>
+                      <p className="font-bold text-gray-900 dark:text-white text-sm">{formatCurrency(payout.amount)}</p>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{language === 'id' ? 'Rekening' : 'Account'}:</span>
-                      <span className="text-gray-900">{payout.accountInfo}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{language === 'id' ? 'Request' : 'Requested'}:</span>
-                      <span className="text-gray-900">{getTimeAgo(payout.requestDate)}</span>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">{language === 'id' ? 'Rekening' : 'Account'}</span>
+                      <p className="text-gray-900 dark:text-white text-xs truncate">{payout.accountInfo}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleApprove(payout)} className="flex-1">
-                      <CheckCircle className="w-4 h-4 mr-1.5" />
+                    <Button size="sm" onClick={() => handleApprove(payout)} className="flex-1 rounded-lg">
+                      <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
                       Approve
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleReject(payout)} className="flex-1">
-                      <XCircle className="w-4 h-4 mr-1.5" />
+                    <Button size="sm" variant="outline" onClick={() => handleReject(payout)} className="flex-1 rounded-lg">
+                      <XCircle className="w-3.5 h-3.5 mr-1.5" />
                       Reject
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleViewDetails(payout)}>
-                      <Eye className="w-4 h-4" />
+                    <Button size="sm" variant="ghost" onClick={() => handleViewDetails(payout)} className="rounded-lg">
+                      <Eye className="w-4 h-4 text-gray-400" />
                     </Button>
                   </div>
                 </div>
@@ -516,11 +420,11 @@ export function AdminPayoutsPage() {
         )}
 
         {/* All Payouts Table */}
-        <Card>
-          <div className="p-4 border-b border-gray-200">
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {language === 'id' ? 'Semua Payout' : 'All Payouts'}
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {language === 'id' ? 'Semua Riwayat Payout' : 'All Payout History'}
               </h2>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -532,18 +436,17 @@ export function AdminPayoutsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={language === 'id' ? 'Cari instruktur atau ID...' : 'Search instructor or ID...'}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Status Filter */}
                 <Select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
                   options={[
                     { value: 'all', label: language === 'id' ? 'Semua Status' : 'All Status' },
                     { value: 'pending', label: language === 'id' ? 'Pending' : 'Pending' },
-                    { value: 'processing', label: language === 'id' ? 'Processing' : 'Processing' },
                     { value: 'completed', label: language === 'id' ? 'Completed' : 'Completed' },
                     { value: 'rejected', label: language === 'id' ? 'Rejected' : 'Rejected' },
                   ]}
@@ -558,69 +461,54 @@ export function AdminPayoutsPage() {
             </div>
           </div>
 
-          {/* Bulk Actions */}
-          {selectedPayouts.length > 0 && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
-              <span className="text-sm text-blue-900">
-                {selectedPayouts.length} {language === 'id' ? 'payout dipilih' : 'payouts selected'}
-              </span>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleBulkApprove}>
-                  {language === 'id' ? 'Approve Semua' : 'Approve All'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setSelectedPayouts([])}>
-                  {language === 'id' ? 'Batal' : 'Cancel'}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* DataTable */}
-          <DataTable
-            columns={columns}
-            data={filteredPayouts}
-            enableRowSelection={true}
-            enablePagination={true}
-            pageSize={10}
-            onRowSelectionChange={(selected) => setSelectedPayouts(selected.map((p: InstructorPayout) => p.id))}
-          />
+          {/* Table */}
+          <div className={cn("transition-opacity", payoutsFetching && "opacity-50")}>
+            <DataTable
+              columns={columns}
+              data={mappedPayouts}
+              enableRowSelection={true}
+              enablePagination={true}
+              pageSize={pageSize}
+              onRowSelectionChange={(selected) => setSelectedPayoutIds(selected.map((p: any) => p.id))}
+            />
+          </div>
         </Card>
 
         {/* Approval Modal */}
         <Modal
           isOpen={showApprovalModal}
-          onClose={() => setShowApprovalModal(false)}
-          title={language === 'id' ? 'Konfirmasi Approval' : 'Confirm Approval'}
+          onClose={() => !isApproving && setShowApprovalModal(false)}
+          title={language === 'id' ? 'Konfirmasi Persetujuan' : 'Confirm Approval'}
           size="md"
         >
           <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm text-green-900">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-sm text-green-900 dark:text-green-100 leading-relaxed">
                 {language === 'id'
-                  ? `Anda akan menyetujui payout sebesar ${formatCurrency(selectedPayout?.amount || 0)} untuk ${selectedPayout?.instructor.name}`
+                  ? `Anda akan menyetujui pembayaran sebesar ${formatCurrency(selectedPayout?.amount || 0)} untuk ${selectedPayout?.instructor.name}`
                   : `You are about to approve payout of ${formatCurrency(selectedPayout?.amount || 0)} for ${selectedPayout?.instructor.name}`}
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 {language === 'id' ? 'Catatan Admin (opsional)' : 'Admin Notes (optional)'}
               </label>
               <textarea
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
-                placeholder={language === 'id' ? 'Tambahkan catatan...' : 'Add notes...'}
+                placeholder={language === 'id' ? 'Tambahkan referensi transfer atau catatan...' : 'Add transfer reference or notes...'}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowApprovalModal(false)}>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowApprovalModal(false)} disabled={isApproving}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
-              <Button onClick={confirmApproval}>
-                {language === 'id' ? 'Approve Payout' : 'Approve Payout'}
+              <Button onClick={confirmApproval} isLoading={isApproving}>
+                {language === 'id' ? 'Setujui Pembayaran' : 'Approve Payout'}
               </Button>
             </div>
           </div>
@@ -629,39 +517,39 @@ export function AdminPayoutsPage() {
         {/* Rejection Modal */}
         <Modal
           isOpen={showRejectionModal}
-          onClose={() => setShowRejectionModal(false)}
-          title={language === 'id' ? 'Reject Payout' : 'Reject Payout'}
+          onClose={() => !isRejecting && setShowRejectionModal(false)}
+          title={language === 'id' ? 'Tolak Permintaan' : 'Reject Request'}
           size="md"
         >
           <div className="space-y-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-sm text-red-900">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <p className="text-sm text-red-900 dark:text-red-100 leading-relaxed">
                 {language === 'id'
-                  ? `Anda akan menolak payout sebesar ${formatCurrency(selectedPayout?.amount || 0)} dari ${selectedPayout?.instructor.name}`
-                  : `You are about to reject payout of ${formatCurrency(selectedPayout?.amount || 0)} from ${selectedPayout?.instructor.name}`}
+                  ? `Anda akan menolak permintaan pembayaran sebesar ${formatCurrency(selectedPayout?.amount || 0)} dari ${selectedPayout?.instructor.name}`
+                  : `You are about to reject request of ${formatCurrency(selectedPayout?.amount || 0)} from ${selectedPayout?.instructor.name}`}
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 {language === 'id' ? 'Alasan Penolakan' : 'Rejection Reason'} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder={language === 'id' ? 'Masukkan alasan...' : 'Enter reason...'}
+                placeholder={language === 'id' ? 'Jelaskan alasan penolakan...' : 'Explain reason for rejection...'}
                 rows={3}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setShowRejectionModal(false)}>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowRejectionModal(false)} disabled={isRejecting}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
-              <Button variant="danger" onClick={confirmRejection} disabled={!rejectionReason.trim()}>
-                {language === 'id' ? 'Reject Payout' : 'Reject Payout'}
+              <Button variant="danger" onClick={confirmRejection} disabled={!rejectionReason.trim() || isRejecting} isLoading={isRejecting}>
+                {language === 'id' ? 'Tolak Permintaan' : 'Reject Payout'}
               </Button>
             </div>
           </div>
@@ -671,76 +559,95 @@ export function AdminPayoutsPage() {
         <Modal
           isOpen={showDetailModal}
           onClose={() => setShowDetailModal(false)}
-          title={language === 'id' ? 'Detail Payout' : 'Payout Details'}
+          title={language === 'id' ? 'Rincian Penarikan' : 'Withdrawal Details'}
           size="lg"
         >
           {selectedPayout && (
-            <div className="space-y-6">
+            <div className="space-y-6 py-2">
               {/* Instructor Info */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-3">
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
                   {language === 'id' ? 'Informasi Instruktur' : 'Instructor Information'}
                 </h3>
                 <div className="flex items-center gap-4">
                   <Avatar src={selectedPayout.instructor.avatar} name={selectedPayout.instructor.name} size="lg" />
-                  <div>
-                    <p className="font-semibold text-gray-900">{selectedPayout.instructor.name}</p>
-                    <p className="text-sm text-gray-500">{selectedPayout.instructor.email}</p>
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 dark:text-white text-base truncate">{selectedPayout.instructor.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{selectedPayout.instructor.email}</p>
                   </div>
                 </div>
               </div>
 
               {/* Payout Info */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-3">
-                  {language === 'id' ? 'Detail Payout' : 'Payout Details'}
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{language === 'id' ? 'ID Payout' : 'Payout ID'}:</span>
-                    <span className="font-mono font-medium">{selectedPayout.payoutId}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                   <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    {language === 'id' ? 'Informasi Penarikan' : 'Payout Info'}
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center group">
+                      <span className="text-sm text-gray-500">{language === 'id' ? 'ID Transaksi' : 'Transaction ID'}:</span>
+                      <span className="text-sm font-mono font-medium text-gray-900 dark:text-white px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">{selectedPayout.payoutId}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">{language === 'id' ? 'Status' : 'Status'}:</span>
+                      <div>
+                        {(() => {
+                          const config = getStatusConfig(selectedPayout.status);
+                          const Icon = config.icon;
+                          return (
+                            <Badge variant={config.variant} size="sm">
+                              <Icon className="w-3 h-3 mr-1" />
+                              {config.label}
+                            </Badge>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">{language === 'id' ? 'Tanggal Request' : 'Requested At'}:</span>
+                      <span className="text-sm text-gray-900 dark:text-white">{new Date(selectedPayout.requestDate).toLocaleString('id-ID')}</span>
+                    </div>
+                    {selectedPayout.processedDate && (
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-500">{language === 'id' ? 'Tanggal Proses' : 'Processed At'}:</span>
+                            <span className="text-sm text-gray-900 dark:text-white">{new Date(selectedPayout.processedDate).toLocaleString('id-ID')}</span>
+                        </div>
+                    )}
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{language === 'id' ? 'Jumlah' : 'Amount'}:</span>
-                    <span className="font-semibold">{formatCurrency(selectedPayout.amount)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{language === 'id' ? 'Metode' : 'Method'}:</span>
-                    <span>{selectedPayout.accountInfo}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{language === 'id' ? 'Status' : 'Status'}:</span>
-                    <div>
-                      {(() => {
-                        const config = getStatusConfig(selectedPayout.status);
-                        const Icon = config.icon;
-                        return (
-                          <Badge variant={config.variant} size="sm">
-                            <Icon className="w-3 h-3 mr-1" />
-                            {config.label}
-                          </Badge>
-                        );
-                      })()}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                    {language === 'id' ? 'Rincian Pembayaran' : 'Payment Details'}
+                  </h3>
+                   <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">{language === 'id' ? 'Metode' : 'Method'}:</span>
+                      <span className="text-sm text-gray-900 dark:text-white uppercase font-medium">{selectedPayout.method.replace('_', ' ')}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">{language === 'id' ? 'Informasi Akun' : 'Account Info'}:</span>
+                      <span className="text-sm text-gray-900 dark:text-white font-medium">{selectedPayout.accountInfo}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                      <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">{language === 'id' ? 'Jumlah Bersih' : 'Net Amount'}:</span>
+                      <span className="text-lg font-bold text-blue-900 dark:text-blue-100">{formatCurrency(selectedPayout.amount)}</span>
                     </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{language === 'id' ? 'Tanggal Request' : 'Request Date'}:</span>
-                    <span>{new Date(selectedPayout.requestDate).toLocaleString('id-ID')}</span>
-                  </div>
-                  {selectedPayout.processedDate && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{language === 'id' ? 'Tanggal Proses' : 'Processed Date'}:</span>
-                      <span>{new Date(selectedPayout.processedDate).toLocaleString('id-ID')}</span>
-                    </div>
-                  )}
-                  {selectedPayout.notes && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{language === 'id' ? 'Catatan' : 'Notes'}:</span>
-                      <span>{selectedPayout.notes}</span>
-                    </div>
-                  )}
                 </div>
               </div>
+
+              {selectedPayout.notes && (
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                  <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    {language === 'id' ? 'Catatan / Alasan' : 'Notes / Reason'}
+                  </h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 italic leading-relaxed">
+                    "{selectedPayout.notes}"
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </Modal>

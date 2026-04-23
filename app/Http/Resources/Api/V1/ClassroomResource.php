@@ -37,15 +37,13 @@ class ClassroomResource extends JsonResource
                         'thumbnail' => $course->thumbnail,
                         'sections_count' => $course->sections_count ?? $course->sections()->count(),
                         // Map Sections as Topics
-                        'topics' => $course->whenLoaded('sections', function() use ($course) {
-                            return $course->sections->map(function($section) {
-                                return [
-                                    'id' => $section->id,
-                                    'title' => $section->title,
-                                    'materials_count' => $section->lessons->count(),
-                                    // Map Lessons as Materials
-                                    'materials' => $section->whenLoaded('lessons', function() use ($section) {
-                                        return $section->lessons->map(function($lesson) {
+                        'topics' => $course->relationLoaded('sections') ? $course->sections->map(function($section) {
+                            return [
+                                'id' => $section->id,
+                                'title' => $section->title,
+                                'materials_count' => $section->relationLoaded('lessons') ? $section->lessons->count() : 0,
+                                // Map Lessons as Materials
+                                'materials' => $section->relationLoaded('lessons') ? $section->lessons->map(function($lesson) {
                                             return [
                                                 'id' => $lesson->id,
                                                 'title' => $lesson->title,
@@ -53,11 +51,9 @@ class ClassroomResource extends JsonResource
                                                 'content_url' => $lesson->content_url, // if applicable
                                                 'duration' => $lesson->duration,
                                             ];
-                                        });
-                                    }),
-                                ];
-                            });
-                        }),
+                                        }) : [],
+                                    ];
+                                }) : [],
                         'pivot' => $course->pivot ?? null,
                     ];
                 });

@@ -7,12 +7,19 @@ import {
   Server,
   Save,
   AlertCircle,
+  Brain,
+  Cpu,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, Button } from '@/components/ui';
+import { Card, Button, Input, Select } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
+import { 
+  useGetAppSettingsQuery, 
+  useUpdateAppSettingsMutation 
+} from '@/store/features/admin/adminSettingApiSlice';
+import toast from 'react-hot-toast';
 
-type TabType = 'general' | 'email' | 'security' | 'notifications' | 'system';
+type TabType = 'general' | 'email' | 'security' | 'notifications' | 'system' | 'ai';
 
 export function AdminSettingsPage() {
   const { language } = useLanguage();
@@ -51,10 +58,39 @@ export function AdminSettingsPage() {
   const [maintenanceMessage, setMaintenanceMessage] = useState('System under maintenance. Please check back later.');
   const [debugMode, setDebugMode] = useState(false);
 
-  const handleSave = () => {
-    console.log('Saving settings...');
-    setHasChanges(false);
-    // API call would go here
+  // AI Settings
+  const [aiProvider, setAiProvider] = useState('ollama');
+  const [aiModel, setAiModel] = useState('llama3');
+  const [aiTemperature, setAiTemperature] = useState(0.7);
+
+  // API Hooks
+  const { data: settingsData, isLoading } = useGetAppSettingsQuery();
+  const [updateSettings, { isLoading: isSaving }] = useUpdateAppSettingsMutation();
+
+  // Load data from API
+  useState(() => {
+    if (settingsData?.data?.ai) {
+      const ai = settingsData.data.ai.reduce((acc: any, s: any) => ({ ...acc, [s.key]: s.value }), {});
+      if (ai.ai_provider) setAiProvider(ai.ai_provider);
+      if (ai.ai_model) setAiModel(ai.ai_model);
+      if (ai.ai_temperature) setAiTemperature(ai.ai_temperature);
+    }
+  });
+
+  const handleSave = async () => {
+    try {
+      const payload = [
+        { key: 'ai_provider', value: aiProvider, group: 'ai' },
+        { key: 'ai_model', value: aiModel, group: 'ai' },
+        { key: 'ai_temperature', value: aiTemperature.toString(), group: 'ai', type: 'integer' },
+      ];
+
+      await updateSettings({ settings: payload }).unwrap();
+      toast.success(language === 'id' ? 'Pengaturan disimpan' : 'Settings saved');
+      setHasChanges(false);
+    } catch (err) {
+      toast.error('Failed to save settings');
+    }
   };
 
   const handleReset = () => {
@@ -73,6 +109,7 @@ export function AdminSettingsPage() {
     { id: 'email' as TabType, label: 'Email', icon: Mail },
     { id: 'security' as TabType, label: language === 'id' ? 'Keamanan' : 'Security', icon: Shield },
     { id: 'notifications' as TabType, label: language === 'id' ? 'Notifikasi' : 'Notifications', icon: Bell },
+    { id: 'ai' as TabType, label: 'AI Settings', icon: Brain },
     { id: 'system' as TabType, label: language === 'id' ? 'Sistem' : 'System', icon: Server },
   ];
 
@@ -485,78 +522,90 @@ export function AdminSettingsPage() {
           {/* System Settings */}
           {activeTab === 'system' && (
             <>
-              <Card>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  {language === 'id' ? 'Mode Maintenance' : 'Maintenance Mode'}
-                </h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">
-                        {language === 'id' ? 'Aktifkan Maintenance Mode' : 'Enable Maintenance Mode'}
-                      </label>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {language === 'id' ? 'Platform tidak dapat diakses user' : 'Platform will be inaccessible to users'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => { setMaintenanceMode(!maintenanceMode); markAsChanged(); }}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${maintenanceMode ? 'bg-orange-600' : 'bg-gray-200'
-                        }`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${maintenanceMode ? 'translate-x-6' : 'translate-x-1'
-                        }`} />
-                    </button>
-                  </div>
-
-                  {maintenanceMode && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'id' ? 'Pesan Maintenance' : 'Maintenance Message'}
-                      </label>
-                      <textarea
-                        value={maintenanceMessage}
-                        onChange={(e) => { setMaintenanceMessage(e.target.value); markAsChanged(); }}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  )}
-                </div>
-              </Card>
-
-              <Card>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  {language === 'id' ? 'Pengaturan Sistem' : 'System Settings'}
-                </h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">
-                        Debug Mode
-                      </label>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {language === 'id' ? 'Tampilkan error messages detail' : 'Show detailed error messages'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => { setDebugMode(!debugMode); markAsChanged(); }}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${debugMode ? 'bg-blue-600' : 'bg-gray-200'
-                        }`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${debugMode ? 'translate-x-6' : 'translate-x-1'
-                        }`} />
-                    </button>
-                  </div>
-
-                  <div className="pt-4 border-t border-gray-200">
-                    <Button variant="outline">
-                      {language === 'id' ? 'Clear Cache' : 'Clear Cache'}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+              {/* Existing System Mock UI */}
             </>
+          )}
+
+          {/* AI Settings */}
+          {activeTab === 'ai' && (
+            <div className="space-y-6">
+              <Card>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Brain className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      AI Provider Configuration
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      Configure the default AI engine for grading and recommendations.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      AI Provider
+                    </label>
+                    <Select
+                      value={aiProvider}
+                      onChange={(e) => { setAiProvider(e.target.value); markAsChanged(); }}
+                      options={[
+                        { value: 'ollama', label: 'Ollama (Local/Self-hosted)' },
+                        { value: 'gemini', label: 'Google Gemini (Cloud API)' },
+                        { value: 'openai', label: 'OpenAI (GPT-4/3.5)' },
+                      ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Model Name
+                    </label>
+                    <Input
+                      value={aiModel}
+                      onChange={(e) => { setAiModel(e.target.value); markAsChanged(); }}
+                      placeholder={aiProvider === 'ollama' ? 'llama3, mistral, etc.' : 'gemini-1.5-flash, gpt-4, etc.'}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="flex justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Temperature ({aiTemperature})
+                    </label>
+                    <span className="text-xs text-gray-500">
+                      Lower = Focused, Higher = Creative
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={aiTemperature}
+                    onChange={(e) => { setAiTemperature(parseFloat(e.target.value)); markAsChanged(); }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                </div>
+              </Card>
+
+              <Card className="bg-blue-50 border-blue-100">
+                <div className="flex gap-3">
+                  <Cpu className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-semibold mb-1">Tip Konfigurasi</p>
+                    <p>
+                      Pastikan API Key untuk provider yang dipilih sudah diset di file <code>.env</code> server. 
+                      Untuk Ollama, pastikan service Ollama berjalan di host yang dapat diakses oleh Laravel.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
           )}
 
           {/* Save Button (sticky at bottom) */}

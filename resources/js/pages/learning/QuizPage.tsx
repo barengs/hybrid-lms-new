@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -100,21 +100,49 @@ const mockQuiz: Quiz = {
   ],
 };
 
+import { useGetCourseContentQuery, useGetLessonDetailQuery, useMarkLessonCompleteMutation } from '@/store/features/student/studentApiSlice';
+import { toast } from 'react-hot-toast';
+
 export function QuizPage() {
-  const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
+  const { slug = '', quizId } = useParams<{ slug: string; quizId: string }>();
+  const numericQuizId = Number(quizId);
   const { language } = useLanguage();
   const navigate = useNavigate();
+
+  // API Queries
+  const { data: course, isLoading: isLoadingCourse } = useGetCourseContentQuery(slug, { skip: !slug });
+  const { data: remoteQuiz, isLoading: isLoadingQuiz, error } = useGetLessonDetailQuery(
+    { slug, lessonId: numericQuizId },
+    { skip: !slug || isNaN(numericQuizId) }
+  );
 
   const [quizState, setQuizState] = useState<QuizState>('intro');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
-  const [timeRemaining, setTimeRemaining] = useState(mockQuiz.timeLimit * 60);
+  const [timeRemaining, setTimeRemaining] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
-  // In real app, fetch quiz by id
-  const quiz = mockQuiz;
-  console.log('Course ID:', courseId, 'Quiz ID:', quizId);
+  const [markComplete, { isLoading: isMarkingComplete }] = useMarkLessonCompleteMutation();
+
+  // Parse quiz data from content JSON
+  const quiz = useMemo(() => {
+    if (!remoteQuiz?.content) return null;
+    try {
+      return JSON.parse(remoteQuiz.content);
+    } catch (e) {
+      console.error('Failed to parse quiz JSON', e);
+      return null;
+    }
+  }, [remoteQuiz]);
+
+  const totalQuestions = quiz?.questions?.length || 0;
+
+  useEffect(() => {
+    if (quiz && timeRemaining === 0) {
+      setTimeRemaining(quiz.timeLimit * 60);
+    }
+  }, [quiz, timeRemaining]);
 
   // Timer
   useEffect(() => {
@@ -132,6 +160,33 @@ export function QuizPage() {
     }
     return () => clearInterval(timer);
   }, [quizState, timeRemaining]);
+
+  if (isLoadingCourse || isLoadingQuiz) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-2xl mx-auto py-16 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">{language === 'id' ? 'Memuat kuis...' : 'Loading quiz...'}</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !quiz) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-2xl mx-auto py-16 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {language === 'id' ? 'Kuis tidak ditemukan' : 'Quiz not found'}
+          </h2>
+          <Button onClick={() => navigate(`/learn/${slug}`)}>
+            {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Curriculum'}
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -176,9 +231,18 @@ export function QuizPage() {
     setCurrentQuestionIndex(index);
   };
 
-  const handleSubmit = () => {
-    setQuizState('result');
-    setShowResults(true);
+  const handleSubmit = async () => {
+    try {
+      await markComplete({ slug, lessonId: numericQuizId }).unwrap();
+      setQuizState('result');
+      setShowResults(true);
+    } catch (err) {
+      console.error('Failed to submit quiz:', err);
+      toast.error(language === 'id' ? 'Gagal menyimpan progres kuis' : 'Failed to save quiz progress');
+      // If fails, still show result but warn
+      setQuizState('result');
+      setShowResults(true);
+    }
   };
 
   const handleStartQuiz = () => {
@@ -197,8 +261,9 @@ export function QuizPage() {
 
   // Calculate score
   const calculateScore = () => {
+    if (!quiz) return 0;
     let correct = 0;
-    quiz.questions.forEach((question) => {
+    quiz.questions.forEach((question: Question) => {
       if (answers[question.id] === question.correctOptionId) {
         correct++;
       }
@@ -215,7 +280,7 @@ export function QuizPage() {
       <DashboardLayout>
         <div className="max-w-2xl mx-auto">
           <Link
-            to={`/learn/${courseId}`}
+            to={`/learn/${slug}`}
             className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -318,19 +383,19 @@ export function QuizPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-500">{language === 'id' ? 'Benar' : 'Correct'}:</span>
                   <span className="font-medium text-green-600">
-                    {quiz.questions.filter((q) => answers[q.id] === q.correctOptionId).length}
+                    {quiz.questions.filter((q: Question) => answers[q.id] === q.correctOptionId).length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">{language === 'id' ? 'Salah' : 'Wrong'}:</span>
                   <span className="font-medium text-red-600">
-                    {quiz.questions.filter((q) => answers[q.id] && answers[q.id] !== q.correctOptionId).length}
+                    {quiz.questions.filter((q: Question) => answers[q.id] && answers[q.id] !== q.correctOptionId).length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">{language === 'id' ? 'Tidak Dijawab' : 'Unanswered'}:</span>
                   <span className="font-medium text-gray-600">
-                    {quiz.questions.filter((q) => !answers[q.id]).length}
+                    {quiz.questions.filter((q: Question) => !answers[q.id]).length}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -346,7 +411,7 @@ export function QuizPage() {
                 {language === 'id' ? 'Tinjauan Jawaban' : 'Answer Review'}
               </h3>
               <div className="space-y-4">
-                {quiz.questions.map((question, index) => {
+                {quiz.questions.map((question: Question, index: number) => {
                   const userAnswer = answers[question.id];
                   const isCorrect = userAnswer === question.correctOptionId;
                   return (
@@ -389,7 +454,7 @@ export function QuizPage() {
                 </Button>
               )}
               <Link
-                to={`/learn/${courseId}`}
+                to={`/learn/${slug}`}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-all"
               >
                 {language === 'id' ? 'Kembali ke Kursus' : 'Back to Course'}
@@ -450,7 +515,7 @@ export function QuizPage() {
 
                 {/* Options */}
                 <div className="space-y-3">
-                  {currentQuestion.options.map((option) => (
+                  {currentQuestion.options.map((option: { id: string; text: string }) => (
                     <button
                       key={option.id}
                       onClick={() => handleSelectAnswer(option.id)}
@@ -510,7 +575,7 @@ export function QuizPage() {
                 {language === 'id' ? 'Navigasi Soal' : 'Question Navigator'}
               </h3>
               <div className="grid grid-cols-5 gap-2">
-                {quiz.questions.map((question, index) => {
+                {quiz.questions.map((question: Question, index: number) => {
                   const isAnswered = !!answers[question.id];
                   const isFlagged = flaggedQuestions.has(question.id);
                   const isCurrent = index === currentQuestionIndex;

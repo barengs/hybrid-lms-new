@@ -14,282 +14,115 @@ import {
   Filter,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Select, DataTable, Avatar } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Select, DataTable, Avatar, LoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
-import { formatNumber, formatCurrency, getTimeAgo } from '@/lib/utils';
+import { cn, formatNumber, formatCurrency, getTimeAgo } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
 import { Dropdown } from '@/components/ui';
-
-// Course interface
-interface Course {
-  id: string;
-  title: string;
-  thumbnail: string;
-  instructor: {
-    id: string;
-    name: string;
-    avatar?: string;
-  };
-  category: string;
-  studentsEnrolled: number;
-  price: number;
-  status: 'draft' | 'pending' | 'published' | 'revision' | 'rejected';
-  submittedAt?: string;
-  publishedAt?: string;
-  createdAt: string;
-}
-
-// Mock courses data
-const mockCourses: Course[] = [
-  {
-    id: 'course-1',
-    title: 'Advanced React Development',
-    thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=300',
-    instructor: {
-      id: 'inst-1',
-      name: 'Siti Nurhaliza',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-    },
-    category: 'Web Development',
-    studentsEnrolled: 456,
-    price: 299000,
-    status: 'published',
-    publishedAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-    createdAt: new Date(Date.now() - 86400000 * 60).toISOString(),
-  },
-  {
-    id: 'course-2',
-    title: 'TypeScript Mastery',
-    thumbnail: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=300',
-    instructor: {
-      id: 'inst-1',
-      name: 'Siti Nurhaliza',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-    },
-    category: 'Programming',
-    studentsEnrolled: 382,
-    price: 249000,
-    status: 'published',
-    publishedAt: new Date(Date.now() - 86400000 * 20).toISOString(),
-    createdAt: new Date(Date.now() - 86400000 * 45).toISOString(),
-  },
-  {
-    id: 'course-3',
-    title: 'UI/UX Design Fundamentals',
-    thumbnail: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=300',
-    instructor: {
-      id: 'inst-2',
-      name: 'Dewi Lestari',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dewi',
-    },
-    category: 'Design',
-    studentsEnrolled: 287,
-    price: 199000,
-    status: 'pending',
-    submittedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-  },
-  {
-    id: 'course-4',
-    title: 'Next.js Full Stack Development',
-    thumbnail: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=300',
-    instructor: {
-      id: 'inst-3',
-      name: 'Rudi Hermawan',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rudi',
-    },
-    category: 'Web Development',
-    studentsEnrolled: 0,
-    price: 349000,
-    status: 'pending',
-    submittedAt: new Date(Date.now() - 86400000).toISOString(),
-    createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-  },
-  {
-    id: 'course-5',
-    title: 'Python for Data Science',
-    thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=300',
-    instructor: {
-      id: 'inst-2',
-      name: 'Dewi Lestari',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dewi',
-    },
-    category: 'Data Science',
-    studentsEnrolled: 0,
-    price: 299000,
-    status: 'revision',
-    submittedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    createdAt: new Date(Date.now() - 86400000 * 25).toISOString(),
-  },
-  {
-    id: 'course-6',
-    title: 'Mobile App Development with Flutter',
-    thumbnail: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=300',
-    instructor: {
-      id: 'inst-4',
-      name: 'Budi Santoso',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BudiS',
-    },
-    category: 'Mobile Development',
-    studentsEnrolled: 0,
-    price: 399000,
-    status: 'draft',
-    createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-  },
-];
+import { useGetAdminCoursesQuery, useGetAdminCourseStatsQuery, type AdminCourse as Course } from '@/store/api/courseManagementApiSlice';
+import { useGetCategoriesQuery, type Category } from '@/store/features/category/categoryApiSlice';
 
 export function CoursesManagementPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
+  
+  // State for filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedCourses, setSelectedCourses] = useState<Course[]>([]);
 
-  // Calculate stats
-  const stats = useMemo(() => {
-    const total = mockCourses.length;
-    const pending = mockCourses.filter(c => c.status === 'pending').length;
-    const published = mockCourses.filter(c => c.status === 'published').length;
-    const rejected = mockCourses.filter(c => c.status === 'rejected').length;
-    const revision = mockCourses.filter(c => c.status === 'revision').length;
-    const totalStudents = mockCourses.reduce((sum, c) => sum + c.studentsEnrolled, 0);
+  // API Queries
+  const { data: statsData, isLoading: statsLoading } = useGetAdminCourseStatsQuery();
+  const { data: coursesData, isLoading: coursesLoading } = useGetAdminCoursesQuery({
+    page: currentPage,
+    per_page: pageSize,
+    search: searchQuery,
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    category_id: categoryFilter === 'all' ? undefined : categoryFilter,
+  });
+  const { data: categoriesData } = useGetCategoriesQuery();
 
-    return { total, pending, published, rejected, revision, totalStudents };
-  }, []);
+  const stats = statsData?.data || { total: 0, pending: 0, published: 0, rejected: 0, revision: 0, totalStudents: 0 };
+  const courses = coursesData?.data?.data || [];
+  const categories = categoriesData || [];
 
-  // Filter courses
-  const filteredCourses = useMemo(() => {
-    let courses = [...mockCourses];
-
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      courses = courses.filter(c =>
-        c.title.toLowerCase().includes(query) ||
-        c.instructor.name.toLowerCase().includes(query) ||
-        c.category.toLowerCase().includes(query)
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      courses = courses.filter(c => c.status === statusFilter);
-    }
-
-    // Category filter
-    if (categoryFilter !== 'all') {
-      courses = courses.filter(c => c.category === categoryFilter);
-    }
-
-    return courses;
-  }, [searchQuery, statusFilter, categoryFilter]);
-
-  // Pending courses
-  const pendingCourses = useMemo(() => {
-    return mockCourses.filter(c => c.status === 'pending');
-  }, []);
-
-  // Get unique categories
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(mockCourses.map(c => c.category)));
-    return cats.sort();
-  }, []);
+  // Pending courses for the highlight section
+  const { data: allPendingData } = useGetAdminCoursesQuery({ status: 'pending', per_page: 5 });
+  const pendingCourses = allPendingData?.data?.data || [];
 
   const getStatusBadge = (status: Course['status']) => {
     const config = {
-      draft: { variant: 'secondary' as const, label: 'Draft', icon: Clock },
-      pending: { variant: 'warning' as const, label: language === 'id' ? 'Menunggu Review' : 'Pending Review', icon: Clock },
-      published: { variant: 'success' as const, label: language === 'id' ? 'Publish' : 'Published', icon: CheckCircle },
-      revision: { variant: 'primary' as const, label: language === 'id' ? 'Perlu Revisi' : 'Needs Revision', icon: Filter },
-      rejected: { variant: 'danger' as const, label: language === 'id' ? 'Ditolak' : 'Rejected', icon: XCircle },
+      draft: { variant: 'secondary' as const, label: 'Draft', icon: Clock, colorClass: 'text-gray-600 bg-gray-100 dark:bg-gray-800 dark:text-gray-400' },
+      pending: { variant: 'warning' as const, label: language === 'id' ? 'Menunggu Review' : 'Pending Review', icon: Clock, colorClass: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400' },
+      published: { variant: 'success' as const, label: language === 'id' ? 'Publish' : 'Published', icon: CheckCircle, colorClass: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400' },
+      revision: { variant: 'primary' as const, label: language === 'id' ? 'Perlu Revisi' : 'Needs Revision', icon: Filter, colorClass: 'text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400' },
+      rejected: { variant: 'danger' as const, label: language === 'id' ? 'Ditolak' : 'Rejected', icon: XCircle, colorClass: 'text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400' },
     };
-    const { variant, label, icon: Icon } = config[status];
+    const current = config[status] || config.draft;
+    const { label, icon: Icon, colorClass } = current;
     return (
-      <Badge variant={variant} size="sm">
-        <Icon className="w-3 h-3 mr-1" />
+      <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", colorClass)}>
+        <Icon className="w-3.5 h-3.5" />
         {label}
-      </Badge>
+      </div>
     );
   };
 
   const getCourseActions = (course: Course): DropdownItem[] => {
-    const actions: DropdownItem[] = [
+    return [
       {
-        label: language === 'id' ? 'Review Kursus' : 'Review Course',
+        label: language === 'id' ? 'Review & Detil' : 'Review & Detail',
         icon: <Eye className="w-4 h-4" />,
         onClick: () => navigate(`/admin/courses/${course.id}/review`),
       },
     ];
-
-    if (course.status === 'pending') {
-      actions.push({
-        label: language === 'id' ? 'Setujui' : 'Approve',
-        icon: <CheckCircle className="w-4 h-4" />,
-        onClick: () => console.log('Approve course:', course.id),
-      });
-      actions.push({
-        label: language === 'id' ? 'Tolak' : 'Reject',
-        icon: <XCircle className="w-4 h-4" />,
-        onClick: () => console.log('Reject course:', course.id),
-      });
-    }
-
-    return actions;
   };
 
   // Column definitions
   const columns = useMemo<ColumnDef<Course>[]>(
     () => [
       {
-        id: 'select',
-        header: ({ table }) => (
-          <input
-            type="checkbox"
-            checked={table.getIsAllPageRowsSelected()}
-            onChange={table.getToggleAllPageRowsSelectedHandler()}
-            className="rounded border-gray-300"
-          />
-        ),
-        cell: ({ row }) => (
-          <input
-            type="checkbox"
-            checked={row.getIsSelected()}
-            onChange={row.getToggleSelectedHandler()}
-            className="rounded border-gray-300"
-          />
-        ),
-        enableSorting: false,
-      },
-      {
         accessorKey: 'title',
         header: language === 'id' ? 'Kursus' : 'Course',
         cell: ({ row }) => {
           const course = row.original;
           return (
-            <div className="flex items-center gap-3">
-              <img
-                src={course.thumbnail}
-                alt={course.title}
-                className="w-16 h-10 object-cover rounded"
-              />
-              <div>
-                <p className="font-medium text-gray-900 text-sm">{course.title}</p>
-                <p className="text-xs text-gray-500">{course.category}</p>
+            <div className="flex items-center gap-4 py-1">
+              <div className="relative shrink-0">
+                <img
+                  src={course.thumbnail || 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=300'}
+                  alt={course.title}
+                  className="w-20 h-12 object-cover rounded-lg shadow-sm ring-1 ring-gray-200 dark:ring-gray-700"
+                />
+                <div className="absolute -top-2 -right-2">
+                   {course.studentsEnrolled > 100 && <Badge variant="success" size="sm" className="px-1 shadow-sm">Hot</Badge>}
+                </div>
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 hover:text-blue-600 transition-colors cursor-pointer" onClick={() => navigate(`/admin/courses/${course.id}/review`)}>
+                  {course.title}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">{course.category?.name}</p>
               </div>
             </div>
           );
         },
       },
       {
-        accessorKey: 'instructor.name',
+        accessorKey: 'instructor',
         header: language === 'id' ? 'Instruktur' : 'Instructor',
         cell: ({ row }) => {
           const instructor = row.original.instructor;
           return (
-            <div className="flex items-center gap-2">
-              <Avatar src={instructor.avatar} name={instructor.name} size="sm" />
-              <span className="text-sm text-gray-900">{instructor.name}</span>
+            <div className="flex items-center gap-2.5">
+              <Avatar src={instructor?.avatar} name={instructor?.name} size="sm" className="ring-2 ring-white dark:ring-gray-800" />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{instructor?.name}</span>
+                <span className="text-[10px] text-gray-400 leading-none">{instructor?.email}</span>
+              </div>
             </div>
           );
         },
@@ -298,9 +131,11 @@ export function CoursesManagementPage() {
         accessorKey: 'studentsEnrolled',
         header: language === 'id' ? 'Siswa' : 'Students',
         cell: ({ row }) => (
-          <div className="flex items-center gap-1 text-sm">
-            <Users className="w-4 h-4 text-gray-400" />
-            <span className="font-medium">{formatNumber(row.original.studentsEnrolled)}</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+              <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <span className="font-semibold text-gray-900 dark:text-white text-sm">{formatNumber(row.original.studentsEnrolled || 0)}</span>
           </div>
         ),
       },
@@ -308,7 +143,7 @@ export function CoursesManagementPage() {
         accessorKey: 'price',
         header: language === 'id' ? 'Harga' : 'Price',
         cell: ({ row }) => (
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-sm font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-900/50 px-2.5 py-1 rounded-lg border border-gray-100 dark:border-gray-800 inline-block">
             {formatCurrency(row.original.price)}
           </div>
         ),
@@ -319,27 +154,25 @@ export function CoursesManagementPage() {
         cell: ({ row }) => getStatusBadge(row.original.status),
       },
       {
-        accessorKey: 'submittedAt',
+        accessorKey: 'created_at',
         header: language === 'id' ? 'Disubmit' : 'Submitted',
-        cell: ({ row }) => {
-          const date = row.original.submittedAt || row.original.publishedAt;
-          return date ? (
-            <div className="text-xs text-gray-700">
-              {getTimeAgo(date)}
-            </div>
-          ) : (
-            <span className="text-xs text-gray-400">-</span>
-          );
-        },
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{getTimeAgo(row.original.created_at)}</span>
+            <span className="text-[10px] text-gray-400">
+               {new Date(row.original.created_at).toLocaleDateString()}
+            </span>
+          </div>
+        ),
       },
       {
         id: 'actions',
-        header: language === 'id' ? 'Aksi' : 'Actions',
+        header: '',
         cell: ({ row }) => (
           <Dropdown
             trigger={
-              <button className="p-2 hover:bg-gray-100 rounded-lg">
-                <MoreVertical className="w-5 h-5 text-gray-400" />
+              <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors outline-none text-gray-400 hover:text-gray-600">
+                <MoreVertical className="w-5 h-5" />
               </button>
             }
             items={getCourseActions(row.original)}
@@ -348,123 +181,96 @@ export function CoursesManagementPage() {
         enableSorting: false,
       },
     ],
-    [language]
+    [language, navigate]
   );
+
+  if (statsLoading || coursesLoading) return <LoadingScreen />;
+
+  const statsItems = [
+    { label: language === 'id' ? 'Total Kursus' : 'Total Courses', value: stats.total, icon: BookOpen, color: 'blue', gradient: 'from-blue-500/10 to-indigo-500/10', iconColor: 'text-blue-600' },
+    { label: language === 'id' ? 'Antrian Review' : 'Review Queue', value: stats.pending, icon: Clock, color: 'amber', gradient: 'from-amber-500/10 to-orange-500/10', iconColor: 'text-amber-600' },
+    { label: language === 'id' ? 'Terpublikasi' : 'Published', value: stats.published, icon: CheckCircle, color: 'emerald', gradient: 'from-emerald-500/10 to-teal-500/10', iconColor: 'text-emerald-600' },
+    { label: language === 'id' ? 'Butuh Revisi' : 'Needs Revision', value: stats.revision, icon: Filter, color: 'violet', gradient: 'from-violet-500/10 to-purple-500/10', iconColor: 'text-violet-600' },
+    { label: language === 'id' ? 'Ditolak' : 'Rejected', value: stats.rejected, icon: XCircle, color: 'rose', gradient: 'from-rose-500/10 to-red-500/10', iconColor: 'text-rose-600' },
+    { label: language === 'id' ? 'Total Siswa' : 'Total Students', value: stats.totalStudents, icon: Users, color: 'sky', gradient: 'from-sky-500/10 to-cyan-500/10', iconColor: 'text-sky-600' },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">
+      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+        {/* Header Section */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {language === 'id' ? 'Manajemen Kursus' : 'Course Management'}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             {language === 'id'
               ? 'Review dan kelola semua kursus platform'
               : 'Review and manage all platform courses'}
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.total)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Total' : 'Total'}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.pending)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Review' : 'Review'}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.published)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Publish' : 'Published'}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Filter className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.revision)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Revisi' : 'Revision'}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <XCircle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.rejected)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Ditolak' : 'Rejected'}</p>
-            </div>
-          </Card>
-
-          <Card className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalStudents)}</p>
-              <p className="text-xs text-gray-500">{language === 'id' ? 'Siswa' : 'Students'}</p>
-            </div>
-          </Card>
+        {/* Stats Grid - Matching Instructor Style */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+          {statsItems.map((item, i) => (
+            <Card key={i} className="flex items-center gap-3">
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", 
+                item.color === 'blue' && "bg-blue-100",
+                item.color === 'amber' && "bg-yellow-100",
+                item.color === 'emerald' && "bg-green-100",
+                item.color === 'violet' && "bg-purple-100",
+                item.color === 'rose' && "bg-red-100",
+                item.color === 'sky' && "bg-sky-100",
+              )}>
+                <item.icon className={cn("w-5 h-5", 
+                  item.color === 'blue' && "text-blue-600",
+                  item.color === 'amber' && "text-yellow-600",
+                  item.color === 'emerald' && "text-green-600",
+                  item.color === 'violet' && "text-purple-600",
+                  item.color === 'rose' && "text-red-600",
+                  item.color === 'sky' && "text-sky-600",
+                )} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white leading-tight truncate">{formatNumber(item.value)}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.label}</p>
+              </div>
+            </Card>
+          ))}
         </div>
 
-        {/* Pending Review Section */}
+        {/* Action Call for Pending Reviews - Adjusted for consistency */}
         {pendingCourses.length > 0 && (
-          <Card className="mb-6 bg-yellow-50 border-yellow-200">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-yellow-600" />
+          <Card className="mb-6 bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-900/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-yellow-800 dark:text-yellow-400">
+                <Clock className="w-5 h-5" />
                 {language === 'id' ? 'Menunggu Review' : 'Pending Review'}
                 <Badge variant="warning">{pendingCourses.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {pendingCourses.map((course) => (
-                  <div key={course.id} className="flex items-center justify-between bg-white p-3 rounded-lg">
+              <div className="space-y-2">
+                {pendingCourses.slice(0, 3).map((course: Course) => (
+                  <div key={course.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded-lg border border-yellow-100 dark:border-yellow-900/20">
                     <div className="flex items-center gap-3">
                       <img
-                        src={course.thumbnail}
+                        src={course.thumbnail || 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=300'}
                         alt={course.title}
-                        className="w-20 h-12 object-cover rounded"
+                        className="w-12 h-8 object-cover rounded shadow-sm"
                       />
                       <div>
-                        <p className="font-medium text-gray-900 text-sm">{course.title}</p>
-                        <p className="text-xs text-gray-500">
-                          {course.instructor.name} • {course.category} • {getTimeAgo(course.submittedAt!)}
-                        </p>
+                        <p className="font-medium text-gray-900 dark:text-white text-sm line-clamp-1">{course.title}</p>
+                        <p className="text-[10px] text-gray-500">{course.instructor?.name} • {getTimeAgo(course.created_at)}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate(`/admin/courses/${course.id}/review`)}
-                      >
-                        {language === 'id' ? 'Review' : 'Review'}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => navigate(`/admin/courses/${course.id}/review`)}
+                    >
+                      Review
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -472,41 +278,23 @@ export function CoursesManagementPage() {
           </Card>
         )}
 
-        {/* Bulk Actions */}
-        {selectedCourses.length > 0 && (
-          <Card className="mb-6 bg-blue-50 border-blue-200">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-blue-900">
-                {selectedCourses.length} {language === 'id' ? 'kursus dipilih' : 'courses selected'}
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline">
-                  {language === 'id' ? 'Setujui' : 'Approve'}
-                </Button>
-                <Button size="sm" variant="danger">
-                  {language === 'id' ? 'Tolak' : 'Reject'}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Courses Table */}
-        <Card>
-          {/* Filters */}
-          <div className="p-4 border-b border-gray-200">
+        {/* Main Grid View */}
+        <Card className="overflow-hidden">
+          {/* Table Toolbar - Matching Instructor Style */}
+          <div className="p-4 border-b border-gray-200 dark:border-gray-800">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1 relative min-w-0">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={language === 'id' ? 'Cari kursus, instruktur, atau kategori...' : 'Search course, instructor, or category...'}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={language === 'id' ? 'Cari kursus, instruktur...' : 'Search course, instructor...'}
+                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                 />
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 sm:flex-shrink-0">
+              
+              <div className="flex flex-col sm:flex-row items-center gap-3">
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -516,7 +304,6 @@ export function CoursesManagementPage() {
                     { value: 'published', label: language === 'id' ? 'Publish' : 'Published' },
                     { value: 'revision', label: language === 'id' ? 'Perlu Revisi' : 'Needs Revision' },
                     { value: 'rejected', label: language === 'id' ? 'Ditolak' : 'Rejected' },
-                    { value: 'draft', label: 'Draft' },
                   ]}
                   className="w-full sm:w-40"
                 />
@@ -525,26 +312,32 @@ export function CoursesManagementPage() {
                   onChange={(e) => setCategoryFilter(e.target.value)}
                   options={[
                     { value: 'all', label: language === 'id' ? 'Semua Kategori' : 'All Categories' },
-                    ...categories.map(cat => ({ value: cat, label: cat })),
+                    ...(categories?.map((cat: Category) => ({ value: cat.id.toString(), label: cat.name })) || []),
                   ]}
                   className="w-full sm:w-40"
                 />
-                <Button size="sm" variant="outline" leftIcon={<Download className="w-3.5 h-3.5" />}>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  leftIcon={<Download className="w-4 h-4" />}
+                  onClick={() => {}}
+                >
                   {language === 'id' ? 'Ekspor' : 'Export'}
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* Table */}
-          <DataTable
-            columns={columns}
-            data={filteredCourses}
-            enableRowSelection={true}
-            enablePagination={true}
-            pageSize={10}
-            onRowSelectionChange={setSelectedCourses}
-          />
+          <div className="p-0 overflow-x-auto">
+            <DataTable
+              columns={columns}
+              data={courses}
+              enablePagination
+              pageSize={pageSize}
+              onRowSelectionChange={setSelectedCourses}
+            />
+          </div>
         </Card>
       </div>
     </DashboardLayout>

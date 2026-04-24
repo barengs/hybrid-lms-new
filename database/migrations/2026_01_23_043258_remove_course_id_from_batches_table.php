@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('batches', function (Blueprint $table) {
-            $table->dropIndex(['course_id', 'status']); // Fix for SQLite: drop index before column
             $table->dropForeign(['course_id']);
+            $table->dropIndex(['course_id', 'status']);
             $table->dropColumn('course_id');
         });
     }

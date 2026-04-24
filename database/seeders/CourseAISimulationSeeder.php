@@ -62,7 +62,7 @@ class CourseAISimulationSeeder extends Seeder
                 'description' => 'Kelas ini dirancang untuk membekali Anda dengan pengetahuan finansial yang mendalam, mulai dari pengelolaan aset hingga strategi investasi modern.',
                 'thumbnail' => 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800',
                 'price' => 250000,
-                'type' => 'course',
+                'type' => 'self_paced',
                 'level' => 'intermediate',
                 'status' => 'published',
                 'published_at' => now(),

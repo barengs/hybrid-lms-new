@@ -2,10 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,40 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermissionSeeder::class,
             MenuSeeder::class,
-            // ClassroomDummySeeder::class, // Disabled to avoid ID conflicts
-            CourseAISimulationSeeder::class,
+            CourseSimulationSeeder::class, // New dedicated seeder
         ]);
-
-        // Create admin user
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@hybridlms.com'],
-            [
-                'name' => 'Super Admin',
-                'password' => Hash::make('password'),
-            ]
-        );
-        $admin->assignRole('admin');
-        $admin->profile()->create();
-
-        // Create test instructor
-        $instructor = User::factory()->create([
-            'name' => 'Test Instructor',
-            'email' => 'instructor@hlms.test',
-            'password' => bcrypt('12345678'),
-        ]);
-        $instructor->assignRole('instructor');
-        $instructor->profile()->create([
-            'headline' => 'Senior Software Developer',
-            'bio' => 'Experienced software developer with 10+ years in web development.',
-        ]);
-
-        // Create test student
-        $student = User::factory()->create([
-            'name' => 'Test Student',
-            'email' => 'student@hlms.test',
-            'password' => bcrypt('12345678'),
-        ]);
-        $student->assignRole('student');
-        $student->profile()->create();
     }
 }

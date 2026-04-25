@@ -8,11 +8,12 @@ import {
   Star,
   CheckCircle,
   Trophy,
+  Clock,
 } from 'lucide-react';
 import { MainLayout } from '@/components/layouts';
 import { Button, Card, Badge, Rating, Avatar } from '@/components/ui';
-import { mockCourses, mockCategories } from '@/data/mockData';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { useGetPublicCoursesQuery, useGetPublicCategoriesQuery, useGetPublicBatchesQuery } from '@/store/features/public/publicApiSlice';
 
 function HeroSection() {
   return (
@@ -35,7 +36,7 @@ function HeroSection() {
               <span className="text-yellow-400">Raih Masa Depan</span>
             </h1>
             <p className="text-lg lg:text-xl text-blue-100 mb-8 max-w-lg">
-              Akses ribuan kursus berkualitas dari instruktur terbaik. Metode hybrid learning yang
+              Akses berbagai kursus berkualitas dari instruktur terbaik. Metode hybrid learning yang
               fleksibel untuk karir yang lebih baik.
             </p>
             <div className="flex flex-wrap gap-4">
@@ -55,15 +56,15 @@ function HeroSection() {
             {/* Stats */}
             <div className="flex flex-wrap gap-8 mt-12">
               <div>
-                <div className="text-3xl font-bold">50,000+</div>
+                <div className="text-3xl font-bold">1,000+</div>
                 <div className="text-blue-200">Siswa Aktif</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">500+</div>
+                <div className="text-3xl font-bold">50+</div>
                 <div className="text-blue-200">Kursus</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">100+</div>
+                <div className="text-3xl font-bold">20+</div>
                 <div className="text-blue-200">Instruktur</div>
               </div>
             </div>
@@ -109,7 +110,9 @@ function HeroSection() {
 }
 
 function CategoriesSection() {
-  const featuredCategories = mockCategories.slice(0, 8);
+  const { data: categories = [], isLoading } = useGetPublicCategoriesQuery();
+
+  if (isLoading) return null;
 
   return (
     <section className="py-16 bg-white">
@@ -122,18 +125,18 @@ function CategoriesSection() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {featuredCategories.map((category) => (
+          {categories.slice(0, 8).map((category) => (
             <Link
               key={category.id}
               to={`/courses?category=${category.slug}`}
               className="group"
             >
               <Card hover className="text-center py-6">
-                <div className="text-4xl mb-3">{category.icon}</div>
+                <div className="text-4xl mb-3">{category.icon || '📚'}</div>
                 <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                   {category.name}
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">{category.coursesCount} kursus</p>
+                <p className="text-sm text-gray-500 mt-1">{category.courses_count} kursus</p>
               </Card>
             </Link>
           ))}
@@ -144,7 +147,15 @@ function CategoriesSection() {
 }
 
 function FeaturedCoursesSection() {
-  const featuredCourses = mockCourses.filter((c) => c.isFeatured).slice(0, 4);
+  const { data: courses = [], isLoading } = useGetPublicCoursesQuery({ is_featured: 1 });
+
+  if (isLoading) {
+    return (
+      <div className="py-16 text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+      </div>
+    );
+  }
 
   return (
     <section className="py-16 bg-gray-50">
@@ -163,7 +174,7 @@ function FeaturedCoursesSection() {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredCourses.map((course) => (
+          {courses.slice(0, 4).map((course) => (
             <Link key={course.id} to={`/course/${course.slug}`}>
               <Card padding="none" hover className="overflow-hidden h-full">
                 <div className="relative">
@@ -173,8 +184,8 @@ function FeaturedCoursesSection() {
                     className="w-full h-40 object-cover"
                   />
                   <div className="absolute top-3 left-3">
-                    <Badge variant={course.type === 'self-paced' ? 'primary' : 'secondary'}>
-                      {course.type === 'self-paced' ? 'Mandiri' : 'Kelas'}
+                    <Badge variant={course.type === 'self_paced' ? 'primary' : 'secondary'}>
+                      {course.type === 'self_paced' ? 'Mandiri' : 'Kelas'}
                     </Badge>
                   </div>
                   <button aria-label="Preview course" className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors">
@@ -183,22 +194,22 @@ function FeaturedCoursesSection() {
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Avatar src={course.instructor?.avatar} name={course.instructor?.name || ''} size="xs" />
+                    <Avatar src={course.instructor?.avatar || undefined} name={course.instructor?.name || ''} size="xs" />
                     <span className="text-xs text-gray-500">{course.instructor?.name}</span>
                   </div>
                   <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2 hover:text-blue-600 transition-colors">
                     {course.title}
                   </h3>
                   <div className="flex items-center gap-2 mb-3">
-                    <Rating value={course.rating} size="sm" />
-                    <span className="text-xs text-gray-500">({formatNumber(course.totalRatings)})</span>
+                    <Rating value={course.average_rating} size="sm" />
+                    <span className="text-xs text-gray-500">({formatNumber(course.total_reviews)})</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      {course.discountPrice ? (
+                      {course.discount_price ? (
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-gray-900">
-                            {formatCurrency(course.discountPrice)}
+                            {formatCurrency(course.discount_price)}
                           </span>
                           <span className="text-sm text-gray-400 line-through">
                             {formatCurrency(course.price)}
@@ -214,6 +225,71 @@ function FeaturedCoursesSection() {
                 </div>
               </Card>
             </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BatchesSection() {
+  const { data: batches = [], isLoading } = useGetPublicBatchesQuery();
+
+  if (isLoading || batches.length === 0) return null;
+
+  return (
+    <section className="py-16 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-12">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Kelas & Batch Terbaru</h2>
+            <p className="text-gray-600">Belajar bersama instruktur dan komunitas dalam jadwal terstruktur</p>
+          </div>
+          <Link to="/courses?type=structured">
+            <Button variant="outline">
+              Lihat Semua Kelas
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {batches.slice(0, 3).map((batch) => (
+            <Card key={batch.id} padding="none" hover className="overflow-hidden border-2 border-blue-50">
+              <div className="relative h-48 bg-blue-600 overflow-hidden">
+                {batch.thumbnail ? (
+                  <img src={batch.thumbnail} alt={batch.name} className="w-full h-full object-cover opacity-80" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white">
+                     <Users className="w-16 h-16 opacity-20" />
+                  </div>
+                )}
+                <div className="absolute top-4 left-4">
+                  <Badge variant="warning">
+                    Batch {batch.status === 'upcoming' ? 'Mendatang' : 'Sedang Berjalan'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">{batch.name}</h3>
+                <p className="text-gray-600 text-sm line-clamp-2 mb-4">{batch.description}</p>
+                
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3 text-sm text-gray-500">
+                    <Clock className="w-4 h-4" />
+                    <span>Mulai: {new Date(batch.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-gray-500">
+                    <Users className="w-4 h-4" />
+                    <span>Instruktur: {batch.instructor?.name}</span>
+                  </div>
+                </div>
+
+                <Link to={`/courses?batch_id=${batch.id}`}>
+                  <Button className="w-full">Lihat Detail Batch</Button>
+                </Link>
+              </div>
+            </Card>
           ))}
         </div>
       </div>
@@ -275,21 +351,21 @@ function TestimonialsSection() {
   const testimonials = [
     {
       name: 'Andi Pratama',
-      role: 'Frontend Developer di Tokopedia',
+      role: 'Frontend Developer',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Andi',
       content: 'Berkat MOLANG, saya berhasil mendapatkan pekerjaan impian sebagai developer. Materinya sangat relevan dengan kebutuhan industri.',
       rating: 5,
     },
     {
       name: 'Sari Dewi',
-      role: 'Data Analyst di Gojek',
+      role: 'Data Analyst',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sari',
       content: 'Kursus data science di sini sangat lengkap. Dari dasar Python sampai machine learning, semuanya dijelaskan dengan baik.',
       rating: 5,
     },
     {
       name: 'Budi Santoso',
-      role: 'UI/UX Designer Freelancer',
+      role: 'UI/UX Designer',
       avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BudiS',
       content: 'Fleksibilitas belajar mandiri sangat membantu saya yang bekerja sambil kuliah. Sertifikatnya juga diakui klien.',
       rating: 5,
@@ -339,7 +415,7 @@ function CTASection() {
           Siap Memulai Perjalanan Belajar Anda?
         </h2>
         <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-          Bergabung dengan 50,000+ siswa yang sudah membuktikan kualitas pembelajaran di MOLANG.
+          Bergabung dengan ribuan siswa yang sudah membuktikan kualitas pembelajaran di MOLANG.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <Link to="/register">
@@ -387,7 +463,7 @@ function InstructorCTASection() {
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
             <Users className="w-8 h-8 mx-auto mb-2 text-green-200" />
             <h3 className="font-semibold mb-1">Jangkauan Luas</h3>
-            <p className="text-sm text-green-100">Akses ke 50,000+ siswa aktif</p>
+            <p className="text-sm text-green-100">Akses ke ribuan siswa aktif</p>
           </div>
         </div>
 
@@ -401,18 +477,11 @@ function InstructorCTASection() {
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </Link>
-          <a href="#instructor-info" className="inline-block">
-            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-              Pelajari Lebih Lanjut
-            </Button>
-          </a>
         </div>
       </div>
     </section>
   );
 }
-
-
 
 export function HomePage() {
   return (
@@ -420,6 +489,7 @@ export function HomePage() {
       <HeroSection />
       <CategoriesSection />
       <FeaturedCoursesSection />
+      <BatchesSection />
       <FeaturesSection />
       <TestimonialsSection />
       <CTASection />

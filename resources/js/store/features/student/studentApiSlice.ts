@@ -100,6 +100,10 @@ export interface LessonDetailResponse {
 
 export const studentApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
+    getStudentDashboard: builder.query<{ stats: any; upcoming_assignments: any[] }, void>({
+      query: () => '/student/dashboard',
+      transformResponse: (response: { data: any }) => response.data,
+    }),
     getMyLearning: builder.query<EnrolledCourse[], void>({
       query: () => '/student/my-learning',
       transformResponse: (response: MyLearningResponse) => {
@@ -138,6 +142,7 @@ export const studentApiSlice = apiSlice.injectEndpoints({
 });
 
 export const {
+  useGetStudentDashboardQuery,
   useGetMyLearningQuery,
   useGetCourseContentQuery,
   useGetLessonDetailQuery,

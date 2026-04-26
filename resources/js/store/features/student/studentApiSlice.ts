@@ -113,7 +113,11 @@ export const studentApiSlice = apiSlice.injectEndpoints({
           ...courses,
           ...batches.map(b => ({ ...b, type: 'batch' as const })),
           ...classes.map(c => ({ ...c, type: 'class' as const }))
-        ];
+        ].sort((a, b) => {
+          const dateA = new Date(a.enrolled_at || a.start_date || a.created_at || 0).getTime();
+          const dateB = new Date(b.enrolled_at || b.start_date || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
         return unified;
       },
       providesTags: ['Course'],

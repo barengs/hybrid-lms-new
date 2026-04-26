@@ -189,7 +189,7 @@ export function MyCoursesPage() {
                   </div>
                 )}
                 <Link
-                  to={`/learn/${course.slug}`}
+                  to={course.type === 'course' ? `/learn/${course.slug}` : `/student/class/${course.id}`}
                   className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity"
                 >
                   <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center">
@@ -218,7 +218,7 @@ export function MyCoursesPage() {
                   <span className="text-xs text-gray-500 flex items-center gap-1">
                     <Badge variant="outline" size="sm">{course.type.toUpperCase()}</Badge>
                   </span>
-                  <Link to={`/learn/${course.slug}`}>
+                  <Link to={course.type === 'course' ? `/learn/${course.slug}` : `/student/class/${course.id}`}>
                     <Button size="sm">
                       {course.progress === 0
                         ? 'Mulai'
@@ -258,7 +258,7 @@ export function MyCoursesPage() {
                     <p className="text-sm text-gray-500">{course.instructor || 'Instructor'}</p>
                     <Badge variant="outline" size="sm" className="mt-2">{course.type.toUpperCase()}</Badge>
                   </div>
-                  <Link to={`/learn/${course.slug}`}>
+                  <Link to={course.type === 'course' ? `/learn/${course.slug}` : `/student/class/${course.id}`}>
                     <Button size="sm">
                       {course.progress === 0
                         ? 'Mulai'

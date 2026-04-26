@@ -249,6 +249,16 @@ Route::prefix('v1')->group(function () {
 
         // Grades
         Route::get('grades', [App\Http\Controllers\Api\V1\Student\GradeController::class, 'index']);
+
+        // Learning History
+        Route::get('learning-history', [StudentLearningController::class, 'history']);
+    });
+
+    // Profile Routes
+    Route::prefix('profile')->middleware(['auth:api'])->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\ProfileController::class, 'show']);
+        Route::put('/', [\App\Http\Controllers\Api\V1\ProfileController::class, 'update']);
+        Route::delete('/', [\App\Http\Controllers\Api\V1\ProfileController::class, 'destroy']);
     });
 
     /*

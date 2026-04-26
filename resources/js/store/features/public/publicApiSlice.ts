@@ -75,6 +75,11 @@ export const publicApiSlice = apiSlice.injectEndpoints({
       transformResponse: (response: { data: PublicBatch[] }) => response.data,
       providesTags: ['Class'],
     }),
+    getPublicCourseDetail: builder.query<any, string>({
+      query: (slug) => `/public/courses/${slug}`,
+      transformResponse: (response: { data: any }) => response.data,
+      providesTags: (_result, _error, slug) => [{ type: 'Courses', id: slug }],
+    }),
   }),
 });
 
@@ -82,4 +87,5 @@ export const {
   useGetPublicCoursesQuery,
   useGetPublicCategoriesQuery,
   useGetPublicBatchesQuery,
+  useGetPublicCourseDetailQuery,
 } = publicApiSlice;

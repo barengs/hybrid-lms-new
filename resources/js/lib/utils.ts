@@ -5,16 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency: string = 'IDR'): string {
+export function formatCurrency(amount: number | null | undefined, currency: string = 'IDR'): string {
+  const value = Number(amount) || 0;
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(value);
 }
 
-export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
+export function formatDate(date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string {
+  if (!date) return 'N/A';
   const defaultOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',
@@ -23,22 +25,24 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
   return new Date(date).toLocaleDateString('id-ID', options || defaultOptions);
 }
 
-export function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+export function formatDuration(minutes: number | null | undefined): string {
+  const value = Number(minutes) || 0;
+  const hours = Math.floor(value / 60);
+  const mins = value % 60;
   if (hours === 0) return `${mins} menit`;
   if (mins === 0) return `${hours} jam`;
   return `${hours} jam ${mins} menit`;
 }
 
-export function formatNumber(num: number): string {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+export function formatNumber(num: number | null | undefined): string {
+  const value = Number(num) || 0;
+  if (value >= 1000000) {
+    return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
   }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  if (value >= 1000) {
+    return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
   }
-  return num.toString();
+  return value.toString();
 }
 
 export function getInitials(name: string): string {
@@ -86,6 +90,7 @@ export function getCourseLevelLabel(level: string): string {
     beginner: 'Pemula',
     intermediate: 'Menengah',
     advanced: 'Ahli',
+    all_levels: 'Semua Tingkat',
   };
   return labels[level] || level;
 }
@@ -93,6 +98,7 @@ export function getCourseLevelLabel(level: string): string {
 export function getCourseTypeLabel(type: string): string {
   const labels: Record<string, string> = {
     'self-paced': 'Belajar Mandiri',
+    'self_paced': 'Belajar Mandiri',
     structured: 'Kelas Terstruktur',
   };
   return labels[type] || type;

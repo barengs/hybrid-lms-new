@@ -32,9 +32,10 @@ function Rating({
     lg: 'text-base',
   };
 
-  const fullStars = Math.floor(value);
-  const hasHalfStar = value % 1 >= 0.5;
-  const emptyStars = max - fullStars - (hasHalfStar ? 1 : 0);
+  const ratingValue = Number(value) || 0;
+  const fullStars = Math.floor(ratingValue);
+  const hasHalfStar = ratingValue % 1 >= 0.5;
+  const emptyStars = Math.max(0, max - fullStars - (hasHalfStar ? 1 : 0));
 
   return (
     <div className={cn('flex items-center gap-1', className)}>
@@ -57,7 +58,7 @@ function Rating({
           ))}
       </div>
       {showValue && (
-        <span className={cn(textSizes[size], 'font-medium text-gray-700')}>{value.toFixed(1)}</span>
+        <span className={cn(textSizes[size], 'font-medium text-gray-700')}>{ratingValue.toFixed(1)}</span>
       )}
       {showCount && count > 0 && (
         <span className={cn(textSizes[size], 'text-gray-500')}>({count.toLocaleString()})</span>

@@ -21,7 +21,7 @@ export function StudentDashboard() {
   const { notifications } = useNotifications();
   
   const { data: dashboardData, isLoading: isDashboardLoading } = useGetStudentDashboardQuery();
-  const { data: enrolledCourses = [], isLoading: isLearningLoading } = useGetMyLearningQuery();
+  const { data: allLearningItems = [], isLoading: isLearningLoading } = useGetMyLearningQuery();
 
   if (isDashboardLoading || isLearningLoading) {
     return (
@@ -110,34 +110,34 @@ export function StudentDashboard() {
             </CardHeader>
 
             <div className="space-y-4">
-              {enrolledCourses.length === 0 ? (
+              {allLearningItems.length === 0 ? (
                 <p className="text-center text-gray-500 py-4">Belum ada kursus yang diikuti.</p>
               ) : (
-                enrolledCourses.slice(0, 3).map((course) => (
+                allLearningItems.slice(0, 3).map((item) => (
                   <Link
-                    key={course.id}
-                    to={course.type === 'course' ? `/learn/${course.slug}` : `/student/batches/${course.id}`}
+                    key={`${item.type}-${item.id}`}
+                    to={item.type === 'course' ? `/learn/${item.slug}` : `/student/class/${item.id}`}
                     className="flex gap-4 p-3 -mx-3 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <img
-                      src={course.thumbnail}
-                      alt={course.title}
+                      src={item.thumbnail}
+                      alt={item.title}
                       className="w-32 h-20 object-cover rounded-lg flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 mb-1 truncate">{course.title}</h3>
-                      <p className="text-sm text-gray-500 mb-2">{course.instructor || 'Instructor'}</p>
+                      <h3 className="font-medium text-gray-900 mb-1 truncate">{item.title}</h3>
+                      <p className="text-sm text-gray-500 mb-2">{item.instructor || 'Instructor'}</p>
                       <div className="flex items-center gap-3">
-                        <Progress value={course.progress} className="flex-1" size="sm" />
-                        <span className="text-sm font-medium text-gray-600">{course.progress}%</span>
+                        <Progress value={item.progress || 0} className="flex-1" size="sm" />
+                        <span className="text-sm font-medium text-gray-600">{item.progress || 0}%</span>
                       </div>
                     </div>
-                    <button 
+                    <div 
                       className="self-center w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition-colors"
-                      aria-label="Play course"
+                      aria-label="Continue"
                     >
                       <Play className="w-4 h-4 ml-0.5" />
-                    </button>
+                    </div>
                   </Link>
                 ))
               )}

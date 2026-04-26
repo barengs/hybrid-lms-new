@@ -75,19 +75,33 @@ composer run dev
 
 ---
 
-## 🔑 Akun Demo
+## 🔑 Akun Demo (Simulasi)
 
-Gunakan akun berikut untuk mencoba fitur di lingkungan lokal atau demo. Semua akun menggunakan password default di bawah ini kecuali disebutkan lain.
+Gunakan akun berikut untuk mencoba fitur di lingkungan lokal. Semua akun menggunakan password: `password`.
 
-| Role | Email | Password |
+| Role | Nama | Email |
 | :--- | :--- | :--- |
-| **Super Admin** | `admin@hybridlms.com` | `password` |
-| **Instructor (Simulation)** | `instructor@hybridlms.com` | `password` |
-| **Student (Simulation)** | `student@hybridlms.com` | `password` |
-| **Test Instructor** | `instructor@hlms.test` | `12345678` |
-| **Test Student** | `student@hlms.test` | `12345678` |
+| **Instruktur 1** | Syed Hasnain | `instructor@molang.com` |
+| **Instruktur 2** | Jane Doe | `jane@molang.com` |
+| **Siswa 1** | John Student | `student@molang.com` |
+| **Siswa 2** | Alice Wonderland | `alice@molang.com` |
+| **Siswa 3** | Bob Builder | `bob@molang.com` |
 
-> **Catatan**: Jalankan `php artisan db:seed` untuk memastikan akun-akun di atas tersedia di database Anda.
+> **Tip**: Jalankan `php artisan db:seed --class=CourseSimulationSeeder` untuk mereset data simulasi ke kondisi awal yang lengkap.
+
+---
+
+## 📊 Data Simulasi Saat Ini
+
+Proyek ini dilengkapi dengan `CourseSimulationSeeder` yang menghasilkan data lengkap untuk demo:
+
+1.  **4 Kategori Utama**: Development, Design, Business, dan Marketing.
+2.  **10+ Kursus**: Berbagai kursus dengan tingkat kesulitan dan tipe yang berbeda.
+3.  **Dua Instruktur**: Memberikan simulasi manajemen kursus dari perspektif pengajar yang berbeda.
+4.  **Batch & Kelas (LMS Hybrid)**:
+    *   **Batch** (Sesi): Contoh `Batch Flutter September 2024` (Tipe: `structured`). Sesi belajar intensif dalam rentang waktu tertentu.
+    *   **Kelas** (Classroom): Contoh `Kelas Pemrograman (Mobile Programming)` (Tipe: `classroom`). Ruang belajar kolaboratif jangka panjang ala **Google Classroom**.
+5.  **Data Pendaftaran**: Siswa simulasi sudah terdaftar di berbagai kursus dan kelas dengan progres belajar yang bervariasi.
 
 ---
 

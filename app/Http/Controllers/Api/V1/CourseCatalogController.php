@@ -21,23 +21,34 @@ class CourseCatalogController extends Controller
             ->with(['instructor:id,name', 'category:id,name,slug']);
 
         // Filters
-        if ($request->has('category')) {
-            $query->where('category_id', $request->category);
+        if ($request->filled('category')) {
+            $categoryValue = $request->category;
+            if (is_numeric($categoryValue)) {
+                $query->where('category_id', $categoryValue);
+            } else {
+                $query->whereRelation('category', 'slug', $categoryValue);
+            }
         }
 
-        if ($request->has('level')) {
+        if ($request->filled('level')) {
             $query->where('level', $request->level);
         }
 
-        if ($request->has('type')) {
+        if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
 
-        if ($request->has('instructor')) {
+        if ($request->filled('instructor')) {
             $query->where('instructor_id', $request->instructor);
         }
 
-        if ($request->has('search')) {
+        if ($request->filled('batch_id')) {
+            $query->whereHas('batches', function ($q) use ($request) {
+                $q->where('batches.id', $request->batch_id);
+            });
+        }
+
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'LIKE', "%{$search}%")

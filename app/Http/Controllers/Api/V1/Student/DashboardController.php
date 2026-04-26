@@ -81,7 +81,7 @@ class DashboardController extends Controller
             // 1. Self-paced courses (enrollments without batch)
             $selfPacedCourses = Enrollment::where('user_id', $user->id)
                 ->whereNull('batch_id')
-                ->with('course:id,title,slug,thumbnail,instructor_id')
+                ->with(['course.instructor:id,name'])
                 ->active()
                 ->latest()
                 ->get()
@@ -92,6 +92,7 @@ class DashboardController extends Controller
                         'title' => $enrollment->course->title,
                         'slug' => $enrollment->course->slug,
                         'thumbnail' => $enrollment->course->thumbnail,
+                        'instructor' => $enrollment->course->instructor?->name,
                         'progress' => $enrollment->progress_percentage,
                         'enrolled_at' => $enrollment->enrolled_at,
                     ];

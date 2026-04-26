@@ -28,6 +28,7 @@ export function CourseCatalogPage() {
   const { data: coursesData, isLoading: isCoursesLoading } = useGetPublicCoursesQuery({
     search: searchQuery,
     category: selectedCategory,
+    batch_id: searchParams.get('batch_id') || '',
     level: selectedLevel,
     type: selectedType,
     sort: sortBy,

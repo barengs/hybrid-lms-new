@@ -194,4 +194,37 @@ class LearningController extends Controller
             return $this->errorResponse('Failed to update progress: ' . $e->getMessage(), 500);
         }
     }
+
+    /**
+     * Get student learning history/activity.
+     */
+    public function history(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            $history = Enrollment::where('user_id', $user->id)
+                ->with(['course:id,title,slug,thumbnail,instructor_id', 'course.instructor:id,name'])
+                ->latest('updated_at')
+                ->get()
+                ->map(function ($enrollment) {
+                    return [
+                        'id' => $enrollment->id,
+                        'course_title' => $enrollment->course->title,
+                        'course_slug' => $enrollment->course->slug,
+                        'thumbnail' => $enrollment->course->thumbnail,
+                        'instructor' => $enrollment->course->instructor?->name,
+                        'progress' => $enrollment->progress_percentage,
+                        'is_completed' => $enrollment->is_completed,
+                        'enrolled_at' => $enrollment->enrolled_at,
+                        'last_activity' => $enrollment->updated_at,
+                    ];
+                });
+
+            return $this->successResponse($history, 'Learning history retrieved successfully.');
+
+        } catch (\Exception $e) {
+            return $this->errorResponse('Failed to retrieve learning history: ' . $e->getMessage(), 500);
+        }
+    }
 }

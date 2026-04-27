@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users,
   Calendar,
@@ -18,30 +18,58 @@ import { Card, Button, Badge, Avatar, Input, Modal, Select } from '@/components/
 import { useLanguage } from '@/context/LanguageContext';
 import { formatDate, getTimeAgo } from '@/lib/utils';
 
-import { useGetClassesQuery } from '@/store/features/classes/classesApiSlice';
+import { useGetClassesQuery, useJoinClassMutation } from '@/store/features/classes/classesApiSlice';
 import { Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 
 export function MyClassesPage() {
   const { language } = useLanguage();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'ongoing' | 'completed'>('all');
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [classCode, setClassCode] = useState('');
-  const [isJoining, setIsJoining] = useState(false);
+
+  const [joinClass, { isLoading: isJoining }] = useJoinClassMutation();
+
+  useEffect(() => {
+    if (searchParams.get('join') === 'true') {
+      setShowJoinModal(true);
+      // Remove the param to avoid re-opening on refresh
+      searchParams.delete('join');
+      setSearchParams(searchParams);
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleJoinClass = async () => {
     if (!classCode.trim()) return;
 
-    setIsJoining(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    console.log('Joining class with code:', classCode);
-    alert('Berhasil bergabung ke kelas!');
-    setClassCode('');
-    setShowJoinModal(false);
-    setIsJoining(false);
+    try {
+      const response = await joinClass({ class_code: classCode }).unwrap();
+      
+      toast.success(
+        language === 'id' 
+          ? 'Berhasil bergabung ke kelas!' 
+          : 'Successfully joined the class!'
+      );
+      
+      setClassCode('');
+      setShowJoinModal(false);
+      
+      // Navigate to the class detail page
+      if (response.data?.id) {
+        navigate(`/student/class/${response.data.id}`);
+      }
+    } catch (err: any) {
+      toast.error(
+        err.data?.message || 
+        (language === 'id' 
+          ? 'Gagal bergabung ke kelas. Periksa kode Anda.' 
+          : 'Failed to join class. Please check your code.')
+      );
+    }
   };
 
   const { data: classesData, isLoading, isError } = useGetClassesQuery();

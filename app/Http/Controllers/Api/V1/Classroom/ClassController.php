@@ -164,12 +164,25 @@ class ClassController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'subject' => 'nullable|string|max:255',
             'section' => 'nullable|string|max:50',
+            'code' => 'nullable|string|unique:batches,class_code|max:20',
+            'course_id' => 'nullable|exists:courses,id',
+            'courseId' => 'nullable|exists:courses,id', // Support camelCase
         ]);
 
         $user = $request->user();
+        $courseId = $request->course_id ?? $request->courseId;
+
+        // Verify instructor owns the course if provided
+        if ($courseId) {
+            $course = Course::where('id', $courseId)
+                ->where('instructor_id', $user->id)
+                ->first();
+            
+            if (!$course) {
+                return response()->json(['message' => 'Unauthorized course access'], 403);
+            }
+        }
 
         // Create Batch (Class) only - NO auto-create Course
         $batch = Batch::create([
@@ -177,7 +190,7 @@ class ClassController extends Controller
             'name' => $request->name,
             'slug' => Str::slug($request->name . '-' . Str::random(5)),
             'description' => $request->description,
-            'class_code' => Batch::generateClassCode(),
+            'class_code' => $request->code ?? Batch::generateClassCode(),
             'type' => 'classroom',  // Mark as classroom type
             'status' => 'open',
             'start_date' => now(),
@@ -186,6 +199,14 @@ class ClassController extends Controller
             'is_public' => false,
             'auto_approve' => true,
         ]);
+
+        // Attach course if provided
+        if ($courseId) {
+            $batch->courses()->attach($courseId, [
+                'order' => 1,
+                'is_required' => false,
+            ]);
+        }
 
         return $this->successResponse(
             new ClassroomResource($batch),

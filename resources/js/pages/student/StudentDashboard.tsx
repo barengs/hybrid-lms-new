@@ -4,6 +4,7 @@ import {
   Clock,
   Award,
   Play,
+  Plus,
   ChevronRight,
   Trophy,
   Target,
@@ -45,14 +46,21 @@ export function StudentDashboard() {
   return (
     <DashboardLayout>
       {/* Welcome Section */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Selamat datang kembali, {user?.name?.split(' ')[0]}! 👋
-        </h1>
-        <p className="text-gray-600">
-          Lanjutkan perjalanan belajar Anda dan raih lebih banyak prestasi.
-        </p>
-      </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Selamat datang kembali, {user?.name?.split(' ')[0]}! 👋
+            </h1>
+            <p className="text-gray-600">
+              Lanjutkan perjalanan belajar Anda dan raih lebih banyak prestasi.
+            </p>
+          </div>
+          <Link to="/student/classes?join=true">
+            <Button leftIcon={<Plus className="w-4 h-4" />}>
+              Gabung Kelas
+            </Button>
+          </Link>
+        </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

@@ -205,6 +205,14 @@ export const classesApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { sessionId }) => [{ type: 'Class' }],
     }),
+    joinClass: builder.mutation<ClassDetailResponse, { class_code: string }>({
+      query: (body) => ({
+        url: 'classes/join',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Class'],
+    }),
   }),
 });
 
@@ -214,5 +222,6 @@ export const {
   useCreateClassMutation, 
   useUpdateClassMutation, 
   useDeleteClassMutation,
-  usePostSessionCommentMutation
+  usePostSessionCommentMutation,
+  useJoinClassMutation
 } = classesApiSlice;

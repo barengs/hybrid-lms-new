@@ -1,8 +1,9 @@
-﻿import { apiSlice } from '../../api/apiSlice';
+import { apiSlice } from '../../api/apiSlice';
 
 export interface ClassInstructor {
   id: string | number;
   name: string;
+  email: string;
   avatar?: string;
 }
 
@@ -32,13 +33,55 @@ export interface ClassTopic {
   title: string;
   materials_count: number;
   materials: ClassMaterial[];
-  description?: string; // Kept for compatibility if backend adds it later or UI needs it
+  description?: string;
 }
 
 export interface ClassCourse {
   id: number | string;
   title: string;
   topics: ClassTopic[];
+}
+
+export interface ClassAssignment {
+  id: number | string;
+  title: string;
+  description?: string;
+  due_date?: string;
+  status: 'pending' | 'submitted' | 'graded' | string;
+  grade?: number;
+  totalPoints?: number;
+}
+
+export interface ClassSession {
+  id: number | string;
+  title: string;
+  type?: 'material' | 'online_class' | string;
+  description?: string;
+  sessionDate: string;
+  duration?: string;
+  recordingUrl?: string;
+  meetingUrl?: string;
+  status: 'upcoming' | 'completed' | 'canceled' | string;
+  materials?: any[];
+  comments?: {
+    id: number;
+    comment: string;
+    created_at: string;
+    user: {
+      name: string;
+      avatar: string | null;
+    };
+    replies?: any[];
+  }[];
+}
+
+export interface ClassAdditionalMaterial {
+  id: number | string;
+  title: string;
+  type: string;
+  size: string;
+  uploadedAt: string;
+  url: string;
 }
 
 export interface ClassAssessmentStats {
@@ -56,35 +99,29 @@ export interface ClassItem {
   description?: string;
   class_code: string;
   type: string;
-  
-  // Relationships
   instructor?: ClassInstructor;
   courses: ClassCourse[];
-  
-  // Stats & Status
+  assignments?: ClassAssignment[];
+  sessions?: ClassSession[];
+  additionalMaterials?: ClassAdditionalMaterial[];
   students_count: string | number;
   created_at: string;
   updated_at?: string;
-  is_open_for_enrollment: string | boolean; // API says string, UI might expect boolean. safely type as both or string.
+  is_open_for_enrollment: string | boolean;
   is_enrolled: string | boolean;
-  
-  // Detailed Stats
   assessment_stats?: ClassAssessmentStats;
-  
-  // Optional/Legacy fields (cleanup if confirmed unused, but keeping for safety during refactor)
-  status?: 'active' | 'archived'; 
+  status?: 'open' | 'in_progress' | 'completed' | 'closed' | 'archived'; 
   thumbnail?: string; 
   schedule?: ClassSchedule;
   start_date?: string;
   end_date?: string;
   progress?: number;
   max_students?: number;
-  
-  // UI helpers (mapped)
+  notifications?: ClassNotifications;
+  nextSession?: string;
   recentStudents?: { id: string; name: string; avatar?: string }[];
   lastActivityAt?: string;
 }
-
 
 export interface ClassesResponse {
   success: boolean;
@@ -130,7 +167,7 @@ export interface UpdateClassRequest extends Partial<CreateClassRequest> {
 export const classesApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getClasses: builder.query<ClassesResponse, void>({
-      query: () => 'classes', // URL matches classes via baseURL config
+      query: () => 'classes',
       providesTags: ['Class'],
     }),
     getClass: builder.query<ClassDetailResponse, string | number>({
@@ -160,6 +197,14 @@ export const classesApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['Class'],
     }),
+    postSessionComment: builder.mutation<void, { sessionId: number | string; comment: string; parentId?: number }>({
+      query: ({ sessionId, ...body }) => ({
+        url: `classes/sessions/${sessionId}/comments`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { sessionId }) => [{ type: 'Class' }],
+    }),
   }),
 });
 
@@ -168,6 +213,6 @@ export const {
   useGetClassQuery, 
   useCreateClassMutation, 
   useUpdateClassMutation, 
-  useDeleteClassMutation 
+  useDeleteClassMutation,
+  usePostSessionCommentMutation
 } = classesApiSlice;
-

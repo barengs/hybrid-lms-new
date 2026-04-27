@@ -388,7 +388,7 @@ export function InstructorStudentsPage() {
                                 <Badge 
                                   key={idx} 
                                   variant={c.type === 'class' ? 'primary' : 'outline'} 
-                                  size="xs"
+                                  size="sm"
                                   className="text-[10px] py-0 px-1"
                                 >
                                   {c.type === 'class' ? (language === 'id' ? 'Kelas' : 'Class') : (language === 'id' ? 'Materi' : 'Course')}

@@ -189,12 +189,96 @@ class CourseSimulationSeeder extends Seeder
             $createdCourses[2]->id => ['order' => 2, 'is_required' => false],
         ]);
 
+        // 5a. Seed Sessions for Classroom
+        $sessions = [
+            [
+                'title' => 'Pengenalan React & Dasar Komponen',
+                'type' => 'material',
+                'description' => 'Sesi ini membahas dasar-dasar React, cara membuat komponen, dan memahami props.',
+                'session_date' => now()->subDays(5)->setTime(13, 0),
+                'duration' => '2 Jam',
+                'status' => 'completed',
+                'materials' => [
+                    ['type' => 'file', 'title' => 'Slide Dasar React.pdf', 'url' => 'https://example.com/slide.pdf'],
+                    ['type' => 'youtube', 'title' => 'Video Review Komponen', 'url' => 'dQw4w9WgXcQ'], // YouTube video ID
+                    ['type' => 'link', 'title' => 'Dokumentasi React Docs', 'url' => 'https://react.dev'],
+                ],
+            ],
+            [
+                'title' => 'Q&A: Troubleshooting State & Props',
+                'type' => 'online_class',
+                'description' => 'Sesi tatap muka online untuk tanya jawab seputar kendala di modul 1.',
+                'session_date' => now()->addDays(1)->setTime(19, 30),
+                'duration' => '1 Jam',
+                'status' => 'upcoming',
+                'meeting_url' => 'molang-qa-state-props',
+                'materials' => [
+                    ['type' => 'link', 'title' => 'Papan Tulis Kolaboratif', 'url' => 'https://miro.com/example'],
+                ],
+            ],
+            [
+                'title' => 'Deep Dive into React Hooks',
+                'type' => 'material',
+                'description' => 'Membahas useEffect, useMemo, dan custom hooks secara mendalam.',
+                'session_date' => now()->subDays(1)->setTime(10, 0),
+                'duration' => '2.5 Jam',
+                'status' => 'completed',
+                'recording_url' => 'https://example.com/recording-1',
+                'materials' => [
+                    ['type' => 'file', 'title' => 'Hooks Cheat Sheet.pdf', 'url' => 'https://example.com/cheat-sheet.pdf'],
+                ],
+            ],
+        ];
+
+        foreach ($sessions as $sData) {
+            $session = $classroom->sessions()->create($sData);
+            
+            // Add a comment to the first session
+            if ($sData['title'] === 'Pengenalan React & Dasar Komponen') {
+                $student = User::where('email', 'student@molang.com')->first();
+                if ($student) {
+                    $session->comments()->create([
+                        'user_id' => $student->id,
+                        'comment' => 'Materi yang sangat membantu pak! Apakah ada link tambahan untuk latihan state?',
+                    ]);
+                    
+                    $instructor = User::where('email', 'instructor@molang.com')->first();
+                    if ($instructor) {
+                        $session->comments()->create([
+                            'user_id' => $instructor->id,
+                            'comment' => 'Terima kasih John. Coba cek dokumentasi di bagian "Beta Docs" untuk contoh lebih interaktif.',
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // 5b. Seed Additional Materials (Attachments) for Classroom
+        $classroom->additionalMaterials()->create([
+            'title' => 'Buku Panduan React (Indonesian)',
+            'file_path' => 'materials/react-guide.pdf',
+            'file_name' => 'react-guide.pdf',
+            'file_type' => 'document',
+            'file_size' => 5 * 1024 * 1024, // 5MB
+        ]);
+
+        $classroom->additionalMaterials()->create([
+            'title' => 'Video Tips Productivity Developer',
+            'file_path' => 'materials/tips.mp4',
+            'file_name' => 'tips.mp4',
+            'file_type' => 'video',
+            'file_size' => 25 * 1024 * 1024, // 25MB
+        ]);
+
         // 6. Create Dummy Students and Enrollments
         $students = [
             ['email' => 'student@molang.com', 'name' => 'John Student'],
             ['email' => 'alice@molang.com', 'name' => 'Alice Wonderland'],
             ['email' => 'bob@molang.com', 'name' => 'Bob Builder'],
         ];
+
+        // Clear existing enrollments to avoid stale data
+        Enrollment::whereIn('user_id', User::whereIn('email', array_column($students, 'email'))->pluck('id'))->delete();
 
         foreach ($students as $sData) {
             $student = User::updateOrCreate(
@@ -211,14 +295,28 @@ class CourseSimulationSeeder extends Seeder
 
             // Enroll in some courses/batches
             $numEnrollments = rand(1, 3);
-            $randomCourses = collect($createdCourses)->random($numEnrollments);
+            $targetCourses = $sData['email'] === 'student@molang.com' 
+                ? collect($createdCourses)->take(2) 
+                : collect($createdCourses)->random($numEnrollments);
             
-            foreach ($randomCourses as $course) {
+            foreach ($targetCourses as $course) {
+                $progress = rand(60, 95); // High progress for demo
+                
+                // Get all lesson IDs for this course to calculate which ones are completed
+                $lessonIds = \App\Models\Lesson::whereHas('section', function($q) use ($course) {
+                    $q->where('course_id', $course->id);
+                })->pluck('id')->toArray();
+                
+                $totalLessons = count($lessonIds);
+                $numCompleted = round(($progress / 100) * $totalLessons);
+                $completedLessons = array_slice($lessonIds, 0, $numCompleted);
+                
                 Enrollment::updateOrCreate(
                     ['user_id' => $student->id, 'course_id' => $course->id],
                     [
                         'enrolled_at' => now()->subDays(rand(1, 30)),
-                        'progress_percentage' => rand(0, 100),
+                        'progress_percentage' => $progress,
+                        'completed_lessons' => $completedLessons,
                     ]
                 );
             }
@@ -247,9 +345,32 @@ class CourseSimulationSeeder extends Seeder
 
             for ($j = 1; $j <= 2; $j++) {
                 $quizData = [
+                    'id' => "quiz-$i-$j",
+                    'title' => "Quiz Materi $i.$j",
+                    'description' => "Uji pemahaman Anda mengenai materi di Modul $i.",
+                    'timeLimit' => 10,
+                    'passingScore' => 70,
                     'questions' => [
-                        ['question' => 'Sample Question 1?', 'options' => ['A', 'B', 'C'], 'answer' => 'A'],
-                        ['question' => 'Sample Question 2?', 'options' => ['X', 'Y', 'Z'], 'answer' => 'Y'],
+                        [
+                            'id' => 'q1',
+                            'text' => 'Manakah pernyataan yang paling tepat mengenai materi ini?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Pernyataan A (Benar)'],
+                                ['id' => 'b', 'text' => 'Pernyataan B'],
+                                ['id' => 'c', 'text' => 'Pernyataan C'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'id' => 'q2',
+                            'text' => 'Apa komponen utama dari pembahasan di atas?',
+                            'options' => [
+                                ['id' => 'x', 'text' => 'Komponen X'],
+                                ['id' => 'y', 'text' => 'Komponen Y (Benar)'],
+                                ['id' => 'z', 'text' => 'Komponen Z'],
+                            ],
+                            'correctOptionId' => 'y',
+                        ],
                     ],
                 ];
 

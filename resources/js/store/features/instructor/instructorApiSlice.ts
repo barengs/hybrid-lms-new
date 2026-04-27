@@ -1,4 +1,4 @@
-﻿import { apiSlice } from '../../api/apiSlice';
+import { apiSlice } from '../../api/apiSlice';
 
 export interface InstructorDashboardData {
   stats: {
@@ -190,6 +190,18 @@ export interface InstructorStudentCourse {
   quizzesPassed: number;
   totalQuizzes: number;
   status: 'active' | 'completed' | 'inactive';
+}
+
+export interface InstructorStudent {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  joinedAt: string;
+  lastActiveAt: string;
+  totalProgress: number;
+  totalCoursesEnrolled: number;
+  enrolledCourses: InstructorStudentCourse[];
 }
 
 export interface InstructorSubmission {

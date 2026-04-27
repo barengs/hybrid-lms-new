@@ -17,6 +17,6 @@ export const apiSlice = createApi({
             return headers;
         },
     }),
-    tagTypes: ['User', 'Course', 'Class', 'InstructorCourses', 'Category', 'Students', 'AppSettings', 'Earnings', 'Payouts', 'Users', 'Roles', 'Instructors', 'Courses', 'Transactions', 'TransactionStats', 'Lesson'],
+    tagTypes: ['User', 'Course', 'Class', 'InstructorCourses', 'Category', 'Students', 'Submissions', 'AppSettings', 'Earnings', 'Payouts', 'Users', 'Roles', 'Instructors', 'Courses', 'Transactions', 'TransactionStats', 'Lesson'],
     endpoints: (_builder) => ({}),
 });

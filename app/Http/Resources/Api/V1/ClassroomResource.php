@@ -20,11 +20,13 @@ class ClassroomResource extends JsonResource
             'slug' => $this->slug,
             'description' => $this->description,
             'class_code' => $this->class_code,
+            'status' => $this->status,
             'type' => 'classroom',
             'instructor' => $this->whenLoaded('instructor', function() {
                 return [
                     'id' => $this->instructor->id,
                     'name' => $this->instructor->name,
+                    'email' => $this->instructor->email,
                     'avatar' => $this->instructor->profile->avatar ?? null, 
                 ];
             }),
@@ -55,6 +57,70 @@ class ClassroomResource extends JsonResource
                                     ];
                                 }) : [],
                         'pivot' => $course->pivot ?? null,
+                    ];
+                });
+            }),
+            'sessions' => $this->whenLoaded('sessions', function() {
+                return $this->sessions->map(function($session) {
+                    return [
+                        'id' => $session->id,
+                        'title' => $session->title,
+                        'type' => $session->type,
+                        'description' => $session->description,
+                        'sessionDate' => $session->session_date,
+                        'duration' => $session->duration,
+                        'recordingUrl' => $session->recording_url,
+                        'meetingUrl' => $session->meeting_url,
+                        'status' => $session->status,
+                        'materials' => $session->materials ?? [],
+                        'comments' => $session->relationLoaded('comments') ? $session->comments->map(function($comment) {
+                            return [
+                                'id' => $comment->id,
+                                'comment' => $comment->comment,
+                                'created_at' => $comment->created_at,
+                                'user' => [
+                                    'name' => $comment->user->name,
+                                    'avatar' => $comment->user->profile->avatar ?? null,
+                                ],
+                                'replies' => $comment->relationLoaded('replies') ? $comment->replies->map(function($reply) {
+                                    return [
+                                        'id' => $reply->id,
+                                        'comment' => $reply->comment,
+                                        'created_at' => $reply->created_at,
+                                        'user' => [
+                                            'name' => $reply->user->name,
+                                            'avatar' => $reply->user->profile->avatar ?? null,
+                                        ],
+                                    ];
+                                }) : [],
+                            ];
+                        }) : [],
+                    ];
+                });
+            }),
+            'additionalMaterials' => $this->whenLoaded('additionalMaterials', function() {
+                return $this->additionalMaterials->map(function($attachment) {
+                    return [
+                        'id' => $attachment->id,
+                        'title' => $attachment->title,
+                        'type' => $attachment->file_type,
+                        'size' => round($attachment->file_size / 1024 / 1024, 2) . ' MB',
+                        'uploadedAt' => $attachment->created_at,
+                        'url' => $attachment->url,
+                    ];
+                });
+            }),
+            'assignments' => $this->whenLoaded('assignments', function() {
+                return $this->assignments->map(function($assignment) {
+                    $submission = $assignment->submissions->first(); // Since we filtered by current user in controller
+                    return [
+                        'id' => $assignment->id,
+                        'title' => $assignment->title,
+                        'description' => $assignment->description,
+                        'due_date' => $assignment->due_date,
+                        'status' => $submission ? $submission->status : 'pending',
+                        'grade' => $submission ? $submission->score : null,
+                        'totalPoints' => $assignment->max_points,
                     ];
                 });
             }),

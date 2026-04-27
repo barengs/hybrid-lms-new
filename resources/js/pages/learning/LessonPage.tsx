@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -39,16 +39,55 @@ export function LessonPage() {
     { skip: !slug || isNaN(numericLessonId) || numericLessonId <= 0 }
   );
 
-  console.log('DEBUG LessonPage:', { 
-    slug, 
-    lessonId, 
-    numericLessonId, 
-    hasLesson: !!lesson, 
-    isLoadingLesson, 
-    isFetching,
-    error 
-  });
   const [markComplete, { isLoading: isMarkingComplete }] = useMarkLessonCompleteMutation();
+  
+  // Quiz State
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
+  const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [isQuizSubmitted, setIsQuizSubmitted] = useState(false);
+
+  // Reset quiz state when lesson changes
+  useEffect(() => {
+    setQuizAnswers({});
+    setQuizScore(null);
+    setIsQuizSubmitted(false);
+  }, [numericLessonId]);
+
+  // Parse Quiz Data
+  const quizData = useMemo(() => {
+    if (lesson?.type === 'quiz' && lesson.content) {
+      try {
+        return JSON.parse(lesson.content);
+      } catch (e) {
+        console.error('Failed to parse quiz JSON', e);
+        return null;
+      }
+    }
+    return null;
+  }, [lesson]);
+
+  const handleQuizSubmit = async () => {
+    if (!quizData) return;
+    
+    let correctCount = 0;
+    quizData.questions.forEach((q: any) => {
+      // Handle both old and new formats (question vs text, answer vs correctOptionId)
+      const qText = q.text || q.question;
+      const correctId = q.correctOptionId || q.answer;
+      
+      if (quizAnswers[qText] === correctId) {
+        correctCount++;
+      }
+    });
+
+    const score = Math.round((correctCount / quizData.questions.length) * 100);
+    setQuizScore(score);
+    setIsQuizSubmitted(true);
+
+    if (score >= (quizData.passingScore || 70)) {
+      await handleMarkComplete();
+    }
+  };
 
   const handleMarkComplete = async () => {
     if (!slug || !numericLessonId) return;
@@ -262,8 +301,87 @@ export function LessonPage() {
                 </Card>
               )}
 
-              {/* Content */}
-              {lesson.content && (
+              {/* Content / Quiz */}
+              {lesson.type === 'quiz' && quizData ? (
+                <div className="space-y-6">
+                  {quizData.questions.map((q: any, qIdx: number) => {
+                    const qText = q.text || q.question;
+                    const options = q.options || [];
+                    const isCorrect = isQuizSubmitted && (quizAnswers[qText] === (q.correctOptionId || q.answer));
+                    const isWrong = isQuizSubmitted && (quizAnswers[qText] !== (q.correctOptionId || q.answer)) && quizAnswers[qText];
+
+                    return (
+                      <Card key={qIdx} className={`p-4 ${isCorrect ? 'border-green-500 bg-green-50' : isWrong ? 'border-red-500 bg-red-50' : ''}`}>
+                        <p className="font-medium text-gray-900 mb-4">{qIdx + 1}. {qText}</p>
+                        <div className="space-y-2">
+                          {options.map((opt: any, oIdx: number) => {
+                            const optId = typeof opt === 'string' ? opt : opt.id;
+                            const optText = typeof opt === 'string' ? opt : opt.text;
+                            const isSelected = quizAnswers[qText] === optId;
+                            
+                            return (
+                              <button
+                                key={oIdx}
+                                disabled={isQuizSubmitted}
+                                onClick={() => setQuizAnswers(prev => ({ ...prev, [qText]: optId }))}
+                                className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                                  isSelected 
+                                    ? 'border-blue-500 bg-blue-100' 
+                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                }`}
+                              >
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                  isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                                }`}>
+                                  {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                                </div>
+                                <span>{optText}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </Card>
+                    );
+                  })}
+
+                  {!isQuizSubmitted ? (
+                    <Button 
+                      className="w-full py-6 text-lg" 
+                      onClick={handleQuizSubmit}
+                      disabled={Object.keys(quizAnswers).length < quizData.questions.length}
+                    >
+                      {language === 'id' ? 'Kirim Jawaban' : 'Submit Answers'}
+                    </Button>
+                  ) : (
+                    <Card className="p-6 text-center bg-blue-50 border-blue-200">
+                      <h3 className="text-xl font-bold text-blue-900 mb-2">
+                        {language === 'id' ? 'Hasil Kuis' : 'Quiz Results'}
+                      </h3>
+                      <p className="text-3xl font-bold text-blue-600 mb-4">{quizScore}%</p>
+                      <p className="text-gray-600 mb-4">
+                        {quizScore && quizScore >= (quizData.passingScore || 70) 
+                          ? (language === 'id' ? 'Selamat! Anda lulus kuis ini.' : 'Congratulations! You passed this quiz.')
+                          : (language === 'id' ? 'Maaf, Anda belum lulus. Silakan coba lagi.' : 'Sorry, you did not pass. Please try again.')
+                        }
+                      </p>
+                      <div className="flex justify-center gap-3">
+                        <Button variant="outline" onClick={() => {
+                          setIsQuizSubmitted(false);
+                          setQuizAnswers({});
+                          setQuizScore(null);
+                        }}>
+                          {language === 'id' ? 'Coba Lagi' : 'Try Again'}
+                        </Button>
+                        {quizScore && quizScore >= (quizData.passingScore || 70) && (
+                          <Button onClick={handleNextLesson}>
+                            {language === 'id' ? 'Lanjutkan ke Materi Berikutnya' : 'Continue to Next Lesson'}
+                          </Button>
+                        )}
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              ) : lesson.content && (
                 <Card className="mb-6">
                   <div className="prose prose-sm max-w-none">
                     <div className="text-sm text-gray-700 leading-relaxed dangerously-html" dangerouslySetInnerHTML={{ __html: lesson.content }}>

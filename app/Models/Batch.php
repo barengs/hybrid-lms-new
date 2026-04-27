@@ -110,6 +110,22 @@ class Batch extends Model
     }
 
     /**
+     * Get all sessions for this batch.
+     */
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(BatchSession::class);
+    }
+
+    /**
+     * Get all additional materials (attachments) for this batch.
+     */
+    public function additionalMaterials(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    /**
      * Scope for active/in-progress batches.
      */
     public function scopeActive($query)

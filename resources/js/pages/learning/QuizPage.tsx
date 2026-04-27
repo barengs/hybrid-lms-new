@@ -11,9 +11,11 @@ import {
   Flag,
   Award,
   RotateCcw,
+  Menu,
+  X,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, Button, Progress } from '@/components/ui';
+import { Card, Button, Progress, Skeleton } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 
 interface Question {
@@ -122,6 +124,7 @@ export function QuizPage() {
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [showResults, setShowResults] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   const [markComplete, { isLoading: isMarkingComplete }] = useMarkLessonCompleteMutation();
 
@@ -146,7 +149,7 @@ export function QuizPage() {
 
   // Timer
   useEffect(() => {
-    let timer: number;
+    let timer: any;
     if (quizState === 'taking' && timeRemaining > 0) {
       timer = setInterval(() => {
         setTimeRemaining((prev) => {
@@ -161,12 +164,108 @@ export function QuizPage() {
     return () => clearInterval(timer);
   }, [quizState, timeRemaining]);
 
+  const handleSelectAnswer = (optionId: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [currentQuestion.id]: optionId,
+    }));
+  };
+
+  const handleNext = () => {
+    if (currentQuestionIndex < quiz.questions.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex((prev) => prev - 1);
+    }
+  };
+
+  const handleJumpToQuestion = (index: number) => {
+    setCurrentQuestionIndex(index);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      await markComplete({ slug, lessonId: numericQuizId }).unwrap();
+      setQuizState('result');
+      setShowResults(true);
+    } catch (err) {
+      console.error('Failed to submit quiz:', err);
+      toast.error(language === 'id' ? 'Gagal menyimpan progres kuis' : 'Failed to save quiz progress');
+      setQuizState('result');
+      setShowResults(true);
+    }
+  };
+
+  const handleStartQuiz = () => {
+    setQuizState('taking');
+    setTimeRemaining(quiz.timeLimit * 60);
+  };
+
+  const handleRetry = () => {
+    setQuizState('intro');
+    setAnswers({});
+    setFlaggedQuestions(new Set());
+    setCurrentQuestionIndex(0);
+    setTimeRemaining(quiz.timeLimit * 60);
+    setShowResults(false);
+  };
+
+  const handleNextLesson = async () => {
+    if (remoteQuiz?.next_lesson_id && course) {
+      // Find the next lesson object in the course content to check its type
+      let nextLessonObj = null;
+      for (const section of course.sections) {
+        const found = section.lessons.find(l => l.id === remoteQuiz.next_lesson_id);
+        if (found) {
+          nextLessonObj = found;
+          break;
+        }
+      }
+
+      if (nextLessonObj?.type === 'quiz') {
+        navigate(`/learn/${slug}/quiz/${remoteQuiz.next_lesson_id}`);
+      } else if (nextLessonObj?.type === 'assignment') {
+        navigate(`/assignments/${remoteQuiz.next_lesson_id}`);
+      } else {
+        navigate(`/learn/${slug}/lesson/${remoteQuiz.next_lesson_id}`);
+      }
+    } else {
+      // If no next lesson, go back to curriculum
+      navigate(`/learn/${slug}`);
+    }
+  };
+
+  // Calculate score
+  const calculateScore = () => {
+    if (!quiz) return 0;
+    let correct = 0;
+    quiz.questions.forEach((question: Question) => {
+      if (answers[question.id] === question.correctOptionId) {
+        correct++;
+      }
+    });
+    return Math.round((correct / quiz.questions.length) * 100);
+  };
+
+  const score = calculateScore();
+  const passed = quiz ? score >= quiz.passingScore : false;
+
   if (isLoadingCourse || isLoadingQuiz) {
     return (
       <DashboardLayout>
-        <div className="max-w-2xl mx-auto py-16 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">{language === 'id' ? 'Memuat kuis...' : 'Loading quiz...'}</p>
+        <div className="flex h-[calc(100vh-80px)] -m-6">
+          <div className="w-80 border-r border-gray-200 bg-white p-4 space-y-4">
+             <Skeleton className="h-8 w-3/4" />
+             {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+          <div className="flex-1 p-16 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">{language === 'id' ? 'Memuat kuis...' : 'Loading quiz...'}</p>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -196,97 +295,11 @@ export function QuizPage() {
 
   const currentQuestion = quiz.questions[currentQuestionIndex];
 
-  const handleSelectAnswer = (optionId: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion.id]: optionId,
-    }));
-  };
-
-  const handleToggleFlag = () => {
-    setFlaggedQuestions((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(currentQuestion.id)) {
-        newSet.delete(currentQuestion.id);
-      } else {
-        newSet.add(currentQuestion.id);
-      }
-      return newSet;
-    });
-  };
-
-  const handleNext = () => {
-    if (currentQuestionIndex < quiz.questions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
-  };
-
-  const handleJumpToQuestion = (index: number) => {
-    setCurrentQuestionIndex(index);
-  };
-
-  const handleSubmit = async () => {
-    try {
-      await markComplete({ slug, lessonId: numericQuizId }).unwrap();
-      setQuizState('result');
-      setShowResults(true);
-    } catch (err) {
-      console.error('Failed to submit quiz:', err);
-      toast.error(language === 'id' ? 'Gagal menyimpan progres kuis' : 'Failed to save quiz progress');
-      // If fails, still show result but warn
-      setQuizState('result');
-      setShowResults(true);
-    }
-  };
-
-  const handleStartQuiz = () => {
-    setQuizState('taking');
-    setTimeRemaining(quiz.timeLimit * 60);
-  };
-
-  const handleRetry = () => {
-    setQuizState('intro');
-    setAnswers({});
-    setFlaggedQuestions(new Set());
-    setCurrentQuestionIndex(0);
-    setTimeRemaining(quiz.timeLimit * 60);
-    setShowResults(false);
-  };
-
-  // Calculate score
-  const calculateScore = () => {
-    if (!quiz) return 0;
-    let correct = 0;
-    quiz.questions.forEach((question: Question) => {
-      if (answers[question.id] === question.correctOptionId) {
-        correct++;
-      }
-    });
-    return Math.round((correct / quiz.questions.length) * 100);
-  };
-
-  const score = calculateScore();
-  const passed = score >= quiz.passingScore;
-
-  // Intro Screen
-  if (quizState === 'intro') {
-    return (
-      <DashboardLayout>
-        <div className="max-w-2xl mx-auto">
-          <Link
-            to={`/learn/${slug}`}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {language === 'id' ? 'Kembali ke Kursus' : 'Back to Course'}
-          </Link>
-
+  const renderContent = () => {
+    // Intro Screen
+    if (quizState === 'intro') {
+      return (
+        <div className="max-w-2xl mx-auto p-6">
           <Card className="text-center py-8">
             <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-8 h-8 text-yellow-500" />
@@ -309,32 +322,18 @@ export function QuizPage() {
               </div>
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-lg mb-6 max-w-md mx-auto text-left">
-              <h3 className="font-medium text-blue-900 mb-2">
-                {language === 'id' ? 'Petunjuk:' : 'Instructions:'}
-              </h3>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• {language === 'id' ? 'Baca setiap soal dengan teliti' : 'Read each question carefully'}</li>
-                <li>• {language === 'id' ? 'Pilih satu jawaban untuk setiap soal' : 'Select one answer for each question'}</li>
-                <li>• {language === 'id' ? 'Anda dapat menandai soal untuk ditinjau nanti' : 'You can flag questions to review later'}</li>
-                <li>• {language === 'id' ? 'Quiz akan otomatis dikirim saat waktu habis' : 'Quiz will auto-submit when time runs out'}</li>
-              </ul>
-            </div>
-
             <Button size="lg" onClick={handleStartQuiz}>
               {language === 'id' ? 'Mulai Quiz' : 'Start Quiz'}
             </Button>
           </Card>
         </div>
-      </DashboardLayout>
-    );
-  }
+      );
+    }
 
-  // Result Screen
-  if (quizState === 'result') {
-    return (
-      <DashboardLayout>
-        <div className="max-w-2xl mx-auto">
+    // Result Screen
+    if (quizState === 'result') {
+      return (
+        <div className="max-w-2xl mx-auto p-6">
           <Card className="text-center py-8">
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${passed ? 'bg-green-100' : 'bg-red-100'
               }`}>
@@ -355,95 +354,12 @@ export function QuizPage() {
                   : 'Sorry, You Did Not Pass'}
             </h1>
 
-            <p className="text-gray-600 mb-6">
-              {passed
-                ? language === 'id'
-                  ? 'Anda telah berhasil menyelesaikan quiz ini.'
-                  : 'You have successfully completed this quiz.'
-                : language === 'id'
-                  ? 'Silakan coba lagi untuk meningkatkan skor Anda.'
-                  : 'Please try again to improve your score.'}
-            </p>
-
             <div className="flex justify-center gap-8 mb-8">
               <div className="text-center">
                 <p className={`text-5xl font-bold ${passed ? 'text-green-600' : 'text-red-600'}`}>
                   {score}%
                 </p>
                 <p className="text-sm text-gray-500">{language === 'id' ? 'Skor Anda' : 'Your Score'}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-5xl font-bold text-gray-400">{quiz.passingScore}%</p>
-                <p className="text-sm text-gray-500">{language === 'id' ? 'Nilai Lulus' : 'Passing Score'}</p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg mb-6 max-w-md mx-auto">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">{language === 'id' ? 'Benar' : 'Correct'}:</span>
-                  <span className="font-medium text-green-600">
-                    {quiz.questions.filter((q: Question) => answers[q.id] === q.correctOptionId).length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">{language === 'id' ? 'Salah' : 'Wrong'}:</span>
-                  <span className="font-medium text-red-600">
-                    {quiz.questions.filter((q: Question) => answers[q.id] && answers[q.id] !== q.correctOptionId).length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">{language === 'id' ? 'Tidak Dijawab' : 'Unanswered'}:</span>
-                  <span className="font-medium text-gray-600">
-                    {quiz.questions.filter((q: Question) => !answers[q.id]).length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">{language === 'id' ? 'Total Soal' : 'Total'}:</span>
-                  <span className="font-medium">{quiz.questions.length}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Answer Review */}
-            <div className="text-left mb-6">
-              <h3 className="font-semibold text-gray-900 mb-4">
-                {language === 'id' ? 'Tinjauan Jawaban' : 'Answer Review'}
-              </h3>
-              <div className="space-y-4">
-                {quiz.questions.map((question: Question, index: number) => {
-                  const userAnswer = answers[question.id];
-                  const isCorrect = userAnswer === question.correctOptionId;
-                  return (
-                    <div key={question.id} className="p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${isCorrect ? 'bg-green-500' : 'bg-red-500'
-                          } text-white text-xs font-medium`}>
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 mb-2">{question.text}</p>
-                          <div className="space-y-1 text-sm">
-                            <p className="text-gray-600">
-                              <span className="font-medium">{language === 'id' ? 'Jawaban Anda:' : 'Your answer:'}</span>{' '}
-                              <span className={isCorrect ? 'text-green-600' : 'text-red-600'}>
-                                {question.options.find((o) => o.id === userAnswer)?.text || '-'}
-                              </span>
-                            </p>
-                            {!isCorrect && (
-                              <p className="text-gray-600">
-                                <span className="font-medium">{language === 'id' ? 'Jawaban benar:' : 'Correct answer:'}</span>{' '}
-                                <span className="text-green-600">
-                                  {question.options.find((o) => o.id === question.correctOptionId)?.text}
-                                </span>
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
 
@@ -453,24 +369,30 @@ export function QuizPage() {
                   {language === 'id' ? 'Coba Lagi' : 'Try Again'}
                 </Button>
               )}
-              <Link
-                to={`/learn/${slug}`}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-all"
-              >
-                {language === 'id' ? 'Kembali ke Kursus' : 'Back to Course'}
-              </Link>
+              {passed ? (
+                <Button 
+                  onClick={handleNextLesson}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  {language === 'id' ? 'Materi Berikutnya' : 'Next Lesson'}
+                </Button>
+              ) : (
+                <Link
+                  to={`/learn/${slug}`}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-all"
+                >
+                  {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Course'}
+                </Link>
+              )}
             </div>
           </Card>
         </div>
-      </DashboardLayout>
-    );
-  }
+      );
+    }
 
-  // Taking Quiz Screen
-  return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
+    // Taking Quiz Screen
+    return (
+      <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-bold text-gray-900">{quiz.title}</h1>
           <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${timeRemaining <= 60 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
@@ -481,39 +403,19 @@ export function QuizPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Question Area */}
           <div className="lg:col-span-3">
             <Card>
-              {/* Progress */}
               <div className="mb-6">
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="text-gray-600">
                     {language === 'id' ? 'Soal' : 'Question'} {currentQuestionIndex + 1} / {quiz.questions.length}
                   </span>
-                  <span className="text-gray-600">
-                    {Object.keys(answers).length} {language === 'id' ? 'dijawab' : 'answered'}
-                  </span>
                 </div>
                 <Progress value={((currentQuestionIndex + 1) / quiz.questions.length) * 100} size="sm" />
               </div>
 
-              {/* Question */}
               <div className="mb-6">
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <h2 className="text-lg font-medium text-gray-900">{currentQuestion.text}</h2>
-                  <button
-                    onClick={handleToggleFlag}
-                    className={`p-2 rounded-lg transition-colors ${flaggedQuestions.has(currentQuestion.id)
-                      ? 'bg-yellow-100 text-yellow-600'
-                      : 'hover:bg-gray-100 text-gray-400'
-                      }`}
-                    aria-label="Flag question"
-                  >
-                    <Flag className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Options */}
+                <h2 className="text-lg font-medium text-gray-900 mb-4">{currentQuestion.text}</h2>
                 <div className="space-y-3">
                   {currentQuestion.options.map((option: { id: string; text: string }) => (
                     <button
@@ -538,7 +440,6 @@ export function QuizPage() {
                 </div>
               </div>
 
-              {/* Navigation */}
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                 <Button
                   variant="outline"
@@ -550,17 +451,11 @@ export function QuizPage() {
                 </Button>
 
                 {currentQuestionIndex === quiz.questions.length - 1 ? (
-                  <Button
-                    variant="success"
-                    onClick={handleSubmit}
-                  >
+                  <Button variant="success" onClick={handleSubmit}>
                     {language === 'id' ? 'Selesai & Kirim' : 'Finish & Submit'}
                   </Button>
                 ) : (
-                  <Button
-                    onClick={handleNext}
-                    rightIcon={<ChevronRight className="w-4 h-4" />}
-                  >
+                  <Button onClick={handleNext} rightIcon={<ChevronRight className="w-4 h-4" />}>
                     {language === 'id' ? 'Berikutnya' : 'Next'}
                   </Button>
                 )}
@@ -568,23 +463,21 @@ export function QuizPage() {
             </Card>
           </div>
 
-          {/* Question Navigator */}
           <div className="lg:col-span-1">
             <Card>
               <h3 className="font-semibold text-gray-900 mb-4">
                 {language === 'id' ? 'Navigasi Soal' : 'Question Navigator'}
               </h3>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {quiz.questions.map((question: Question, index: number) => {
                   const isAnswered = !!answers[question.id];
-                  const isFlagged = flaggedQuestions.has(question.id);
                   const isCurrent = index === currentQuestionIndex;
 
                   return (
                     <button
                       key={question.id}
                       onClick={() => handleJumpToQuestion(index)}
-                      className={`relative w-10 h-10 rounded-lg flex items-center justify-center text-sm font-medium transition-all ${isCurrent
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-all ${isCurrent
                         ? 'bg-blue-600 text-white'
                         : isAnswered
                           ? 'bg-green-100 text-green-700'
@@ -592,37 +485,95 @@ export function QuizPage() {
                         }`}
                     >
                       {index + 1}
-                      {isFlagged && (
-                        <Flag className="absolute -top-1 -right-1 w-3 h-3 text-yellow-500" />
-                      )}
                     </button>
                   );
                 })}
               </div>
-
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-green-100" />
-                  <span className="text-gray-600">{language === 'id' ? 'Dijawab' : 'Answered'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-gray-100" />
-                  <span className="text-gray-600">{language === 'id' ? 'Belum dijawab' : 'Unanswered'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Flag className="w-4 h-4 text-yellow-500" />
-                  <span className="text-gray-600">{language === 'id' ? 'Ditandai' : 'Flagged'}</span>
-                </div>
-              </div>
-
-              <Button
-                variant="danger"
-                className="w-full mt-4"
-                onClick={handleSubmit}
-              >
-                {language === 'id' ? 'Selesai & Kirim' : 'Finish & Submit'}
-              </Button>
             </Card>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="flex h-[calc(100vh-80px)] -m-6">
+        {/* Sidebar */}
+        {showSidebar && (
+          <div className="w-80 border-r border-gray-200 bg-white flex-shrink-0 overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h3 className="font-semibold text-gray-900 truncate">
+                {course?.title || (language === 'id' ? 'Daftar Materi' : 'Lesson List')}
+              </h3>
+              <button
+                onClick={() => setShowSidebar(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-2">
+              {course?.sections.map((section) => (
+                <div key={section.id} className="mb-4">
+                  <h4 className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    {section.title}
+                  </h4>
+                  {section.lessons.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => navigate(`/learn/${slug}/lesson/${item.id}`)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${item.id === numericQuizId
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                    >
+                      <div
+                        className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium ${item.is_completed
+                          ? 'bg-green-500 text-white'
+                          : item.id === numericQuizId
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-600'
+                          }`}
+                      >
+                        {item.is_completed ? <CheckCircle className="w-4 h-4" /> : ''}
+                      </div>
+                      <span className="text-sm truncate">{item.title}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+            <div className="flex items-center gap-4">
+              {!showSidebar && (
+                <button
+                  onClick={() => setShowSidebar(true)}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <Menu className="w-5 h-5 text-gray-600" />
+                </button>
+              )}
+              <Link
+                to={`/learn/${slug}`}
+                className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Curriculum'}
+                </span>
+              </Link>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            {renderContent()}
           </div>
         </div>
       </div>

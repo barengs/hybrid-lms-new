@@ -81,7 +81,10 @@ class ClassController extends Controller
                     },
                     'grades' => function ($query) {
                         $query->select('batch_id', 'overall_score');
-                    }
+                    },
+                    'sessions',
+                    'additionalMaterials',
+                    'assignments',
                 ])
                 ->when($request->status, function ($query, $status) {
                     $query->where('status', $status);
@@ -127,7 +130,10 @@ class ClassController extends Controller
                     },
                     'grades' => function ($query) use ($user) {
                         $query->where('user_id', $user->id)->select('batch_id', 'overall_score');
-                    }
+                    },
+                    'sessions',
+                    'additionalMaterials',
+                    'assignments',
                 ])
                 ->latest()
                 ->get();
@@ -236,6 +242,12 @@ class ClassController extends Controller
                 'courses.instructor', 
                 'courses.sections.lessons', 
                 'instructor', 
+                'sessions.comments.user.profile',
+                'sessions.comments.replies.user.profile',
+                'additionalMaterials',
+                'assignments.submissions' => function($q) {
+                    $q->where('user_id', auth()->id());
+                },
                 'enrollments.student', // Load student info
                 'enrollments' => function($q) {
                     $q->with('student'); // Ensure user data is loaded

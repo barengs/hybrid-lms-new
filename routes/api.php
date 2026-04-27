@@ -298,6 +298,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'store']);
         Route::get('/{id}', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'show']);
         Route::post('/join', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'join']);
+        
+        // Session Comments
+        Route::post('/sessions/{sessionId}/comments', [\App\Http\Controllers\Api\V1\Classroom\SessionCommentController::class, 'store']);
 
         // Course management
         Route::post('/{id}/courses', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'addCourse']);

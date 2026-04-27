@@ -23,15 +23,42 @@ import { formatDate, getTimeAgo } from '@/lib/utils';
 import { useGetClassQuery } from '@/store/features/classes/classesApiSlice';
 import { Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
+import { SessionDetailModal } from '@/components/modals/SessionDetailModal';
+import { usePostSessionCommentMutation } from '@/store/features/classes/classesApiSlice';
+import { toast } from 'react-hot-toast';
 
 
 export function ClassDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { classId } = useParams<{ classId: string }>();
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'info' | 'materials' | 'assignments' | 'grades'>('info');
+  
+  // Session Modal State
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [postComment] = usePostSessionCommentMutation();
 
-  const { data: response, isLoading, isError } = useGetClassQuery(id || '');
+  const { data: response, isLoading, isError } = useGetClassQuery(classId || '');
   const classData = response?.data;
+
+  const handleOpenSession = (session: any) => {
+    setSelectedSession(session);
+    setIsModalOpen(true);
+  };
+
+  const handlePostComment = async (comment: string, parentId?: number) => {
+    if (!selectedSession) return;
+    try {
+      await postComment({ 
+        sessionId: selectedSession.id, 
+        comment, 
+        parentId 
+      }).unwrap();
+      toast.success(language === 'id' ? 'Komentar terkirim' : 'Comment posted');
+    } catch (err) {
+      toast.error(language === 'id' ? 'Gagal mengirim komentar' : 'Failed to post comment');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -62,7 +89,7 @@ export function ClassDetailPage() {
   }
 
   // Calculate internal state/helpers
-  const isActive = classData.status === 'active' || classData.status === 'in_progress' || !classData.status;
+  const isActive = classData.status === 'open' || classData.status === 'in_progress' || !classData.status;
 
   // Assignments Mapping (Backend might provide this differently, placeholder for now)
   const assignments = classData.assignments || [];
@@ -330,51 +357,44 @@ export function ClassDetailPage() {
               </div>
               <div className="space-y-3">
                 {(classData.sessions || []).map((session: any) => (
-                  <Card key={session.id} hover>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${session.status === 'completed'
-                          ? 'bg-green-100 dark:bg-green-900/30'
-                          : 'bg-blue-100 dark:bg-blue-900/30'
-                          }`}>
-                          <Calendar className={`w-5 h-5 ${session.status === 'completed'
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-blue-600 dark:text-blue-400'
-                            }`} />
+                  <Card key={session.id} hover className="cursor-pointer" onClick={() => handleOpenSession(session)}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          session.type === 'online_class' 
+                            ? 'bg-red-100 dark:bg-red-900/30' 
+                            : 'bg-blue-100 dark:bg-blue-900/30'
+                        }`}>
+                          {session.type === 'online_class' ? (
+                            <Video className="w-5 h-5 text-red-600 dark:text-red-400" />
+                          ) : (
+                            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          )}
                         </div>
-                        <div className="flex-1">
+                        <div>
                           <div className="flex items-center gap-2 mb-1">
                             <h4 className="font-medium text-gray-900 dark:text-white">
                               {session.title}
                             </h4>
-                            <Badge
-                              variant={session.status === 'completed' ? 'success' : 'warning'}
-                              size="sm"
-                            >
-                              {session.status === 'completed'
-                                ? language === 'id' ? 'Selesai' : 'Completed'
-                                : language === 'id' ? 'Akan Datang' : 'Upcoming'}
+                            <Badge size="sm" variant={session.type === 'online_class' ? 'danger' : 'primary'}>
+                              {session.type === 'online_class' 
+                                ? (language === 'id' ? 'Kelas Online' : 'Online Class')
+                                : (language === 'id' ? 'Materi' : 'Material')
+                              }
                             </Badge>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
+                              <Calendar className="w-3 h-3" />
                               {formatDate(session.sessionDate)}
                             </span>
-                            <span>{session.duration}</span>
+                            {session.duration && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {session.duration}
+                              </span>
+                            )}
                           </div>
-                          {session.materials.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-2">
-                              {session.materials.map((mat, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-300"
-                                >
-                                  {mat}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -383,7 +403,7 @@ export function ClassDetailPage() {
                             {language === 'id' ? 'Rekaman' : 'Recording'}
                           </Button>
                         )}
-                        {session.status === 'upcoming' && (
+                        {session.type === 'online_class' && session.status === 'upcoming' && (
                           <Button size="sm">
                             {language === 'id' ? 'Gabung' : 'Join'}
                           </Button>
@@ -613,6 +633,13 @@ export function ClassDetailPage() {
           </div>
         )}
       </div>
+
+      <SessionDetailModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        session={selectedSession}
+        onPostComment={handlePostComment}
+      />
     </DashboardLayout>
   );
 }

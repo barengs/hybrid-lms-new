@@ -14,6 +14,7 @@ class Assignment extends Model
     protected $fillable = [
         'batch_id',
         'lesson_id',
+        'batch_topic_id',
         'title',
         'description',
         'instructions',
@@ -27,6 +28,11 @@ class Assignment extends Model
         'is_published',
         'is_required',
     ];
+
+    public function topic(): BelongsTo
+    {
+        return $this->belongsTo(BatchTopic::class, 'batch_topic_id');
+    }
 
     protected function casts(): array
     {

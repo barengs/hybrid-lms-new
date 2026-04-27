@@ -33,8 +33,16 @@ class AssignmentController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $assignments = Assignment::whereHas('batch.courses', function ($query) use ($request) {
-                    $query->where('instructor_id', $request->user()->id);
+            $instructorId = $request->user()->id;
+            $assignments = Assignment::whereHas('batch', function ($query) use ($instructorId) {
+                    $query->where(function ($q) use ($instructorId) {
+                        $q->whereHas('courses', function ($inner) use ($instructorId) {
+                            $inner->where('instructor_id', $instructorId);
+                        })
+                        ->orWhereHas('instructors', function ($inner) use ($instructorId) {
+                            $inner->where('instructor_id', $instructorId);
+                        });
+                    });
                 })
                 ->with(['batch:id,name', 'lesson:id,title'])
                 ->when($request->batch_id, function ($query, $batchId) {
@@ -91,12 +99,19 @@ class AssignmentController extends Controller
                 'allow_multiple_submissions' => ['boolean'],
                 'is_published' => ['boolean'],
                 'is_required' => ['boolean'],
+                'batch_topic_id' => ['nullable', 'exists:batch_topics,id'],
             ]);
 
             // Verify batch ownership
+            $instructorId = $request->user()->id;
             Batch::where('id', $validated['batch_id'])
-                ->whereHas('courses', function ($query) use ($request) {
-                    $query->where('instructor_id', $request->user()->id);
+                ->where(function ($query) use ($instructorId) {
+                    $query->whereHas('courses', function ($q) use ($instructorId) {
+                        $q->where('instructor_id', $instructorId);
+                    })
+                    ->orWhereHas('instructors', function ($q) use ($instructorId) {
+                        $q->where('instructor_id', $instructorId);
+                    });
                 })
                 ->firstOrFail();
 
@@ -167,8 +182,16 @@ class AssignmentController extends Controller
     public function update(Request $request, string $assignmentId): JsonResponse
     {
         try {
-            $assignment = Assignment::whereHas('batch.courses', function ($query) use ($request) {
-                    $query->where('instructor_id', $request->user()->id);
+            $instructorId = $request->user()->id;
+            $assignment = Assignment::whereHas('batch', function ($query) use ($instructorId) {
+                    $query->where(function ($q) use ($instructorId) {
+                        $q->whereHas('courses', function ($inner) use ($instructorId) {
+                            $inner->where('instructor_id', $instructorId);
+                        })
+                        ->orWhereHas('instructors', function ($inner) use ($instructorId) {
+                            $inner->where('instructor_id', $instructorId);
+                        });
+                    });
                 })
                 ->findOrFail($assignmentId);
 
@@ -185,6 +208,7 @@ class AssignmentController extends Controller
                 'allow_multiple_submissions' => ['boolean'],
                 'is_published' => ['boolean'],
                 'is_required' => ['boolean'],
+                'batch_topic_id' => ['nullable', 'exists:batch_topics,id'],
             ]);
 
             $assignment->update($validated);
@@ -212,8 +236,16 @@ class AssignmentController extends Controller
     public function destroy(Request $request, string $assignmentId): JsonResponse
     {
         try {
-            $assignment = Assignment::whereHas('batch.courses', function ($query) use ($request) {
-                    $query->where('instructor_id', $request->user()->id);
+            $instructorId = $request->user()->id;
+            $assignment = Assignment::whereHas('batch', function ($query) use ($instructorId) {
+                    $query->where(function ($q) use ($instructorId) {
+                        $q->whereHas('courses', function ($inner) use ($instructorId) {
+                            $inner->where('instructor_id', $instructorId);
+                        })
+                        ->orWhereHas('instructors', function ($inner) use ($instructorId) {
+                            $inner->where('instructor_id', $instructorId);
+                        });
+                    });
                 })
                 ->findOrFail($assignmentId);
 

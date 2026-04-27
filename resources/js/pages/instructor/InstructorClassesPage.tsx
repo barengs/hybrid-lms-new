@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -16,11 +16,15 @@ import {
   BarChart3,
   FolderOpen,
   ArchiveRestore,
+  Loader2,
+  Camera,
+  X
 } from 'lucide-react';
 import { Card, Button, Badge, Input, Dropdown, Modal, Avatar, type DropdownItem } from '@/components/ui';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatNumber, getTimeAgo } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
 type ClassStatus = 'active' | 'archived';
 
@@ -31,7 +35,7 @@ import {
   useDeleteClassMutation,
   type ClassItem
 } from '@/store/features/classes/classesApiSlice';
-import { Loader2 } from 'lucide-react';
+import { useGetInstructorCoursesQuery } from '@/store/features/instructor/instructorApiSlice';
 
 
 export function InstructorClassesPage() {
@@ -51,10 +55,15 @@ export function InstructorClassesPage() {
   const [newClassCode, setNewClassCode] = useState('');
   const [newClassDescription, setNewClassDescription] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [newClassBanner, setNewClassBanner] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
 
   // API Hooks
   const { data: classesData, isLoading } = useGetClassesQuery();
+  const { data: courses = [] } = useGetInstructorCoursesQuery();
   const [createClass, { isLoading: isCreating }] = useCreateClassMutation();
   const [updateClass] = useUpdateClassMutation();
   const [deleteClass] = useDeleteClassMutation();
@@ -65,13 +74,13 @@ export function InstructorClassesPage() {
   // Stats - Use meta stats if available, else calculate
   const stats = {
     totalClasses: metaStats?.total_batches ?? classes.length,
-    activeClasses: metaStats?.active_batches ?? classes.filter((c) => c.status === 'active').length,
+    activeClasses: metaStats?.active_batches ?? classes.filter((c) => c.status === 'active' || c.status === 'open' || c.status === 'in_progress').length,
     archivedClasses: metaStats?.archived_batches ?? classes.filter((c) => c.status === 'archived').length,
-    totalStudents: metaStats?.total_students ?? classes.reduce((sum, c) => sum + (c.students_count || 0), 0),
+    totalStudents: metaStats?.total_students ?? classes.reduce((sum, c) => sum + (Number(c.students_count) || 0), 0),
     avgGrade: metaStats?.average_grade ?? (classes.length > 0 
       ? Math.round(
-          classes.filter((c) => c.status === 'active').reduce((sum, c) => sum + (c.averageGrade || 0), 0) /
-          (classes.filter((c) => c.status === 'active').length || 1)
+          classes.filter((c) => c.status === 'active' || c.status === 'open' || c.status === 'in_progress').reduce((sum, c) => sum + (Number(c.assessment_stats?.class_average_score) || 0), 0) /
+          (classes.filter((c) => c.status === 'active' || c.status === 'open' || c.status === 'in_progress').length || 1)
         )
       : 0),
   };
@@ -88,6 +97,18 @@ export function InstructorClassesPage() {
     })
     .sort((a, b) => new Date(b.updated_at || b.created_at || new Date()).getTime() - new Date(a.updated_at || a.created_at || new Date()).getTime());
 
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewClassBanner(file);
+      setBannerPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeBanner = () => {
+    setNewClassBanner(null);
+    setBannerPreview(null);
+  };
 
   const getClassActions = (cls: any) => {
     const actions: DropdownItem[] = [
@@ -107,7 +128,6 @@ export function InstructorClassesPage() {
         onClick: () => {
           if (cls.class_code) {
              navigator.clipboard.writeText(cls.class_code);
-             // Toast removed
           }
         },
 
@@ -153,20 +173,36 @@ export function InstructorClassesPage() {
 
   const handleCreateClass = async () => {
     try {
-       await createClass({
-          name: newClassName,
-          code: newClassCode,
-          description: newClassDescription,
-          courseId: selectedCourseId || undefined
-       }).unwrap();
+       const formData = new FormData();
+       formData.append('name', newClassName);
+       formData.append('code', newClassCode);
+       formData.append('description', newClassDescription);
+       if (selectedCourseId) {
+         formData.append('courseId', selectedCourseId);
+       }
+       if (newClassBanner) {
+         formData.append('thumbnail', newClassBanner);
+       }
+
+       await createClass(formData).unwrap();
        
+       toast.success(language === 'id' ? 'Kelas berhasil dibuat' : 'Class created successfully');
        setShowCreateModal(false);
+       
+       // Reset form
        setNewClassName('');
        setNewClassCode('');
        setNewClassDescription('');
        setSelectedCourseId('');
-    } catch (err) {
+       setNewClassBanner(null);
+       setBannerPreview(null);
+    } catch (err: any) {
        console.error('Failed to create class', err);
+       const message = err.data?.message || (language === 'id' ? 'Gagal membuat kelas' : 'Failed to create class');
+       toast.error(message);
+       if (err.data?.errors) {
+         Object.values(err.data.errors).flat().forEach((msg: any) => toast.error(msg as string));
+       }
     }
   };
 
@@ -180,20 +216,9 @@ export function InstructorClassesPage() {
     setNewClassCode(code);
   };
 
-  if (isLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -210,7 +235,6 @@ export function InstructorClassesPage() {
           </Button>
         </div>
 
-        {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center gap-3">
@@ -269,7 +293,6 @@ export function InstructorClassesPage() {
           </Card>
         </div>
 
-        {/* Filters */}
         <Card className="mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
@@ -312,7 +335,6 @@ export function InstructorClassesPage() {
           </div>
         </Card>
 
-        {/* Classes Grid */}
         {filteredClasses.length === 0 ? (
           <Card className="text-center py-12">
             <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -338,13 +360,18 @@ export function InstructorClassesPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClasses.map((cls) => (
               <Card key={cls.id} className="hover:shadow-lg transition-shadow">
-                {/* Thumbnail */}
                 <div className="relative h-40 overflow-hidden rounded-t-xl">
-                  <img
-                    src={cls.thumbnail}
-                    alt={cls.name}
-                    className="w-full h-full object-cover"
-                  />
+                  {cls.thumbnail ? (
+                    <img
+                      src={cls.thumbnail}
+                      alt={cls.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <BookOpen className="w-12 h-12 text-white/20" />
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute top-3 left-3">
                     <Badge variant={cls.status === 'active' ? 'success' : 'secondary'} size="sm">
@@ -376,13 +403,10 @@ export function InstructorClassesPage() {
                     <p className="text-white/80 text-sm flex items-center gap-1">
                       <span className="bg-white/20 px-2 py-0.5 rounded text-xs">{cls.class_code}</span>
                     </p>
-
                   </div>
                 </div>
 
-                {/* Content */}
                 <div className="p-4">
-                  {/* Course Link */}
                   {cls.course ? (
                     <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
                       <BookOpen className="w-4 h-4" />
@@ -395,7 +419,6 @@ export function InstructorClassesPage() {
                     </div>
                   )}
 
-                  {/* Stats Grid */}
                   <div className="grid grid-cols-4 gap-2 mb-4">
                     <div className="text-center p-2 bg-gray-50 rounded-lg">
                       <p className="text-lg font-bold text-gray-900">{cls.topicsCount || 0}</p>
@@ -413,10 +436,8 @@ export function InstructorClassesPage() {
                       <p className="text-lg font-bold text-gray-900">{cls.averageGrade || 0}%</p>
                       <p className="text-xs text-gray-500">{language === 'id' ? 'Nilai' : 'Grade'}</p>
                     </div>
-
                   </div>
 
-                  {/* Students Avatars */}
                   <div className="flex items-center justify-between">
                     <div className="flex -space-x-2">
                       {(cls.recentStudents || []).slice(0, 4).map((student: any) => (
@@ -428,9 +449,9 @@ export function InstructorClassesPage() {
                           className="ring-2 ring-white"
                         />
                       ))}
-                      {(cls.students_count || 0) > 4 && (
+                      {Number(cls.students_count || 0) > 4 && (
                         <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 ring-2 ring-white">
-                          +{(cls.students_count || 0) - 4}
+                          +{Number(cls.students_count || 0) - 4}
                         </div>
                       )}
                     </div>
@@ -438,11 +459,9 @@ export function InstructorClassesPage() {
                       <Clock className="w-3 h-3" />
                       {getTimeAgo(cls.lastActivityAt || cls.updated_at || cls.created_at || new Date().toISOString())}
                     </div>
-
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="border-t border-gray-100 p-3 flex gap-2">
                   <Link
                     to={`/instructor/classes/${cls.id}`}
@@ -462,16 +481,59 @@ export function InstructorClassesPage() {
           </div>
         )}
 
-        {/* Create Class Modal */}
         <Modal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           title={language === 'id' ? 'Buat Kelas Baru' : 'Create New Class'}
         >
           <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                {language === 'id' ? 'Banner Kelas (Opsional)' : 'Class Banner (Optional)'}
+              </label>
+              
+              {bannerPreview ? (
+                <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-gray-200">
+                  <img 
+                    src={bannerPreview} 
+                    alt="Banner preview" 
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={removeBanner}
+                    className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full text-red-500 hover:bg-white shadow-sm transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-video w-full border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                >
+                  <div className="p-3 bg-gray-50 rounded-full group-hover:bg-blue-100 transition-colors">
+                    <Camera className="w-6 h-6 text-gray-400 group-hover:text-blue-600" />
+                  </div>
+                  <p className="text-sm text-gray-500 group-hover:text-blue-600">
+                    {language === 'id' ? 'Klik untuk unggah banner' : 'Click to upload banner'}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    JPG, PNG or WEBP (Max. 2MB)
+                  </p>
+                </div>
+              )}
+              
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleBannerChange}
+                accept="image/*"
+                className="hidden"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {language === 'id' ? 'Nama Kelas' : 'Class Name'} *
+                {language === 'id' ? 'Nama Kelas *' : 'Class Name *'}
               </label>
               <Input
                 value={newClassName}
@@ -523,9 +585,11 @@ export function InstructorClassesPage() {
                 aria-label="Select course"
               >
                 <option value="">{language === 'id' ? 'Pilih kursus...' : 'Select a course...'}</option>
-                <option value="course-1">React Masterclass: From Zero to Hero</option>
-                <option value="course-2">Full Stack Development with Node.js</option>
-                <option value="course-3">UI/UX Design Fundamentals</option>
+                {courses.map((course: any) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title}
+                  </option>
+                ))}
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 {language === 'id'

@@ -28,13 +28,16 @@ import {
   Paperclip,
   Save,
   ArrowLeft,
+  ArrowRight,
+  FolderPlus,
+  Layout
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
 import { Card, CardHeader, CardTitle, Button, Badge, Input, Dropdown, Modal, Avatar, Textarea } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
-import { formatNumber, getTimeAgo } from '@/lib/utils';
+import { formatNumber, getTimeAgo, formatDate } from '@/lib/utils';
 
-type Tab = 'topics' | 'materials' | 'students' | 'grading' | 'settings';
+type Tab = 'content' | 'students' | 'grading' | 'settings';
 
 interface Topic {
   id: string;
@@ -59,86 +62,30 @@ interface Material {
 }
 
 interface Student {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
   avatar?: string;
   enrolledAt: string;
-  lastActiveAt: string;
   progress: number;
   grade?: number;
   assignmentsSubmitted: number;
   totalAssignments: number;
 }
 
-// Mock data
-const mockClass = {
-  id: 'class-1',
-  name: 'React Advanced 2024 - Batch A',
-  code: 'RA2024A',
-  description: 'Kelas intensif React untuk developer yang sudah paham dasar React.',
-  thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400',
-  course: {
-    id: 'course-1',
-    title: 'React Masterclass: From Zero to Hero',
-  },
-  status: 'active' as const,
-  studentsCount: 32,
-  topicsCount: 12,
-  materialsCount: 45,
-  assignmentsCount: 8,
-  averageGrade: 85,
-  createdAt: '2024-09-01T10:00:00Z',
-  updatedAt: '2024-12-16T14:30:00Z',
-  lastActivityAt: '2024-12-16T14:30:00Z',
-};
-
-
-
-const mockStudents: Student[] = [
-  // Keep mock students for now as the API response example had "students": "string", which implies it might not represent the list yet
-  // Once the API provides a proper list of students in the class details, we should map that too.
-  {
-    id: 'student-1',
-    name: 'Ahmad Rizki',
-    email: 'ahmad.rizki@email.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad',
-    enrolledAt: '2024-09-01T10:00:00Z',
-    lastActiveAt: '2024-12-16T14:30:00Z',
-    progress: 95,
-    grade: 92,
-    assignmentsSubmitted: 8,
-    totalAssignments: 8,
-  },
-  {
-    id: 'student-2',
-    name: 'Siti Nurhaliza',
-    email: 'siti.nur@email.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-    enrolledAt: '2024-09-02T10:00:00Z',
-    lastActiveAt: '2024-12-15T09:00:00Z',
-    progress: 88,
-    grade: 85,
-    assignmentsSubmitted: 7,
-    totalAssignments: 8,
-  },
-  {
-    id: 'student-3',
-    name: 'Budi Hartono',
-    email: 'budi.hartono@email.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BudiH',
-    enrolledAt: '2024-09-03T10:00:00Z',
-    lastActiveAt: '2024-12-14T16:00:00Z',
-    progress: 75,
-    grade: 78,
-    assignmentsSubmitted: 6,
-    totalAssignments: 8,
-  },
-];
 
 import { 
   useGetClassQuery,
-  useUpdateClassMutation
+  useUpdateClassMutation,
+  useCreateSessionMutation,
+  useUpdateSessionMutation,
+  useDeleteSessionMutation,
+  useCreateTopicMutation,
+  useUpdateTopicMutation,
+  useDeleteTopicMutation,
+  useCreateAssignmentMutation,
+  useUpdateAssignmentMutation,
+  useDeleteAssignmentMutation
 } from '@/store/features/classes/classesApiSlice';
 import { Loader2 } from 'lucide-react';
 
@@ -151,53 +98,40 @@ export function ClassManagePage() {
   // API Hooks
   const { data: classDataResponse, isLoading } = useGetClassQuery(classId || '', { skip: !classId });
   const [updateClass, { isLoading: isUpdating }] = useUpdateClassMutation();
+  const [createSession] = useCreateSessionMutation();
+  const [updateSession] = useUpdateSessionMutation();
+  const [deleteSession] = useDeleteSessionMutation();
+  const [createTopic] = useCreateTopicMutation();
+  const [updateTopic] = useUpdateTopicMutation();
+  const [deleteTopic] = useDeleteTopicMutation();
+  const [createAssignment] = useCreateAssignmentMutation();
+  const [updateAssignment] = useUpdateAssignmentMutation();
+  const [deleteAssignment] = useDeleteAssignmentMutation();
   
   const classData = classDataResponse?.data;
 
   // Use derived state for topics and materials to avoid conflict between API data and local state for now
-  // Ideally we should sync these. For this refactor we prioritize displaying API data.
-  const topicsData = classData?.courses?.flatMap(course => course.topics) || [];
-  // Ensure we have unique IDs if multiple courses have topics with same IDs (unlikely in real DB but good safety)
-  // Or just map them directly if structure matches.
-  
-  // We need to map the API Topic structure to the UI Topic interface if they differ.
-  // API Topic: { id, title, materials_count, materials: [], description? }
-  // UI Topic: { id, title, description, order, createdAt, updatedAt }
-  // The API response doesn't seem to have order/createdAt/updatedAt in Topic yet.
-  
-  const displayTopics: Topic[] = topicsData.map((t: any, index: number) => ({
-    id: String(t.id),
-    title: t.title,
-    description: t.description || '',
-    order: index + 1,
-    createdAt: new Date().toISOString(), // Placeholder
-    updatedAt: new Date().toISOString(), // Placeholder
+  const displayStudents: Student[] = (classData?.students || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    avatar: s.avatar,
+    enrolledAt: s.joined_at,
+    progress: s.progress || 0,
+    grade: s.grade_score,
+    assignmentsSubmitted: s.assignments_completed || 0,
+    totalAssignments: s.assignments_total || 0,
   }));
 
-  const displayMaterials: Material[] = topicsData.flatMap((t: any) => 
-    (t.materials || []).map((m: any) => ({
-      id: String(m.id),
-      title: m.title,
-      type: m.type as any,
-      url: m.url,
-      fileName: m.file_name,
-      fileSize: m.file_size,
-      description: '', 
-      topicId: String(t.id),
-      createdAt: new Date().toISOString(), // Placeholder
-      updatedAt: new Date().toISOString(), // Placeholder
-    }))
-  );
-
   
-  const [activeTab, setActiveTab] = useState<Tab>('topics');
-  const [expandedTopics, setExpandedTopics] = useState<string[]>(['topic-1']);
-  const [showTopicModal, setShowTopicModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('content');
+  const [showSessionModal, setShowSessionModal] = useState(false);
   const [showMaterialModal, setShowMaterialModal] = useState(false);
+  const [showTopicModal, setShowTopicModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
-  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [editingSession, setEditingSession] = useState<any>(null);
+  const [editingTopic, setEditingTopic] = useState<any>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   // Form states
@@ -206,15 +140,33 @@ export function ClassManagePage() {
   const [classDescription, setClassDescription] = useState('');
   const [classStatus, setClassStatus] = useState<'active' | 'archived'>('active');
 
-  // Topics form
-  const [topicTitle, setTopicTitle] = useState('');
-  const [topicDescription, setTopicDescription] = useState('');
+  // Session form
+  const [sessionTitle, setSessionTitle] = useState('');
+  const [sessionDate, setSessionDate] = useState('');
+  const [sessionTime, setSessionTime] = useState('');
+  const [sessionType, setSessionType] = useState<'online_class' | 'offline_class'>('online_class');
+  const [sessionLink, setSessionLink] = useState('');
+  const [sessionTopicId, setSessionTopicId] = useState('');
   
   // Materials form
   const [materialTitle, setMaterialTitle] = useState('');
   const [materialType, setMaterialType] = useState<'document' | 'video' | 'link' | 'image'>('document');
   const [materialUrl, setMaterialUrl] = useState('');
   const [materialDescription, setMaterialDescription] = useState('');
+  const [materialTopicId, setMaterialTopicId] = useState('');
+  
+  // Assignment form
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<any>(null);
+  const [assignmentTitle, setAssignmentTitle] = useState('');
+  const [assignmentDescription, setAssignmentDescription] = useState('');
+  const [assignmentPoints, setAssignmentPoints] = useState('100');
+  const [assignmentDueDate, setAssignmentDueDate] = useState('');
+  const [assignmentTopicId, setAssignmentTopicId] = useState('');
+  const [assignmentType, setAssignmentType] = useState<'assignment' | 'quiz'>('assignment');
+
+  // Topic form
+  const [topicTitle, setTopicTitle] = useState('');
   
   useEffect(() => {
     if (classData) {
@@ -246,144 +198,208 @@ export function ClassManagePage() {
 
 
 
-  const toggleTopic = (topicId: string) => {
-    setExpandedTopics(prev =>
-      prev.includes(topicId)
-        ? prev.filter(id => id !== topicId)
-        : [...prev, topicId]
-    );
+  const handleEditSession = (session: any) => {
+    setEditingSession(session);
+    setSessionTitle(session.title || '');
+    // Assuming sessionDate is 'YYYY-MM-DD' and sessionTime is 'HH:MM' or we just parse it
+    // Note: Adjust according to actual data structure
+    setSessionDate(session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : '');
+    setSessionTime(session.duration ? session.duration.split(' ')[0] : ''); // mock handling
+    setSessionType(session.type || 'online_class');
+    setSessionLink(session.link || '');
+    setShowSessionModal(true);
   };
 
-  const getMaterialIcon = (type: Material['type']) => {
-    switch (type) {
-      case 'document': return <File className="w-4 h-4" />;
-      case 'video': return <Video className="w-4 h-4" />;
-      case 'link': return <LinkIcon className="w-4 h-4" />;
-      case 'image': return <Image className="w-4 h-4" />;
-      default: return <Paperclip className="w-4 h-4" />;
+  const handleDeleteSession = async (session: any) => {
+    if (confirm(language === 'id' ? 'Apakah Anda yakin ingin menghapus sesi ini?' : 'Are you sure you want to delete this session?')) {
+      if (!classId) return;
+      try {
+        await deleteSession({ classId, sessionId: session.id }).unwrap();
+      } catch (err) {
+        console.error('Failed to delete session:', err);
+      }
     }
   };
 
-  const getMaterialTypeName = (type: Material['type']) => {
-    switch (type) {
-      case 'document': return language === 'id' ? 'Dokumen' : 'Document';
-      case 'video': return language === 'id' ? 'Video' : 'Video';
-      case 'link': return language === 'id' ? 'Tautan' : 'Link';
-      case 'image': return language === 'id' ? 'Gambar' : 'Image';
-      default: return language === 'id' ? 'Lampiran' : 'Attachment';
+  const handleSaveSession = async () => {
+    if (!classId) return;
+    try {
+      if (editingSession) {
+        await updateSession({
+          classId,
+          sessionId: editingSession.id,
+          data: {
+            title: sessionTitle,
+            session_date: sessionDate + (sessionTime ? ' ' + sessionTime : ''),
+            duration: sessionTime ? sessionTime + ' hours' : null,
+            type: sessionType,
+            meeting_url: sessionLink,
+            status: 'upcoming',
+            batch_topic_id: sessionTopicId || null
+          }
+        }).unwrap();
+      } else {
+        await createSession({
+          classId,
+          data: {
+            title: sessionTitle,
+            session_date: sessionDate + (sessionTime ? ' ' + sessionTime : ''),
+            duration: sessionTime ? sessionTime + ' hours' : null,
+            type: sessionType,
+            meeting_url: sessionLink,
+            status: 'upcoming',
+            batch_topic_id: sessionTopicId || null
+          }
+        }).unwrap();
+      }
+      setShowSessionModal(false);
+      resetSessionForm();
+    } catch (err) {
+      console.error('Failed to save session:', err);
     }
   };
 
-  const handleSaveTopic = () => {
-    if (editingTopic) {
-      // Update existing topic
-      console.log('Update topic:', { id: editingTopic.id, title: topicTitle, description: topicDescription });
-    } else {
-      // Create new topic
-      console.log('Create topic:', { title: topicTitle, description: topicDescription });
-    }
-    setShowTopicModal(false);
-    resetTopicForm();
+  const resetSessionForm = () => {
+    setEditingSession(null);
+    setSessionTitle('');
+    setSessionDate('');
+    setSessionTime('');
+    setSessionType('online_class');
+    setSessionLink('');
+    setSessionTopicId('');
   };
 
-  const handleSaveMaterial = () => {
-    if (editingMaterial) {
-      // Update existing material
-      console.log('Update material:', {
-        id: editingMaterial.id,
-        title: materialTitle,
-        type: materialType,
-        url: materialUrl,
-        description: materialDescription
-      });
-    } else {
-      // Create new material
-      console.log('Create material:', {
-        title: materialTitle,
-        type: materialType,
-        url: materialUrl,
-        description: materialDescription,
-        topicId: selectedTopicId
-      });
-    }
-    setShowMaterialModal(false);
-    resetMaterialForm();
+  const handleEditMaterial = (material: any) => {
+    setEditingMaterial(material);
+    setMaterialTitle(material.title);
+    setMaterialType(material.type || 'document');
+    setMaterialUrl(material.url || '');
+    setMaterialDescription(material.description || '');
+    setMaterialTopicId(material.batch_topic_id || '');
+    setShowMaterialModal(true);
   };
 
-  const resetTopicForm = () => {
-    setTopicTitle('');
-    setTopicDescription('');
-    setEditingTopic(null);
+  const handleDeleteMaterial = async (material: any) => {
+    if (confirm(language === 'id' ? 'Apakah Anda yakin ingin menghapus materi ini?' : 'Are you sure you want to delete this material?')) {
+      if (!classId) return;
+      try {
+        await deleteSession({ classId, sessionId: material.id }).unwrap();
+      } catch (err) {
+        console.error('Failed to delete material:', err);
+      }
+    }
+  };
+
+  const handleSaveMaterial = async () => {
+    if (!classId) return;
+    try {
+      const formData = new FormData();
+      formData.append('title', materialTitle);
+      formData.append('type', 'material');
+      formData.append('description', materialDescription);
+      if (materialTopicId) formData.append('batch_topic_id', materialTopicId);
+      if (materialType === 'link' || materialType === 'video') {
+         formData.append('meeting_url', materialUrl);
+      }
+      
+      if (editingMaterial) {
+         formData.append('_method', 'PUT'); // Laravel requirement for multipart PUT
+         await updateSession({ classId, sessionId: editingMaterial.id, data: formData }).unwrap();
+      } else {
+         await createSession({ classId, data: formData }).unwrap();
+      }
+      setShowMaterialModal(false);
+      resetMaterialForm();
+    } catch (err) {
+      console.error('Failed to save material:', err);
+    }
   };
 
   const resetMaterialForm = () => {
+    setEditingMaterial(null);
     setMaterialTitle('');
     setMaterialType('document');
     setMaterialUrl('');
     setMaterialDescription('');
-    setEditingMaterial(null);
-    setSelectedTopicId(null);
+    setMaterialTopicId('');
   };
 
-  const getTopicActions = (topic: Topic) => [
-    {
-      label: language === 'id' ? 'Edit Topik' : 'Edit Topic',
-      icon: <Edit3 className="w-4 h-4" />,
-      onClick: () => {
-        setEditingTopic(topic);
-        setTopicTitle(topic.title);
-        setTopicDescription(topic.description);
-        setShowTopicModal(true);
-      },
-    },
-    {
-      label: language === 'id' ? 'Tambah Materi' : 'Add Material',
-      icon: <Plus className="w-4 h-4" />,
-      onClick: () => {
-        setSelectedTopicId(topic.id);
-        setShowMaterialModal(true);
-      },
-    },
-    { divider: true, label: '' },
-    {
-      label: language === 'id' ? 'Hapus' : 'Delete',
-      icon: <Trash2 className="w-4 h-4" />,
-      onClick: () => console.log('Delete topic:', topic.id),
-      className: 'text-red-600 hover:bg-red-50',
-    },
-  ];
+  const handleSaveAssignment = async () => {
+    if (!classId) return;
+    try {
+      const payload = {
+        batch_id: classId,
+        title: assignmentTitle,
+        description: assignmentDescription,
+        max_points: parseInt(assignmentPoints) || 100,
+        due_date: assignmentDueDate || null,
+        batch_topic_id: assignmentTopicId || null,
+        type: assignmentType,
+        is_published: true,
+        gradable: true
+      };
 
-  const getMaterialActions = (material: Material) => [
-    {
-      label: language === 'id' ? 'Edit Materi' : 'Edit Material',
-      icon: <Edit3 className="w-4 h-4" />,
-      onClick: () => {
-        setEditingMaterial(material);
-        setMaterialTitle(material.title);
-        setMaterialType(material.type);
-        setMaterialUrl(material.url || '');
-        setMaterialDescription(material.description);
-        setShowMaterialModal(true);
-      },
-    },
-    {
-      label: language === 'id' ? 'Lihat' : 'View',
-      icon: <Eye className="w-4 h-4" />,
-      onClick: () => window.open(material.url, '_blank'),
-    },
-    {
-      label: language === 'id' ? 'Unduh' : 'Download',
-      icon: <Download className="w-4 h-4" />,
-      onClick: () => console.log('Download:', material.id),
-    },
-    { divider: true, label: '' },
-    {
-      label: language === 'id' ? 'Hapus' : 'Delete',
-      icon: <Trash2 className="w-4 h-4" />,
-      onClick: () => console.log('Delete material:', material.id),
-      className: 'text-red-600 hover:bg-red-50',
-    },
-  ];
+      if (editingAssignment) {
+        await updateAssignment({ assignmentId: editingAssignment.id, data: payload }).unwrap();
+      } else {
+        await createAssignment({ data: payload }).unwrap();
+      }
+      setShowAssignmentModal(false);
+      resetAssignmentForm();
+    } catch (err) {
+      console.error('Failed to save assignment:', err);
+    }
+  };
+
+  const resetAssignmentForm = () => {
+    setEditingAssignment(null);
+    setAssignmentTitle('');
+    setAssignmentDescription('');
+    setAssignmentPoints('100');
+    setAssignmentDueDate('');
+    setAssignmentTopicId('');
+    setAssignmentType('assignment');
+  };
+
+
+
+  const handleEditTopic = (topic: any) => {
+    setEditingTopic(topic);
+    setTopicTitle(topic.title);
+    setShowTopicModal(true);
+  };
+
+  const handleDeleteTopic = async (topic: any) => {
+    if (confirm(language === 'id' ? 'Apakah Anda yakin ingin menghapus topik ini?' : 'Are you sure you want to delete this topic?')) {
+      if (!classId) return;
+      try {
+        await deleteTopic({ classId, topicId: topic.id }).unwrap();
+      } catch (err) {
+        console.error('Failed to delete topic:', err);
+      }
+    }
+  };
+
+  const handleSaveTopic = async () => {
+    if (!classId) return;
+    try {
+      if (editingTopic) {
+        await updateTopic({ classId, topicId: editingTopic.id, title: topicTitle }).unwrap();
+      } else {
+        await createTopic({ classId, title: topicTitle }).unwrap();
+      }
+      setShowTopicModal(false);
+      resetTopicForm();
+    } catch (err) {
+      console.error('Failed to save topic:', err);
+    }
+  };
+
+  const resetTopicForm = () => {
+    setEditingTopic(null);
+    setTopicTitle('');
+  };
+
 
   const handleViewStudent = (student: Student) => {
     setSelectedStudent(student);
@@ -487,7 +503,7 @@ export function ClassManagePage() {
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    {getTimeAgo(classData.updated_at || '')}
+                    {getTimeAgo(classData.updated_at || classData.created_at || new Date().toISOString())}
                   </span>
                 </div>
               </div>
@@ -507,29 +523,15 @@ export function ClassManagePage() {
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8 overflow-x-auto">
             <button
-              onClick={() => setActiveTab('topics')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'topics'
+              onClick={() => setActiveTab('content')}
+              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'content'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               <div className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
-                {language === 'id' ? 'Topik' : 'Topics'}
-                <Badge variant="secondary" size="sm">{displayTopics.length}</Badge>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('materials')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'materials'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                {language === 'id' ? 'Materi' : 'Materials'}
-                <Badge variant="secondary" size="sm">{displayMaterials.length}</Badge>
+                {language === 'id' ? 'Materi & Jadwal' : 'Content & Schedule'}
               </div>
             </button>
             <button
@@ -574,214 +576,247 @@ export function ClassManagePage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'topics' && (
+        {activeTab === 'content' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                {language === 'id' ? 'Topik Pembelajaran' : 'Learning Topics'}
-              </h2>
-              <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowTopicModal(true)}>
-                {language === 'id' ? 'Tambah Topik' : 'Add Topic'}
-              </Button>
-            </div>
-
-            {displayTopics.length === 0 ? (
-              <Card className="text-center py-12">
-                <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {language === 'id' ? 'Belum Ada Topik' : 'No Topics Yet'}
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  {language === 'id'
-                    ? 'Buat topik pertama Anda untuk memulai struktur pembelajaran.'
-                    : 'Create your first topic to start structuring your learning content.'}
-                </p>
-                <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowTopicModal(true)}>
-                  {language === 'id' ? 'Tambah Topik' : 'Add Topic'}
-                </Button>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {displayTopics.map((topic) => {
-                  const topicMaterials = displayMaterials.filter(m => m.topicId === topic.id);
-
-                  return (
-                    <Card key={topic.id}>
-                      <div className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-start gap-3">
-                              <button
-                                onClick={() => toggleTopic(topic.id)}
-                                className="mt-1 p-1 hover:bg-gray-100 rounded"
-                              >
-                                <ChevronDown
-                                  className={`w-4 h-4 text-gray-500 transition-transform ${expandedTopics.includes(topic.id) ? 'rotate-180' : ''
-                                    }`}
-                                />
-                              </button>
-                              <div>
-                                <h3 className="font-medium text-gray-900">{topic.title}</h3>
-                                <p className="text-sm text-gray-500 mt-1">{topic.description}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">
-                              {topicMaterials.length} {language === 'id' ? 'materi' : 'materials'}
-                            </span>
-                            <Dropdown
-                              trigger={
-                                <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                  <MoreVertical className="w-4 h-4 text-gray-500" />
-                                </button>
-                              }
-                              items={getTopicActions(topic)}
-                              align="right"
-                            />
-                          </div>
-                        </div>
-
-                        {expandedTopics.includes(topic.id) && (
-                          <div className="mt-4 pl-7 border-l-2 border-gray-200">
-                            {topicMaterials.length === 0 ? (
-                              <div className="text-center py-4">
-                                <p className="text-gray-500 text-sm">
-                                  {language === 'id' ? 'Belum ada materi untuk topik ini.' : 'No materials for this topic yet.'}
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-2"
-                                  onClick={() => {
-                                    setSelectedTopicId(topic.id);
-                                    setShowMaterialModal(true);
-                                  }}
-                                >
-                                  {language === 'id' ? 'Tambah Materi' : 'Add Material'}
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {topicMaterials.map((material) => (
-                                  <div key={material.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                    <div className="flex items-center gap-3">
-                                      <div className="p-2 bg-white rounded-lg">
-                                        {getMaterialIcon(material.type)}
-                                      </div>
-                                      <div>
-                                        <p className="font-medium text-gray-900">{material.title}</p>
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                          <span>{getMaterialTypeName(material.type)}</span>
-                                          {material.fileSize && <span>• {material.fileSize}</span>}
-                                          <span>• {getTimeAgo(material.createdAt)}</span>
-                                        </div>
-                                        {material.description && (
-                                          <p className="text-xs text-gray-600 mt-1">{material.description}</p>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <Dropdown
-                                      trigger={
-                                        <button className="p-2 hover:bg-gray-200 rounded-lg">
-                                          <MoreVertical className="w-4 h-4 text-gray-500" />
-                                        </button>
-                                      }
-                                      items={getMaterialActions(material)}
-                                      align="right"
-                                    />
-                                  </div>
-                                ))}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  leftIcon={<Plus className="w-4 h-4" />}
-                                  onClick={() => {
-                                    setSelectedTopicId(topic.id);
-                                    setShowMaterialModal(true);
-                                  }}
-                                >
-                                  {language === 'id' ? 'Tambah Materi' : 'Add Material'}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
+            {/* Included Courses */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {language === 'id' ? 'Kursus Utama' : 'Main Courses'}
+                  </h3>
+                  <Badge size="sm">{classData.courses?.length || 0}</Badge>
+                </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'materials' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                {language === 'id' ? 'Semua Materi' : 'All Materials'}
-              </h2>
-              <Button leftIcon={<Upload className="w-4 h-4" />} onClick={() => setShowMaterialModal(true)}>
-                {language === 'id' ? 'Unggah Materi' : 'Upload Material'}
-              </Button>
-            </div>
-
-            {displayMaterials.length === 0 ? (
-              <Card className="text-center py-12">
-                <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {language === 'id' ? 'Belum Ada Materi' : 'No Materials Yet'}
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  {language === 'id'
-                    ? 'Unggah materi pertama Anda untuk membantu siswa belajar.'
-                    : 'Upload your first material to help students learn.'}
-                </p>
-                <Button leftIcon={<Upload className="w-4 h-4" />} onClick={() => setShowMaterialModal(true)}>
-                  {language === 'id' ? 'Unggah Materi' : 'Upload Material'}
-                </Button>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayMaterials.map((material) => (
-                  <Card key={material.id} className="hover:shadow-md transition-shadow">
-                    <div className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="p-3 bg-blue-50 rounded-lg">
-                          {getMaterialIcon(material.type)}
-                        </div>
-                        <Dropdown
-                          trigger={
-                            <button className="p-2 hover:bg-gray-100 rounded-lg">
-                              <MoreVertical className="w-4 h-4 text-gray-500" />
-                            </button>
-                          }
-                          items={getMaterialActions(material)}
-                          align="right"
+              
+              {classData.courses?.length === 0 ? (
+                <Card className="text-center py-8 bg-gray-50 border-dashed">
+                  <p className="text-gray-500 text-sm">
+                    {language === 'id' ? 'Belum ada kursus yang ditautkan.' : 'No linked courses yet.'}
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(classData.courses || []).map((course: any) => (
+                    <Card key={course.id} className="overflow-hidden">
+                      <div className="relative">
+                        <img
+                          src={course.thumbnail || 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400'}
+                          alt={course.title}
+                          className="w-full h-32 object-cover"
                         />
                       </div>
-                      <h3 className="font-medium text-gray-900 mt-3 line-clamp-2">{material.title}</h3>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
-                        <span className="px-2 py-1 bg-gray-100 rounded">
-                          {getMaterialTypeName(material.type)}
-                        </span>
-                        {material.fileSize && <span>{material.fileSize}</span>}
+                      <div className="p-4">
+                        <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                          {course.title}
+                        </h4>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="w-3 h-3" />
+                            {course.topics?.length || 0} {language === 'id' ? 'topik' : 'topics'}
+                          </span>
+                        </div>
+                        <Button 
+                           size="sm" 
+                           variant="outline" 
+                           className="w-full" 
+                           onClick={() => navigate(`/instructor/courses/${course.id}`)}
+                           rightIcon={<ArrowRight className="w-4 h-4" />}
+                        >
+                          {language === 'id' ? 'Kelola Kursus' : 'Manage Course'}
+                        </Button>
                       </div>
-                      {material.description && (
-                        <p className="text-sm text-gray-600 mt-2 line-clamp-2">{material.description}</p>
-                      )}
-                      <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-                        <span>{getTimeAgo(material.createdAt)}</span>
-                        <span>
-                          {displayTopics.find(t => t.id === material.topicId)?.title || 'Unassigned'}
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Aktivitas Kelas Dinamis */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {language === 'id' ? 'Aktivitas Kelas' : 'Classwork'}
+                  </h3>
+                </div>
+                
+                <Dropdown
+                   trigger={
+                     <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+                       {language === 'id' ? 'Buat' : 'Create'}
+                     </Button>
+                   }
+                   items={[
+                     { label: language === 'id' ? 'Topik' : 'Topic', icon: <FolderPlus className="w-4 h-4" />, onClick: () => setShowTopicModal(true) },
+                     { label: language === 'id' ? 'Tugas Kelas' : 'Assignment', icon: <FileText className="w-4 h-4" />, onClick: () => { setAssignmentType('assignment'); setShowAssignmentModal(true); } },
+                     { label: language === 'id' ? 'Kuis Kelas' : 'Quiz', icon: <CheckCircle className="w-4 h-4" />, onClick: () => { setAssignmentType('quiz'); setShowAssignmentModal(true); } },
+                     { label: language === 'id' ? 'Sesi Terjadwal' : 'Session', icon: <Video className="w-4 h-4" />, onClick: () => setShowSessionModal(true) },
+                     { label: language === 'id' ? 'Materi Tambahan' : 'Material', icon: <Paperclip className="w-4 h-4" />, onClick: () => setShowMaterialModal(true) },
+                   ]}
+                   align="right"
+                />
               </div>
-            )}
+
+              {(!classData.classwork_topics || classData.classwork_topics.length === 0) ? (
+                <Card className="text-center py-12 bg-gray-50 border-dashed">
+                  <Layout className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium mb-1">
+                    {language === 'id' ? 'Belum ada aktivitas kelas.' : 'No classwork yet.'}
+                  </p>
+                  <p className="text-gray-400 text-sm">
+                    {language === 'id' ? 'Tambahkan topik, sesi, materi, atau tugas untuk siswa.' : 'Add topics, sessions, materials, or assignments for students.'}
+                  </p>
+                </Card>
+              ) : (
+                 <div className="space-y-6">
+                   {classData.classwork_topics.map((topic: any) => (
+                      <div key={topic.id} className="bg-white rounded-xl border p-5">
+                        <div className="flex justify-between items-center border-b pb-3 mb-4">
+                           <h4 className="text-xl font-bold text-gray-900">{topic.title}</h4>
+                           <Dropdown
+                             trigger={
+                               <button className="p-2 hover:bg-gray-100 rounded-lg">
+                                 <MoreVertical className="w-5 h-5 text-gray-500" />
+                               </button>
+                             }
+                             items={[
+                               { label: language === 'id' ? 'Edit Topik' : 'Edit Topic', icon: <Edit3 className="w-4 h-4" />, onClick: () => handleEditTopic(topic) },
+                               { label: language === 'id' ? 'Hapus Topik' : 'Delete Topic', icon: <Trash2 className="w-4 h-4" />, onClick: () => handleDeleteTopic(topic) }
+                             ]}
+                             align="right"
+                           />
+                        </div>
+
+                        {(!topic.sessions || topic.sessions.length === 0) && (!topic.assignments || topic.assignments.length === 0) ? (
+                           <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed rounded-lg">
+                              {language === 'id' ? 'Topik ini masih kosong.' : 'This topic is empty.'}
+                           </div>
+                        ) : (
+                           <div className="space-y-3">
+                             {/* Map sessions & materials */}
+                             {topic.sessions && topic.sessions.map((session: any) => (
+                                <Card key={`session-${session.id}`} className="p-4 flex justify-between items-center hover:shadow-md transition-shadow group">
+                                  <div className="flex items-center gap-4">
+                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                       session.type === 'online_class' 
+                                         ? 'bg-red-100' 
+                                         : 'bg-blue-100'
+                                     }`}>
+                                       {session.type === 'online_class' ? (
+                                         <Video className="w-6 h-6 text-red-600" />
+                                       ) : (
+                                         <FileText className="w-6 h-6 text-blue-600" />
+                                       )}
+                                     </div>
+                                     <div>
+                                        <h5 className="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                                           {session.title}
+                                        </h5>
+                                        <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                                          {session.sessionDate && (
+                                             <span className="flex items-center gap-1">
+                                               <Calendar className="w-3 h-3" />
+                                               {new Date(session.sessionDate).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'short' })}
+                                             </span>
+                                          )}
+                                          <Badge size="sm" variant="secondary">
+                                             {session.type === 'online_class' 
+                                               ? (language === 'id' ? 'Kelas Online' : 'Online Class')
+                                               : (language === 'id' ? 'Materi' : 'Material')
+                                             }
+                                          </Badge>
+                                        </div>
+                                     </div>
+                                  </div>
+                                  <Dropdown
+                                    trigger={
+                                      <button className="p-2 hover:bg-gray-100 rounded-lg">
+                                        <MoreVertical className="w-4 h-4 text-gray-500" />
+                                      </button>
+                                    }
+                                    items={[
+                                      { label: language === 'id' ? 'Edit' : 'Edit', icon: <Edit3 className="w-4 h-4" />, onClick: () => {
+                                           if(session.type === 'online_class') handleEditSession({...session, batch_topic_id: topic.id});
+                                           else handleEditMaterial({...session, batch_topic_id: topic.id});
+                                      }},
+                                      { label: language === 'id' ? 'Hapus' : 'Delete', icon: <Trash2 className="w-4 h-4" />, onClick: () => {
+                                           if(session.type === 'online_class') handleDeleteSession(session);
+                                           else handleDeleteMaterial(session);
+                                      }}
+                                    ]}
+                                    align="right"
+                                  />
+                                </Card>
+                             ))}
+                             
+                             {/* Map assignments here if any */}
+                             {topic.assignments && topic.assignments.map((assignment: any) => (
+                                 <Card key={`assignment-${assignment.id}`} className="p-4 flex justify-between items-center hover:shadow-md transition-shadow group">
+                                     <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                          assignment.type === 'quiz' 
+                                            ? 'bg-purple-100' 
+                                            : 'bg-green-100'
+                                        }`}>
+                                            {assignment.type === 'quiz' ? (
+                                              <CheckCircle className="w-6 h-6 text-purple-600" />
+                                            ) : (
+                                              <FileText className="w-6 h-6 text-green-600" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h5 className="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                                                {assignment.title}
+                                            </h5>
+                                            <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                                                {assignment.due_date && (
+                                                    <span className="flex items-center gap-1 text-red-500 font-medium">
+                                                        <Clock className="w-3 h-3" />
+                                                        Due: {new Date(assignment.due_date).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                                <Badge size="sm" variant={assignment.type === 'quiz' ? 'primary' : 'success'}>
+                                                    {assignment.type === 'quiz' ? (language === 'id' ? 'Kuis' : 'Quiz') : (language === 'id' ? 'Tugas' : 'Assignment')}
+                                                </Badge>
+                                                {assignment.max_points && (
+                                                  <span className="text-xs text-gray-400">
+                                                    {assignment.max_points} pts
+                                                  </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                     </div>
+                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                         <Button size="sm" variant="ghost" onClick={() => {
+                                           setEditingAssignment(assignment);
+                                           setAssignmentTitle(assignment.title);
+                                           setAssignmentDescription(assignment.description || '');
+                                           setAssignmentPoints(String(assignment.max_points || 100));
+                                           setAssignmentDueDate(assignment.due_date ? new Date(assignment.due_date).toISOString().slice(0, 16) : '');
+                                           setAssignmentTopicId(assignment.batch_topic_id || '');
+                                           setAssignmentType(assignment.type || 'assignment');
+                                           setShowAssignmentModal(true);
+                                         }}>
+                                           <Edit3 className="w-4 h-4" />
+                                         </Button>
+                                         <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600" onClick={async () => {
+                                            if (confirm(language === 'id' ? 'Hapus tugas ini?' : 'Delete this assignment?')) {
+                                              await deleteAssignment(assignment.id).unwrap();
+                                            }
+                                         }}>
+                                           <Trash2 className="w-4 h-4" />
+                                         </Button>
+                                     </div>
+                                 </Card>
+                             ))}
+                           </div>
+                        )}
+                      </div>
+                   ))}
+                 </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -802,7 +837,7 @@ export function ClassManagePage() {
               </div>
             </div>
 
-            {mockStudents.length === 0 ? (
+            {displayStudents.length === 0 ? (
               <Card className="text-center py-12">
                 <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -841,7 +876,7 @@ export function ClassManagePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {mockStudents.map((student) => (
+                      {displayStudents.map((student) => (
                         <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
@@ -919,10 +954,12 @@ export function ClassManagePage() {
               </h2>
               <div className="flex gap-2">
                 <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>{language === 'id' ? 'Semua Tugas' : 'All Assignments'}</option>
-                  <option>Assignment 1: React Components</option>
-                  <option>Assignment 2: State Management</option>
-                  <option>Assignment 3: Performance Optimization</option>
+                  <option value="">{language === 'id' ? 'Semua Tugas' : 'All Assignments'}</option>
+                  {(classData?.assignments || []).map((assignment: any) => (
+                    <option key={assignment.id} value={assignment.id}>
+                      {assignment.title}
+                    </option>
+                  ))}
                 </select>
                 <Button leftIcon={<Download className="w-4 h-4" />} variant="outline">
                   {language === 'id' ? 'Ekspor Nilai' : 'Export Grades'}
@@ -934,14 +971,14 @@ export function ClassManagePage() {
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <p className="text-3xl font-bold text-blue-600">{mockClass.averageGrade}%</p>
+                    <p className="text-3xl font-bold text-blue-600">{Number(classData?.assessment_stats?.class_average_score || 0).toFixed(1)}%</p>
                     <p className="text-sm text-gray-600 mt-1">
                       {language === 'id' ? 'Rata-rata Kelas' : 'Class Average'}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <p className="text-3xl font-bold text-green-600">
-                      {mockStudents.filter(s => s.grade !== undefined && s.grade >= 85).length}
+                      {classData?.assessment_stats?.achieving_students_count || 0}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
                       {language === 'id' ? 'Siswa Berprestasi' : 'High Achievers'}
@@ -949,7 +986,7 @@ export function ClassManagePage() {
                   </div>
                   <div className="text-center p-4 bg-yellow-50 rounded-lg">
                     <p className="text-3xl font-bold text-yellow-600">
-                      {mockStudents.filter(s => s.grade !== undefined && s.grade < 70).length}
+                      {classData?.assessment_stats?.needs_attention_count || 0}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
                       {language === 'id' ? 'Perlu Perhatian' : 'Needs Attention'}
@@ -1118,9 +1155,12 @@ export function ClassManagePage() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {language === 'id' ? 'Visibilitas' : 'Visibility'}
                       </label>
-                      <select className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <select 
+                        defaultValue="private"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
                         <option value="public">{language === 'id' ? 'Publik' : 'Public'}</option>
-                        <option value="private" selected>{language === 'id' ? 'Privat' : 'Private'}</option>
+                        <option value="private">{language === 'id' ? 'Privat' : 'Private'}</option>
                         <option value="hidden">{language === 'id' ? 'Tersembunyi' : 'Hidden'}</option>
                       </select>
                     </div>
@@ -1149,52 +1189,106 @@ export function ClassManagePage() {
           </div>
         )}
 
-        {/* Topic Modal */}
+        {/* Session Modal */}
         <Modal
-          isOpen={showTopicModal}
+          isOpen={showSessionModal}
           onClose={() => {
-            setShowTopicModal(false);
-            resetTopicForm();
+            setShowSessionModal(false);
+            resetSessionForm();
           }}
-          title={editingTopic ? (language === 'id' ? 'Edit Topik' : 'Edit Topic') : (language === 'id' ? 'Tambah Topik Baru' : 'Add New Topic')}
+          title={language === 'id' ? 'Tambah Sesi Baru' : 'Add New Session'}
         >
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {language === 'id' ? 'Judul Topik' : 'Topic Title'} *
+                {language === 'id' ? 'Judul Sesi' : 'Session Title'} *
               </label>
               <Input
-                value={topicTitle}
-                onChange={(e) => setTopicTitle(e.target.value)}
-                placeholder={language === 'id' ? 'Contoh: Introduction to Advanced React Patterns' : 'e.g., Introduction to Advanced React Patterns'}
+                value={sessionTitle}
+                onChange={(e) => setSessionTitle(e.target.value)}
+                placeholder={language === 'id' ? 'Contoh: Pengenalan React' : 'e.g., Introduction to React'}
               />
             </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {language === 'id' ? 'Tanggal' : 'Date'} *
+                </label>
+                <Input
+                  type="date"
+                  value={sessionDate}
+                  onChange={(e) => setSessionDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {language === 'id' ? 'Waktu' : 'Time'} *
+                </label>
+                <Input
+                  type="time"
+                  value={sessionTime}
+                  onChange={(e) => setSessionTime(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {language === 'id' ? 'Deskripsi' : 'Description'}
+                {language === 'id' ? 'Tipe Sesi' : 'Session Type'} *
               </label>
-              <Textarea
-                value={topicDescription}
-                onChange={(e) => setTopicDescription(e.target.value)}
-                placeholder={language === 'id' ? 'Deskripsi singkat tentang topik ini...' : 'Brief description about this topic...'}
-                rows={3}
+              <select
+                value={sessionType}
+                onChange={(e) => setSessionType(e.target.value as 'online_class' | 'offline_class')}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="online_class">{language === 'id' ? 'Kelas Online (Zoom/Meet)' : 'Online Class'}</option>
+                <option value="offline_class">{language === 'id' ? 'Kelas Tatap Muka' : 'Offline Class'}</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {language === 'id' ? 'Topik (Opsional)' : 'Topic (Optional)'}
+              </label>
+              <select
+                value={sessionTopicId}
+                onChange={(e) => setSessionTopicId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">{language === 'id' ? 'Tanpa Topik' : 'No Topic'}</option>
+                {(classData?.classwork_topics || []).map((topic: any) => (
+                  <option key={topic.id} value={topic.id}>{topic.title}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {sessionType === 'online_class' ? (language === 'id' ? 'Tautan Rapat (URL)' : 'Meeting Link (URL)') : (language === 'id' ? 'Lokasi / Ruangan' : 'Location / Room')} *
+              </label>
+              <Input
+                value={sessionLink}
+                onChange={(e) => setSessionLink(e.target.value)}
+                placeholder={sessionType === 'online_class' ? "https://meet.google.com/..." : "Ruang 302, Gedung A"}
               />
             </div>
+
             <div className="flex justify-end gap-2 pt-4">
               <Button
                 variant="outline"
                 onClick={() => {
-                  setShowTopicModal(false);
-                  resetTopicForm();
+                  setShowSessionModal(false);
+                  resetSessionForm();
                 }}
               >
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
               <Button
-                onClick={handleSaveTopic}
-                disabled={!topicTitle.trim()}
+                onClick={handleSaveSession}
+                disabled={!sessionTitle.trim() || !sessionDate || !sessionTime || !sessionLink.trim()}
               >
-                {editingTopic ? (language === 'id' ? 'Simpan' : 'Save') : (language === 'id' ? 'Tambah' : 'Add')}
+                {language === 'id' ? 'Simpan Sesi' : 'Save Session'}
               </Button>
             </div>
           </div>
@@ -1219,6 +1313,22 @@ export function ClassManagePage() {
                 onChange={(e) => setMaterialTitle(e.target.value)}
                 placeholder={language === 'id' ? 'Contoh: Advanced React Patterns Guide.pdf' : 'e.g., Advanced React Patterns Guide.pdf'}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {language === 'id' ? 'Topik (Opsional)' : 'Topic (Optional)'}
+              </label>
+              <select
+                value={materialTopicId}
+                onChange={(e) => setMaterialTopicId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">{language === 'id' ? 'Tanpa Topik' : 'No Topic'}</option>
+                {(classData?.classwork_topics || []).map((topic: any) => (
+                  <option key={topic.id} value={topic.id}>{topic.title}</option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -1280,24 +1390,6 @@ export function ClassManagePage() {
               />
             </div>
 
-            {!editingMaterial && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {language === 'id' ? 'Topik' : 'Topic'} *
-                </label>
-                <select
-                  value={selectedTopicId || ''}
-                  onChange={(e) => setSelectedTopicId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">{language === 'id' ? 'Pilih topik...' : 'Select topic...'}</option>
-                  {displayTopics.map(topic => (
-                    <option key={topic.id} value={topic.id}>{topic.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             <div className="flex justify-end gap-2 pt-4">
               <Button
                 variant="outline"
@@ -1310,7 +1402,7 @@ export function ClassManagePage() {
               </Button>
               <Button
                 onClick={handleSaveMaterial}
-                disabled={!materialTitle.trim() || (!editingMaterial && !selectedTopicId)}
+                disabled={!materialTitle.trim()}
               >
                 {editingMaterial ? (language === 'id' ? 'Simpan' : 'Save') : (language === 'id' ? 'Tambah' : 'Add')}
               </Button>
@@ -1337,10 +1429,6 @@ export function ClassManagePage() {
                     <span className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
                       {language === 'id' ? 'Bergabung' : 'Joined'}: {getTimeAgo(selectedStudent.enrolledAt)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {language === 'id' ? 'Terakhir aktif' : 'Last active'}: {getTimeAgo(selectedStudent.lastActiveAt)}
                     </span>
                   </div>
                 </div>
@@ -1410,6 +1498,127 @@ export function ClassManagePage() {
           )}
         </Modal>
       </div>
+
+      {/* Assignment Modal */}
+      <Modal
+        isOpen={showAssignmentModal}
+        onClose={() => {
+          setShowAssignmentModal(false);
+          resetAssignmentForm();
+        }}
+        title={editingAssignment ? (language === 'id' ? 'Edit Tugas' : 'Edit Assignment') : (assignmentType === 'quiz' ? (language === 'id' ? 'Buat Kuis' : 'Create Quiz') : (language === 'id' ? 'Buat Tugas' : 'Create Assignment'))}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {language === 'id' ? 'Judul' : 'Title'} *
+            </label>
+            <Input
+              value={assignmentTitle}
+              onChange={(e) => setAssignmentTitle(e.target.value)}
+              placeholder={assignmentType === 'quiz' ? (language === 'id' ? 'Contoh: Kuis Pertemuan 1' : 'e.g., Quiz Meeting 1') : (language === 'id' ? 'Contoh: Implementasi Layout React' : 'e.g., React Layout Implementation')}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {language === 'id' ? 'Topik' : 'Topic'}
+            </label>
+            <select
+              value={assignmentTopicId}
+              onChange={(e) => setAssignmentTopicId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">{language === 'id' ? 'Tanpa Topik' : 'No Topic'}</option>
+              {(classData?.classwork_topics || []).map((topic: any) => (
+                <option key={topic.id} value={topic.id}>{topic.title}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {language === 'id' ? 'Poin Maksimal' : 'Max Points'}
+              </label>
+              <Input
+                type="number"
+                value={assignmentPoints}
+                onChange={(e) => setAssignmentPoints(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {language === 'id' ? 'Tenggat Waktu' : 'Due Date'}
+              </label>
+              <Input
+                type="datetime-local"
+                value={assignmentDueDate}
+                onChange={(e) => setAssignmentDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {language === 'id' ? 'Instruksi' : 'Instructions'}
+            </label>
+            <Textarea
+              value={assignmentDescription}
+              onChange={(e) => setAssignmentDescription(e.target.value)}
+              placeholder={language === 'id' ? 'Berikan instruksi detail untuk tugas ini...' : 'Provide detailed instructions for this assignment...'}
+              rows={5}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+            <Button variant="outline" onClick={() => {
+              setShowAssignmentModal(false);
+              resetAssignmentForm();
+            }}>
+              {language === 'id' ? 'Batal' : 'Cancel'}
+            </Button>
+            <Button onClick={handleSaveAssignment} disabled={!assignmentTitle.trim()}>
+              {language === 'id' ? 'Simpan' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Topic Modal */}
+      <Modal
+        isOpen={showTopicModal}
+        onClose={() => {
+          setShowTopicModal(false);
+          resetTopicForm();
+        }}
+        title={editingTopic ? (language === 'id' ? 'Edit Topik' : 'Edit Topic') : (language === 'id' ? 'Buat Topik' : 'Create Topic')}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {language === 'id' ? 'Judul Topik' : 'Topic Title'}
+            </label>
+            <Input
+              value={topicTitle}
+              onChange={(e) => setTopicTitle(e.target.value)}
+              placeholder={language === 'id' ? 'Misal: Minggu 1: Pendahuluan' : 'e.g., Week 1: Introduction'}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+            <Button variant="outline" onClick={() => {
+              setShowTopicModal(false);
+              resetTopicForm();
+            }}>
+              {language === 'id' ? 'Batal' : 'Cancel'}
+            </Button>
+            <Button onClick={handleSaveTopic} disabled={!topicTitle.trim()}>
+              {language === 'id' ? 'Simpan' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }

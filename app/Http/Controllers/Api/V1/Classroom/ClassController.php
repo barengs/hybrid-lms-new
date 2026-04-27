@@ -11,11 +11,39 @@ use App\Http\Resources\Api\V1\ClassroomResource; // Added this line
 use App\Traits\ApiResponse; // Added Trait import
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\Laravel\Facades\Image;
 
 class ClassController extends Controller
 {
     use ApiResponse; // Use the trait
+
+    /**
+     * Handle thumbnail upload, resize, and conversion to WebP.
+     * 
+     * @param \Illuminate\Http\UploadedFile $file
+     * @return string Path to saved file
+     */
+    private function handleThumbnailUpload($file): string
+    {
+        $filename = Str::uuid() . '.webp';
+        $path = 'classes/thumbnails/' . $filename;
+
+        // Convert to WebP using Intervention Image
+        $image = Image::read($file);
+        
+        // Resize to a standard banner size (e.g., 1200px width)
+        $image->scale(width: 1200);
+
+        // Encode to webp quality 80
+        $encoded = $image->toWebp(quality: 80);
+
+        // Save to storage
+        Storage::disk('public')->put($path, (string) $encoded);
+
+        return $path;
+    }
 
     /**
      * List Classes
@@ -82,6 +110,9 @@ class ClassController extends Controller
                     'grades' => function ($query) {
                         $query->select('batch_id', 'overall_score');
                     },
+                    'batchTopics',
+                    'batchTopics.sessions',
+                    'batchTopics.assignments',
                     'sessions',
                     'additionalMaterials',
                     'assignments',
@@ -131,6 +162,9 @@ class ClassController extends Controller
                     'grades' => function ($query) use ($user) {
                         $query->where('user_id', $user->id)->select('batch_id', 'overall_score');
                     },
+                    'batchTopics',
+                    'batchTopics.sessions',
+                    'batchTopics.assignments',
                     'sessions',
                     'additionalMaterials',
                     'assignments',
@@ -164,10 +198,13 @@ class ClassController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'subject' => 'nullable|string|max:255',
             'section' => 'nullable|string|max:50',
             'code' => 'nullable|string|unique:batches,class_code|max:20',
             'course_id' => 'nullable|exists:courses,id',
             'courseId' => 'nullable|exists:courses,id', // Support camelCase
+            'thumbnail' => 'nullable|image|max:2048',
         ]);
 
         $user = $request->user();
@@ -184,13 +221,19 @@ class ClassController extends Controller
             }
         }
 
+        $thumbnailPath = null;
+        if ($request->hasFile('thumbnail')) {
+            $thumbnailPath = $this->handleThumbnailUpload($request->file('thumbnail'));
+        }
+
         // Create Batch (Class) only - NO auto-create Course
         $batch = Batch::create([
             'instructor_id' => $user->id,
             'name' => $request->name,
             'slug' => Str::slug($request->name . '-' . Str::random(5)),
             'description' => $request->description,
-            'class_code' => $request->code ?? Batch::generateClassCode(),
+            'thumbnail' => $thumbnailPath,
+            'class_code' => $request->filled('code') ? $request->code : Batch::generateClassCode(),
             'type' => 'classroom',  // Mark as classroom type
             'status' => 'open',
             'start_date' => now(),
@@ -272,7 +315,8 @@ class ClassController extends Controller
                 'enrollments.student', // Load student info
                 'enrollments' => function($q) {
                     $q->with('student'); // Ensure user data is loaded
-                } 
+                },
+                'batchTopics',
             ])
             ->findOrFail($id);
 

@@ -18,6 +18,7 @@ class ClassroomResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
+            'thumbnail' => $this->thumbnail ? Storage::disk('public')->url($this->thumbnail) : null,
             'description' => $this->description,
             'class_code' => $this->class_code,
             'status' => $this->status,
@@ -64,6 +65,7 @@ class ClassroomResource extends JsonResource
                 return $this->sessions->map(function($session) {
                     return [
                         'id' => $session->id,
+                        'batch_topic_id' => $session->batch_topic_id,
                         'title' => $session->title,
                         'type' => $session->type,
                         'description' => $session->description,
@@ -115,6 +117,7 @@ class ClassroomResource extends JsonResource
                     $submission = $assignment->submissions->first(); // Since we filtered by current user in controller
                     return [
                         'id' => $assignment->id,
+                        'batch_topic_id' => $assignment->batch_topic_id,
                         'title' => $assignment->title,
                         'description' => $assignment->description,
                         'due_date' => $assignment->due_date,
@@ -124,9 +127,61 @@ class ClassroomResource extends JsonResource
                     ];
                 });
             }),
+            'classwork_topics' => $this->whenLoaded('batchTopics', function() {
+                return $this->batchTopics->map(function($topic) {
+                    $topicSessions = $this->sessions ? $this->sessions->where('batch_topic_id', $topic->id)->values() : collect();
+                    $topicAssignments = $this->assignments ? $this->assignments->where('batch_topic_id', $topic->id)->values() : collect();
+                    
+                    return [
+                        'id' => $topic->id,
+                        'title' => $topic->title,
+                        'sort_order' => $topic->sort_order,
+                        // Map the items to a unified format or separate them
+                        'sessions' => $topicSessions->map(function($session) {
+                            return [
+                                'id' => $session->id,
+                                'title' => $session->title,
+                                'type' => $session->type,
+                                'sessionDate' => $session->session_date,
+                                'meetingUrl' => $session->meeting_url,
+                            ];
+                        }),
+                        'assignments' => $topicAssignments->map(function($assignment) {
+                            return [
+                                'id' => $assignment->id,
+                                'title' => $assignment->title,
+                                'due_date' => $assignment->due_date,
+                            ];
+                        }),
+                    ];
+                });
+            }),
             'students_count' => $this->current_students,
             'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
             'is_open_for_enrollment' => $this->is_open_for_enrollment,
+            'course' => $this->whenLoaded('courses', function() {
+                $course = $this->courses->first();
+                return $course ? [
+                    'id' => $course->id,
+                    'title' => $course->title,
+                    'slug' => $course->slug,
+                    'thumbnail' => $course->thumbnail,
+                ] : null;
+            }),
+            'topicsCount' => $this->whenLoaded('courses', function() {
+                return $this->courses->sum(function($course) {
+                    return $course->sections->count();
+                });
+            }),
+            'materialsCount' => $this->whenLoaded('courses', function() {
+                return $this->courses->sum(function($course) {
+                    return $course->sections->sum(function($section) {
+                        return $section->lessons->count();
+                    });
+                });
+            }),
+            'averageGrade' => $this->grades->avg('overall_score') ?? 0,
             
             // Student specific fields
             'is_enrolled' => $this->whenLoaded('enrollments', function() use ($request) {

@@ -92,6 +92,18 @@ export interface ClassAssessmentStats {
   needs_attention_count: string | number;
 }
 
+export interface ClassStudent {
+  id: string | number;
+  name: string;
+  email: string;
+  avatar?: string;
+  joined_at: string;
+  progress: number;
+  grade_score?: number;
+  assignments_completed: number;
+  assignments_total: number;
+}
+
 export interface ClassItem {
   id: number | string;
   name: string;
@@ -105,12 +117,17 @@ export interface ClassItem {
   sessions?: ClassSession[];
   additionalMaterials?: ClassAdditionalMaterial[];
   students_count: string | number;
+  students?: ClassStudent[];
   created_at: string;
   updated_at?: string;
   is_open_for_enrollment: string | boolean;
   is_enrolled: string | boolean;
   assessment_stats?: ClassAssessmentStats;
-  status?: 'open' | 'in_progress' | 'completed' | 'closed' | 'archived'; 
+  course?: { id: number | string; title: string; slug: string; thumbnail?: string };
+  topicsCount?: number;
+  materialsCount?: number;
+  averageGrade?: number;
+  status?: 'open' | 'in_progress' | 'completed' | 'closed' | 'archived' | 'active'; 
   thumbnail?: string; 
   schedule?: ClassSchedule;
   start_date?: string;
@@ -121,6 +138,7 @@ export interface ClassItem {
   nextSession?: string;
   recentStudents?: { id: string; name: string; avatar?: string }[];
   lastActivityAt?: string;
+  classwork_topics?: any[];
 }
 
 export interface ClassesResponse {
@@ -174,7 +192,7 @@ export const classesApiSlice = apiSlice.injectEndpoints({
         query: (id) => `classes/${id}`,
         providesTags: (_result, _error, id) => [{ type: 'Class', id }],
     }),
-    createClass: builder.mutation<void, CreateClassRequest>({
+    createClass: builder.mutation<void, FormData | CreateClassRequest>({
       query: (body) => ({
         url: 'classes',
         method: 'POST',
@@ -213,6 +231,83 @@ export const classesApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['Class'],
     }),
+    createTopic: builder.mutation<void, { classId: string | number; title: string }>({
+      query: ({ classId, title }) => ({
+        url: `classes/${classId}/topics`,
+        method: 'POST',
+        body: { title },
+      }),
+      invalidatesTags: (_result, _error, { classId }) => [{ type: 'Class', id: classId }],
+    }),
+    updateTopic: builder.mutation<void, { classId: string | number; topicId: string | number; title: string }>({
+      query: ({ classId, topicId, title }) => ({
+        url: `classes/${classId}/topics/${topicId}`,
+        method: 'PUT',
+        body: { title },
+      }),
+      invalidatesTags: (_result, _error, { classId }) => [{ type: 'Class', id: classId }],
+    }),
+    deleteTopic: builder.mutation<void, { classId: string | number; topicId: string | number }>({
+      query: ({ classId, topicId }) => ({
+        url: `classes/${classId}/topics/${topicId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { classId }) => [{ type: 'Class', id: classId }],
+    }),
+    createSession: builder.mutation<void, { classId: string | number; data: any }>({
+      query: ({ classId, data }) => {
+        const isFormData = data instanceof FormData;
+        return {
+          url: `classes/${classId}/sessions`,
+          method: 'POST',
+          body: data,
+          formData: isFormData,
+        };
+      },
+      invalidatesTags: (_result, _error, { classId }) => [{ type: 'Class', id: classId }],
+    }),
+    updateSession: builder.mutation<void, { classId: string | number; sessionId: string | number; data: any }>({
+      query: ({ classId, sessionId, data }) => {
+        const isFormData = data instanceof FormData;
+        return {
+          url: `classes/${classId}/sessions/${sessionId}`,
+          method: isFormData ? 'POST' : 'PUT', // For FormData in Laravel update, we often use POST with _method=PUT, handled below or via body
+          body: data,
+          formData: isFormData,
+        };
+      },
+      invalidatesTags: (_result, _error, { classId }) => [{ type: 'Class', id: classId }],
+    }),
+    deleteSession: builder.mutation<void, { classId: string | number; sessionId: string | number }>({
+      query: ({ classId, sessionId }) => ({
+        url: `classes/${classId}/sessions/${sessionId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { classId }) => [{ type: 'Class', id: classId }],
+    }),
+    createAssignment: builder.mutation<void, { data: any }>({
+      query: (data) => ({
+        url: 'instructor/assignments',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Class'],
+    }),
+    updateAssignment: builder.mutation<void, { assignmentId: string | number; data: any }>({
+      query: ({ assignmentId, data }) => ({
+        url: `instructor/assignments/${assignmentId}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Class'],
+    }),
+    deleteAssignment: builder.mutation<void, string | number>({
+      query: (id) => ({
+        url: `instructor/assignments/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Class'],
+    }),
   }),
 });
 
@@ -223,5 +318,14 @@ export const {
   useUpdateClassMutation, 
   useDeleteClassMutation,
   usePostSessionCommentMutation,
-  useJoinClassMutation
+  useJoinClassMutation,
+  useCreateSessionMutation,
+  useUpdateSessionMutation,
+  useDeleteSessionMutation,
+  useCreateTopicMutation,
+  useUpdateTopicMutation,
+  useDeleteTopicMutation,
+  useCreateAssignmentMutation,
+  useUpdateAssignmentMutation,
+  useDeleteAssignmentMutation
 } = classesApiSlice;

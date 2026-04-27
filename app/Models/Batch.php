@@ -118,6 +118,14 @@ class Batch extends Model
     }
 
     /**
+     * Get all topics for this batch (for classroom type).
+     */
+    public function batchTopics(): HasMany
+    {
+        return $this->hasMany(BatchTopic::class);
+    }
+
+    /**
      * Get all additional materials (attachments) for this batch.
      */
     public function additionalMaterials(): \Illuminate\Database\Eloquent\Relations\MorphMany

@@ -317,10 +317,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/{id}/stream', [App\Http\Controllers\Api\V1\Classroom\ClassStreamController::class, 'index']);
         Route::post('/{id}/stream', [App\Http\Controllers\Api\V1\Classroom\ClassStreamController::class, 'store']);
 
-        // Classwork
-        Route::get('/{id}/work', [App\Http\Controllers\Api\V1\Classroom\ClassworkController::class, 'index']); // Get all sections/lessons
-        Route::post('/{id}/topics', [App\Http\Controllers\Api\V1\Classroom\ClassworkController::class, 'storeTopic']);
-        Route::post('/{id}/materials', [App\Http\Controllers\Api\V1\Classroom\ClassworkController::class, 'storeMaterial']);
+        // Topics, Sessions & Additional Materials
+        Route::apiResource('/{id}/topics', \App\Http\Controllers\Api\V1\Instructor\BatchTopicController::class)
+            ->except(['create', 'edit'])
+            ->parameters(['topics' => 'topic']);
+
+        Route::apiResource('/{id}/sessions', \App\Http\Controllers\Api\V1\Instructor\BatchSessionController::class)
+            ->except(['create', 'edit'])
+            ->parameters(['sessions' => 'session']);
 
         // People
         Route::get('/{id}/people', [App\Http\Controllers\Api\V1\Classroom\ClassPeopleController::class, 'index']);

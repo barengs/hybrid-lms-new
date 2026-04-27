@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Calendar,
@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Star,
   ArrowRight,
+  CheckCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
 import { Card, Badge, Button, Avatar, Tabs } from '@/components/ui';
@@ -30,8 +31,9 @@ import { toast } from 'react-hot-toast';
 
 export function ClassDetailPage() {
   const { classId } = useParams<{ classId: string }>();
+  const navigate = useNavigate();
   const { language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'info' | 'materials' | 'assignments' | 'grades'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'classwork' | 'grades'>('info');
   
   // Session Modal State
   const [selectedSession, setSelectedSession] = useState<any>(null);
@@ -240,16 +242,10 @@ export function ClassDetailPage() {
             icon: <BookOpen className="w-4 h-4" />,
           },
           {
-            id: 'materials',
-            label: language === 'id' ? 'Materi' : 'Materials',
-            icon: <Video className="w-4 h-4" />,
-            badge: (classData.courses?.length || 0) + (classData.sessions?.length || 0) + (classData.additionalMaterials?.length || 0),
-          },
-          {
-            id: 'assignments',
-            label: language === 'id' ? 'Tugas' : 'Assignments',
+            id: 'classwork',
+            label: language === 'id' ? 'Aktivitas Kelas' : 'Classwork',
             icon: <FileText className="w-4 h-4" />,
-            badge: assignments.filter((a: any) => a.status === 'pending').length,
+            badge: classData.classwork_topics?.length || 0,
           },
           {
             id: 'grades',
@@ -297,7 +293,7 @@ export function ClassDetailPage() {
           </Card>
         )}
 
-        {activeTab === 'materials' && (
+        {activeTab === 'classwork' && (
           <div className="space-y-6">
             {/* Included Courses */}
             <div>
@@ -347,208 +343,141 @@ export function ClassDetailPage() {
               </div>
             </div>
 
-            {/* Class Sessions */}
+            {/* Aktivitas Kelas Dinamis */}
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {language === 'id' ? 'Sesi Kelas Terjadwal' : 'Scheduled Class Sessions'}
+                  {language === 'id' ? 'Aktivitas Kelas' : 'Classwork'}
                 </h3>
-                <Badge size="sm">{classData.sessions?.length || 0}</Badge>
               </div>
-              <div className="space-y-3">
-                {(classData.sessions || []).map((session: any) => (
-                  <Card key={session.id} hover className="cursor-pointer" onClick={() => handleOpenSession(session)}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          session.type === 'online_class' 
-                            ? 'bg-red-100 dark:bg-red-900/30' 
-                            : 'bg-blue-100 dark:bg-blue-900/30'
-                        }`}>
-                          {session.type === 'online_class' ? (
-                            <Video className="w-5 h-5 text-red-600 dark:text-red-400" />
-                          ) : (
-                            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          )}
+              
+              {(!classData.classwork_topics || classData.classwork_topics.length === 0) ? (
+                <Card className="text-center py-12 bg-gray-50 dark:bg-gray-800 border-dashed">
+                  <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400 font-medium mb-1">
+                    {language === 'id' ? 'Belum ada aktivitas kelas.' : 'No classwork yet.'}
+                  </p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm">
+                    {language === 'id' ? 'Instruktur belum menambahkan materi atau tugas ke kelas ini.' : 'Instructor has not added materials or assignments yet.'}
+                  </p>
+                </Card>
+              ) : (
+                 <div className="space-y-6">
+                   {classData.classwork_topics.map((topic: any) => (
+                      <div key={topic.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                        <div className="border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
+                           <h4 className="text-xl font-bold text-gray-900 dark:text-white">{topic.title}</h4>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-medium text-gray-900 dark:text-white">
-                              {session.title}
-                            </h4>
-                            <Badge size="sm" variant={session.type === 'online_class' ? 'danger' : 'primary'}>
-                              {session.type === 'online_class' 
-                                ? (language === 'id' ? 'Kelas Online' : 'Online Class')
-                                : (language === 'id' ? 'Materi' : 'Material')
-                              }
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {formatDate(session.sessionDate)}
-                            </span>
-                            {session.duration && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {session.duration}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {session.recordingUrl && (
-                          <Button size="sm" variant="outline" leftIcon={<Video className="w-4 h-4" />}>
-                            {language === 'id' ? 'Rekaman' : 'Recording'}
-                          </Button>
-                        )}
-                        {session.type === 'online_class' && session.status === 'upcoming' && (
-                          <Button size="sm">
-                            {language === 'id' ? 'Gabung' : 'Join'}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
 
-            {/* Additional Materials */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {language === 'id' ? 'Materi Tambahan' : 'Additional Materials'}
-                </h3>
-                <Badge size="sm">{classData.additionalMaterials?.length || 0}</Badge>
-              </div>
-              <div className="space-y-3">
-                {(classData.additionalMaterials || []).map((material: any) => (
-                  <Card key={material.id} hover>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                          {material.type === 'video' ? (
-                            <Video className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                          ) : (
-                            <FileText className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                            {material.title}
-                          </h4>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                            {material.duration && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {material.duration}
-                              </span>
-                            )}
-                            {material.size && (
-                              <span>{material.size}</span>
-                            )}
-                            <span>
-                              {language === 'id' ? 'Ditambahkan' : 'Added'}{' '}
-                              {getTimeAgo(material.uploadedAt)}
-                            </span>
-                          </div>
-                        </div>
+                        {(!topic.sessions || topic.sessions.length === 0) && (!topic.assignments || topic.assignments.length === 0) ? (
+                           <div className="text-center py-6 text-gray-400 dark:text-gray-500 text-sm border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+                              {language === 'id' ? 'Topik ini masih kosong.' : 'This topic is empty.'}
+                           </div>
+                        ) : (
+                           <div className="space-y-3">
+                             {/* Map sessions & materials */}
+                             {topic.sessions && topic.sessions.map((session: any) => (
+                                <Card key={`session-${session.id}`} hover className="cursor-pointer" onClick={() => handleOpenSession(session)}>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                       <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                         session.type === 'online_class' 
+                                           ? 'bg-red-100 dark:bg-red-900/30' 
+                                           : 'bg-blue-100 dark:bg-blue-900/30'
+                                       }`}>
+                                         {session.type === 'online_class' ? (
+                                           <Video className="w-6 h-6 text-red-600 dark:text-red-400" />
+                                         ) : (
+                                           <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                                         )}
+                                       </div>
+                                       <div>
+                                          <h5 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 transition-colors">
+                                             {session.title}
+                                          </h5>
+                                          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                            {session.sessionDate && (
+                                               <span className="flex items-center gap-1">
+                                                 <Calendar className="w-3 h-3" />
+                                                 {new Date(session.sessionDate).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'short' })}
+                                               </span>
+                                            )}
+                                            <Badge size="sm" variant="secondary">
+                                               {session.type === 'online_class' 
+                                                 ? (language === 'id' ? 'Kelas Online' : 'Online Class')
+                                                 : (language === 'id' ? 'Materi' : 'Material')
+                                               }
+                                            </Badge>
+                                          </div>
+                                       </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                       {session.type === 'online_class' && session.status === 'upcoming' && (
+                                          <Button size="sm">
+                                             {language === 'id' ? 'Gabung' : 'Join'}
+                                          </Button>
+                                       )}
+                                       {session.type !== 'online_class' && session.url && (
+                                          <Button size="sm" variant="outline" leftIcon={<Download className="w-4 h-4" />} onClick={(e) => { e.stopPropagation(); window.open(session.url || '#', '_blank'); }}>
+                                             {language === 'id' ? 'Unduh' : 'Download'}
+                                          </Button>
+                                       )}
+                                    </div>
+                                  </div>
+                                </Card>
+                             ))}
+                             
+                             {/* Map assignments here if any */}
+                             {topic.assignments && topic.assignments.map((assignment: any) => (
+                                 <Card key={`assignment-${assignment.id}`} hover className="cursor-pointer" onClick={() => navigate(`/student/assignments/${assignment.id}`)}>
+                                     <div className="flex items-center justify-between">
+                                         <div className="flex items-center gap-4">
+                                             <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                               assignment.type === 'quiz' 
+                                                 ? 'bg-purple-100 dark:bg-purple-900/30' 
+                                                 : 'bg-green-100 dark:bg-green-900/30'
+                                             }`}>
+                                                 {assignment.type === 'quiz' ? (
+                                                   <CheckCircle className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                                                 ) : (
+                                                   <FileText className="w-6 h-6 text-green-600 dark:text-green-400" />
+                                                 )}
+                                             </div>
+                                             <div>
+                                                 <h5 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 transition-colors">
+                                                     {assignment.title}
+                                                 </h5>
+                                                 <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                     {assignment.due_date && (
+                                                         <span className="flex items-center gap-1 text-red-500 dark:text-red-400 font-medium">
+                                                             <Clock className="w-3 h-3" />
+                                                             {language === 'id' ? 'Tenggat' : 'Due'}: {new Date(assignment.due_date).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'short' })}
+                                                         </span>
+                                                     )}
+                                                     <Badge size="sm" variant={assignment.type === 'quiz' ? 'primary' : 'success'}>
+                                                         {assignment.type === 'quiz' ? (language === 'id' ? 'Kuis' : 'Quiz') : (language === 'id' ? 'Tugas' : 'Assignment')}
+                                                     </Badge>
+                                                     {assignment.max_points && (
+                                                       <span className="text-xs text-gray-400">
+                                                         {assignment.max_points} pts
+                                                       </span>
+                                                     )}
+                                                 </div>
+                                             </div>
+                                         </div>
+                                         <Button size="sm" variant="ghost" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                                            {language === 'id' ? 'Lihat' : 'View'}
+                                         </Button>
+                                     </div>
+                                 </Card>
+                             ))}
+                           </div>
+                        )}
                       </div>
-                      <Button size="sm" variant="outline" leftIcon={<Download className="w-4 h-4" />}>
-                        {language === 'id' ? 'Unduh' : 'Download'}
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+                   ))}
+                 </div>
+              )}
             </div>
-          </div>
-        )}
-
-        {activeTab === 'assignments' && (
-          <div className="space-y-4">
-            {assignments.map((assignment: any) => (
-              <Card key={assignment.id} hover>
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        {assignment.title}
-                      </h4>
-                      <Badge
-                        variant={
-                          assignment.status === 'graded'
-                            ? 'success'
-                            : assignment.submitted
-                              ? 'warning'
-                              : 'secondary'
-                        }
-                        size="sm"
-                      >
-                        {assignment.status === 'graded'
-                          ? language === 'id'
-                            ? 'Dinilai'
-                            : 'Graded'
-                          : assignment.submitted
-                            ? language === 'id'
-                              ? 'Diserahkan'
-                              : 'Submitted'
-                            : language === 'id'
-                              ? 'Belum Diserahkan'
-                              : 'Not Submitted'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      {assignment.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        <span className="font-medium">
-                          {language === 'id' ? 'Deadline:' : 'Due Date:'}
-                        </span>{' '}
-                        {formatDate(assignment.dueDate)}
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        <span className="font-medium">
-                          {language === 'id' ? 'Poin:' : 'Points:'}
-                        </span>{' '}
-                        {assignment.totalPoints}
-                      </span>
-                      {assignment.grade !== undefined && (
-                        <span className="font-semibold text-blue-600">
-                          {language === 'id' ? 'Nilai:' : 'Grade:'} {assignment.grade}/
-                          {assignment.totalPoints}
-                        </span>
-                      )}
-                    </div>
-                    {assignment.feedback && (
-                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {language === 'id' ? 'Feedback Instruktur:' : 'Instructor Feedback:'}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {assignment.feedback}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    {!assignment.submitted && (
-                      <Button size="sm" leftIcon={<Upload className="w-4 h-4" />}>
-                        {language === 'id' ? 'Serahkan Tugas' : 'Submit'}
-                      </Button>
-                    )}
-                    {assignment.submitted && (
-                      <Button size="sm" variant="outline">
-                        {language === 'id' ? 'Lihat Detail' : 'View Details'}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            ))}
           </div>
         )}
 

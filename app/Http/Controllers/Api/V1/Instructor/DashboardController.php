@@ -172,11 +172,13 @@ class DashboardController extends Controller
             // 6. Active Students (Leaderboard)
             $activeStudents = \App\Models\Enrollment::whereHas('course', fn($q) => $q->where('instructor_id', $user->id))
                 ->with(['user.profile', 'course'])
+                ->selectRaw('MAX(id) as id, user_id, MAX(course_id) as course_id, MAX(progress_percentage) as progress_percentage')
+                ->groupBy('user_id')
                 ->orderByDesc('progress_percentage')
                 ->take(5)
                 ->get()
                 ->map(fn($e) => [
-                    'id' => $e->user->id,
+                    'id' => $e->user_id,
                     'name' => $e->user->name,
                     'avatar' => $e->user->profile->avatar ?? null,
                     'course' => $e->course->title,

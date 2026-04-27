@@ -8,6 +8,7 @@ class BatchSession extends Model
 {
     protected $fillable = [
         'batch_id',
+        'batch_topic_id',
         'title',
         'type',
         'description',
@@ -31,6 +32,13 @@ class BatchSession extends Model
     {
         return $this->belongsTo(Batch::class);
     }
+
+    public function topic()
+    {
+        return $this->belongsTo(BatchTopic::class, 'batch_topic_id');
+    }
+
+
 
     public function comments()
     {

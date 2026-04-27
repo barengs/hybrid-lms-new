@@ -1,7 +1,7 @@
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
-import { AuthProvider, CartProvider, NotificationProvider, LanguageProvider, ThemeProvider, LockscreenProvider } from '@/context';
+import { AuthProvider, CartProvider, NotificationProvider, LanguageProvider, ThemeProvider } from '@/context';
 import { ProtectedRoute, PublicOnlyRoute } from '@/components/routes';
-import { Lockscreen } from '@/components/Lockscreen';
+import { LockScreen } from '@/components/auth/LockScreen';
 
 // Public Pages
 import { HomePage, CourseCatalogPage, CourseDetailPage, InstructorRegisterPage } from '@/pages/public';
@@ -45,14 +45,12 @@ function RootLayout() {
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <LockscreenProvider>
-            <CartProvider>
-              <NotificationProvider>
-                <Lockscreen />
-                <Outlet />
-              </NotificationProvider>
-            </CartProvider>
-          </LockscreenProvider>
+          <CartProvider>
+            <NotificationProvider>
+              <LockScreen />
+              <Outlet />
+            </NotificationProvider>
+          </CartProvider>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

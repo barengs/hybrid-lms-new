@@ -6,6 +6,7 @@ interface AuthState {
   token: string | null;
   expiresAt: string | null;
   isAuthenticated: boolean;
+  isLocked: boolean;
 }
 
 const getUserFromStorage = () => {
@@ -26,6 +27,7 @@ const initialState: AuthState = {
   token: localStorage.getItem('auth_token'),
   expiresAt: localStorage.getItem('auth_token_expires_at'),
   isAuthenticated: !!localStorage.getItem('auth_token'),
+  isLocked: false,
 };
 
 const authSlice = createSlice({
@@ -62,17 +64,22 @@ const authSlice = createSlice({
       state.token = null;
       state.expiresAt = null;
       state.isAuthenticated = false;
+      state.isLocked = false;
       localStorage.removeItem('hlms_user');
       localStorage.removeItem('auth_token');
       localStorage.removeItem('auth_token_expires_at');
     },
+    setLocked: (state, action: PayloadAction<boolean>) => {
+      state.isLocked = action.payload;
+    },
   },
 });
 
-export const { setCredentials, updateToken, logOut } = authSlice.actions;
+export const { setCredentials, updateToken, logOut, setLocked } = authSlice.actions;
 
 export default authSlice.reducer;
 
 export const selectCurrentUser = (state: { auth: AuthState }) => state.auth.user;
 export const selectCurrentToken = (state: { auth: AuthState }) => state.auth.token;
 export const selectTokenExpiresAt = (state: { auth: AuthState }) => state.auth.expiresAt;
+export const selectIsLocked = (state: { auth: AuthState }) => state.auth.isLocked;

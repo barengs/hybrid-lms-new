@@ -2,15 +2,17 @@ import { createContext, useContext, useCallback, useState, useEffect, type React
 import type { User } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { useLoginMutation, useLogoutMutation, useRegisterMutation, useRefreshMutation } from '@/store/features/auth/authApiSlice';
-import { setCredentials, updateToken, logOut, selectCurrentUser, selectTokenExpiresAt } from '@/store/features/auth/authSlice';
+import { setCredentials, updateToken, logOut, selectCurrentUser, selectTokenExpiresAt, selectIsLocked, setLocked } from '@/store/features/auth/authSlice';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isLocked: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, password_confirmation: string) => Promise<void>;
   logout: () => void;
+  unlock: (password: string) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
 
@@ -23,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
   const expiresAt = useAppSelector(selectTokenExpiresAt);
+  const isLocked = useAppSelector(selectIsLocked);
   const [loginApi, { isLoading: isLoginLoading }] = useLoginMutation();
   const [logoutApi, { isLoading: isLogoutLoading }] = useLogoutMutation();
   const [registerApi, { isLoading: isRegisterLoading }] = useRegisterMutation();
@@ -70,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Reset activity timer on login
         setLastActivityTime(Date.now());
+        dispatch(setLocked(false));
       } else {
         // Fallback for debugging if structure is different
         console.error('Invalid API response structure', response);
@@ -80,6 +84,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
   }, [dispatch, loginApi]);
+
+  const unlock = useCallback(async (password: string) => {
+    if (!user) return;
+    try {
+      // Re-verify password via login endpoint
+      await loginApi({ email: user.email, password }).unwrap();
+      dispatch(setLocked(false));
+      setLastActivityTime(Date.now());
+    } catch (error) {
+      console.error('Unlock failed', error);
+      throw error;
+    }
+  }, [user, loginApi, dispatch]);
 
   const logout = useCallback(async () => {
     try {
@@ -130,14 +147,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Activity tracking: Update last activity time
   const handleActivity = useCallback(() => {
-    if (user) {
+    if (user && !isLocked) {
       setLastActivityTime(Date.now());
     }
-  }, [user]);
+  }, [user, isLocked]);
 
   // Set up activity listeners
   useEffect(() => {
-    if (!user) return;
+    if (!user || isLocked) return;
 
     let debounceTimeout: number;
 
@@ -159,18 +176,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.removeEventListener(event, debouncedHandleActivity);
       });
     };
-  }, [user, handleActivity]);
+  }, [user, isLocked, handleActivity]);
 
   // Token refresh and auto-logout timer
   useEffect(() => {
     if (!user) return;
 
-    const SIXTY_MINUTES = 60 * 60 * 1000; // 60 minutes in milliseconds
-    const FIVE_MINUTES = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const THIRTY_MINUTES = 30 * 60 * 1000;
+    const SIXTY_MINUTES = 60 * 60 * 1000;
+    const FIVE_MINUTES = 5 * 60 * 1000;
 
     const checkTokenAndActivity = async () => {
       const now = Date.now();
       const timeSinceLastActivity = now - lastActivityTime;
+
+      // Check for 30 minutes of inactivity -> lock screen
+      if (timeSinceLastActivity >= THIRTY_MINUTES && !isLocked) {
+        console.log('Screen locked: 30 minutes of inactivity detected');
+        dispatch(setLocked(true));
+        return;
+      }
 
       // Check for 60 minutes of inactivity -> auto-logout
       if (timeSinceLastActivity >= SIXTY_MINUTES) {
@@ -191,7 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const timeUntilExpiry = expiresAtMs - now;
 
         // If token expires in less than 5 minutes and user is active, refresh it
-        if (timeUntilExpiry < FIVE_MINUTES && timeUntilExpiry > 0) {
+        if (timeUntilExpiry < FIVE_MINUTES && timeUntilExpiry > 0 && !isLocked) {
           console.log('Token expiring soon, refreshing...');
           try {
             const response = await refreshApi().unwrap();
@@ -217,24 +242,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    // Check every 60 seconds
-    const interval = setInterval(checkTokenAndActivity, 60 * 1000);
+    // Check every 30 seconds
+    const interval = setInterval(checkTokenAndActivity, 30 * 1000);
 
     // Also check immediately on mount
     checkTokenAndActivity();
 
     return () => clearInterval(interval);
-  }, [user, expiresAt, lastActivityTime, refreshApi, logoutApi, dispatch]);
+  }, [user, expiresAt, lastActivityTime, isLocked, refreshApi, logoutApi, dispatch]);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
+        isLocked,
         isLoading,
         login,
         register,
         logout,
+        unlock,
         updateProfile,
       }}
     >

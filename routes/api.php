@@ -54,6 +54,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink']);
         Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 
+        // Protected auth routes
+        Route::middleware('auth:api')->group(function () {
+            Route::post('/refresh', [AuthController::class, 'refresh']);
+            Route::get('/user', [AuthController::class, 'user']);
+            Route::post('/logout', [AuthController::class, 'logout']);
+        });
+
         // Email verification (public - signed URL)
         Route::get('/verify-email/{id}/{hash}', [EmailVerificationController::class, 'verify'])
             ->middleware(['signed', 'throttle:6,1'])

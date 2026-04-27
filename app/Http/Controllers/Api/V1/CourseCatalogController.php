@@ -122,10 +122,20 @@ class CourseCatalogController extends Controller
         $views = cache()->get($cacheKey, 0);
         cache()->put($cacheKey, $views + 1, 3600); // Cache for 1 hour
 
+        $enrollment = null;
+        $user = auth('api')->user();
+        if ($user) {
+            $enrollment = \App\Models\Enrollment::where('user_id', $user->id)
+                ->where('course_id', $course->id)
+                ->first();
+        }
+
         return response()->json([
             'data' => $course,
             'meta' => [
                 'view_count' => $views + 1,
+                'is_enrolled' => $enrollment !== null,
+                'enrollment' => $enrollment,
             ],
         ]);
     }

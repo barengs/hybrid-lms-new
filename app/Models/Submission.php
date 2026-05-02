@@ -23,6 +23,10 @@ class Submission extends Model
         'instructor_feedback',
         'graded_at',
         'graded_by',
+        'ai_score',
+        'ai_feedback',
+        'ai_status',
+        'ai_evaluated_at',
     ];
 
     public function casts(): array
@@ -32,7 +36,9 @@ class Submission extends Model
             'files' => 'array',
             'submitted_at' => 'datetime',
             'graded_at' => 'datetime',
+            'ai_evaluated_at' => 'datetime',
             'points_awarded' => 'integer',
+            'ai_score' => 'integer',
         ];
     }
 

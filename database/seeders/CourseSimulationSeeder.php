@@ -21,6 +21,19 @@ class CourseSimulationSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Create/Update Admin
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@molang.com'],
+            [
+                'name' => 'Super Admin',
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+            ]
+        );
+        if (!$admin->hasRole('admin')) {
+            $admin->assignRole('admin');
+        }
+
         // 1. Create/Update Instructors
         $instructor1 = User::updateOrCreate(
             ['email' => 'instructor@molang.com'],
@@ -102,7 +115,20 @@ class CourseSimulationSeeder extends Seeder
             ],
         ];
 
-        $createdCourses = [];
+        // 3. Create Courses (Self-paced)
+        $selfPacedBatch = Batch::updateOrCreate(
+            ['slug' => 'self-paced-learning'],
+            [
+                'instructor_id' => $instructor1->id,
+                'name' => 'Self-Paced Learning Batch',
+                'description' => 'Batch untuk kursus mandiri tanpa jadwal tetap.',
+                'type' => 'structured',
+                'status' => 'open',
+                'start_date' => now()->subMonths(6),
+                'is_public' => true,
+            ]
+        );
+
         foreach ($coursesData as $cData) {
             $course = Course::updateOrCreate(
                 ['slug' => Str::slug($cData['title'])],
@@ -115,7 +141,12 @@ class CourseSimulationSeeder extends Seeder
                 ])
             );
             $createdCourses[] = $course;
-            $this->seedCourseContent($course);
+
+            $selfPacedBatch->courses()->syncWithoutDetaching([
+                $course->id => ['order' => count($createdCourses), 'is_required' => false]
+            ]);
+            
+            $this->seedCourseContent($course, $selfPacedBatch->id);
         }
 
         // 4. Create Structured BATCH (Traditional Learning Session)
@@ -329,7 +360,31 @@ class CourseSimulationSeeder extends Seeder
                     'progress_percentage' => 0,
                 ]
             );
+
+            // Also enroll in the structured batch (which has all assignments)
+            Enrollment::updateOrCreate(
+                ['user_id' => $student->id, 'batch_id' => $batch->id],
+                [
+                    'enrolled_at' => now(),
+                    'progress_percentage' => 0,
+                ]
+            );
+
+            // Also enroll in self-paced batch
+            Enrollment::updateOrCreate(
+                ['user_id' => $student->id, 'batch_id' => $selfPacedBatch->id],
+                [
+                    'enrolled_at' => now(),
+                    'progress_percentage' => 0,
+                ]
+            );
         }
+
+        // 4. Seed AI Settings
+        $settingService = app(\App\Services\AppSettingService::class);
+        $settingService->set('ai_provider', 'gemini', 'string', 'ai');
+        $settingService->set('ai_model', 'gemini-flash-latest', 'string', 'ai');
+        $settingService->set('ai_temperature', 0.7, 'float', 'ai');
     }
 
     /**

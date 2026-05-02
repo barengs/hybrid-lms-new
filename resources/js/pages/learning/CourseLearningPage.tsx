@@ -102,7 +102,7 @@ export function CourseLearningPage() {
     return Math.round((completed / module.lessons.length) * 100);
   };
 
-  const handleLessonClick = (lesson: LearningLesson) => {
+    const handleLessonClick = (lesson: LearningLesson) => {
     console.log('DEBUG: Lesson Clicked', lesson);
     if (lesson.is_locked) {
       console.warn('DEBUG: Lesson is locked');
@@ -113,6 +113,7 @@ export function CourseLearningPage() {
     if (lesson.type === 'quiz') {
       url = `/learn/${slug}/quiz/${lesson.id}`;
     } else if (lesson.type === 'assignment') {
+      // Navigate with lesson_id — backend will resolve to the correct assignment
       url = `/assignments/${lesson.id}`;
     } else {
       url = `/learn/${slug}/lesson/${lesson.id}`;

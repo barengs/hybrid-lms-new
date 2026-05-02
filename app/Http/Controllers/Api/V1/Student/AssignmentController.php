@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Student;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GradeSubmission;
 use App\Models\Assignment;
 use App\Models\Batch;
 use App\Models\Submission;
@@ -52,8 +53,11 @@ class AssignmentController extends Controller
                 ->orderBy('due_date', 'asc')
                 ->paginate($request->per_page ?? 10);
 
-            // We can customize the pagination response if needed, 
-            // but AssignmentResource::collection($assignments) works with paginators.
+            // Map the collection to set mySubmission relation
+            $assignments->getCollection()->each(function ($assignment) {
+                $assignment->setRelation('mySubmission', $assignment->submissions->first());
+            });
+
             return $this->successResponse(
                 AssignmentResource::collection($assignments)->response()->getData(true), 
                 'Assignments retrieved successfully.'
@@ -79,25 +83,43 @@ class AssignmentController extends Controller
         try {
             $user = $request->user();
 
+            // Try to find the assignment:
+            // 1) First, by its own primary key (assignment_id)
+            // 2) Fallback: by lesson_id (for navigation from lesson/course pages)
             $assignment = Assignment::where('is_published', '=', true)
                 ->whereHas('batch.enrollments', function ($q) use ($user) {
                     $q->where('user_id', $user->id)->active();
                 })
                 ->with(['batch', 'submissions' => function($q) use ($user) {
-                    $q->where('user_id', $user->id); // Load student's submission
+                    $q->where('user_id', $user->id);
                 }])
-                ->findOrFail($id);
-            
-            // Manually inject mySubmission relation for the resource if logic complex, 
-            // or rely on 'submissions' relation being filtered to 1.
+                ->where('id', $id)
+                ->first();
+
+            // Fallback: try lookup by lesson_id
+            if (!$assignment) {
+                $assignment = Assignment::where('is_published', '=', true)
+                    ->whereHas('batch.enrollments', function ($q) use ($user) {
+                        $q->where('user_id', $user->id)->active();
+                    })
+                    ->with(['batch', 'submissions' => function($q) use ($user) {
+                        $q->where('user_id', $user->id);
+                    }])
+                    ->where('lesson_id', $id)
+                    ->first();
+            }
+
+            if (!$assignment) {
+                Log::warning("AssignmentController@show: Not found for user={$user->id} id={$id} (tried both assignment_id and lesson_id)");
+                return $this->errorResponse('Assignment not found or access denied.', 404);
+            }
+
             $assignment->setRelation('mySubmission', $assignment->submissions->first());
 
             return $this->successResponse(new AssignmentResource($assignment), 'Assignment details retrieved successfully.');
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return $this->errorResponse('Assignment not found or access denied.', 404);
         } catch (\Exception $e) {
-            Log::error('Assignment Detail Error: ' . $e->getMessage());
+            Log::error('Assignment Detail Error: ' . $e->getMessage() . ' | ' . $e->getFile() . ':' . $e->getLine());
             return $this->errorResponse('Failed to retrieve assignment.', 500);
         }
     }
@@ -118,11 +140,26 @@ class AssignmentController extends Controller
         try {
             $user = $request->user();
             
+            // Try lookup by assignment ID first, then by lesson_id as fallback
             $assignment = Assignment::where('is_published', '=', true)
                 ->whereHas('batch.enrollments', function ($q) use ($user) {
                     $q->where('user_id', $user->id)->active();
                 })
-                ->findOrFail($id);
+                ->where('id', $id)
+                ->first();
+
+            if (!$assignment) {
+                $assignment = Assignment::where('is_published', '=', true)
+                    ->whereHas('batch.enrollments', function ($q) use ($user) {
+                        $q->where('user_id', $user->id)->active();
+                    })
+                    ->where('lesson_id', $id)
+                    ->first();
+            }
+
+            if (!$assignment) {
+                return $this->errorResponse('Assignment not found.', 404);
+            }
 
             // 1. Validation
             $request->validate([
@@ -201,6 +238,7 @@ class AssignmentController extends Controller
             }
 
             // 4. Save/Update
+            $isFirstSubmission = !$submission;
             if ($submission) {
                 $submission->update([
                     'files' => $files, 
@@ -210,6 +248,7 @@ class AssignmentController extends Controller
                     'status' => $status,
                     'points_awarded' => $pointsAwarded ?? $submission->points_awarded,
                     'graded_at' => $status === 'graded' ? now() : $submission->graded_at,
+                    'ai_status' => $status === 'graded' ? $submission->ai_status : 'pending',
                 ]);
             } else {
                 $submission = Submission::create([
@@ -222,13 +261,40 @@ class AssignmentController extends Controller
                     'status' => $status,
                     'points_awarded' => $pointsAwarded,
                     'graded_at' => $status === 'graded' ? now() : null,
+                    'ai_status' => $status === 'graded' ? 'completed' : 'pending',
                 ]);
             }
 
-            return $this->successResponse(new SubmissionResource($submission), 'Assignment submitted successfully.');
+            // 5. Dispatch AI Grading Job for non-quiz assignments (quiz already auto-graded)
+            $needsAiGrading = $assignment->gradable && $assignment->type !== 'quiz';
+            if ($needsAiGrading) {
+                GradeSubmission::dispatch($submission)->onQueue('default');
+                $submission->update(['ai_status' => 'processing']);
+            }
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return $this->errorResponse('Assignment not found.', 404);
+            // 6. Build informative response for the student
+            $submissionData = new SubmissionResource($submission->refresh());
+
+            $responseMessage = match (true) {
+                $status === 'graded' => 'Tugas berhasil dikumpulkan dan telah dinilai otomatis!',
+                $needsAiGrading     => 'Tugas berhasil dikumpulkan! AI sedang mengevaluasi jawabanmu, hasilnya akan segera tersedia.',
+                default             => 'Tugas berhasil dikumpulkan! Menunggu penilaian dari instruktur.',
+            };
+
+            $meta = [
+                'submission_status' => $submission->status,
+                'ai_status'         => $submission->ai_status ?? 'not_applicable',
+                'is_first_submission' => $isFirstSubmission,
+                'submitted_at'      => $submission->submitted_at,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => $responseMessage,
+                'data'    => $submissionData,
+                'meta'    => $meta,
+            ], 200);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return $this->errorResponse($e->getMessage(), 422, $e->errors());
         } catch (\Exception $e) {

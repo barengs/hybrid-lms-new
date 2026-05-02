@@ -98,6 +98,81 @@ export interface LessonDetailResponse {
   data: LessonDetail;
 }
 
+// -------------------------------------------------------
+// Assignment Types
+// -------------------------------------------------------
+export interface SubmissionData {
+  id: number;
+  status: 'submitted' | 'graded' | 'late' | 'pending';
+  content: string | null;
+  files: { path: string; name: string; size: number; mime: string }[];
+  points_awarded: number | null;
+  instructor_feedback: string | null;
+  ai_score: number | null;
+  ai_feedback: string | null;
+  ai_status: 'pending' | 'processing' | 'completed' | 'failed' | 'not_applicable';
+  submitted_at: string;
+  graded_at: string | null;
+}
+
+export interface AssignmentDetailData {
+  id: number;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+  type: 'assignment' | 'quiz' | 'project';
+  due_date: string | null;
+  max_points: number;
+  gradable: boolean;
+  allow_multiple_submissions: boolean;
+  my_submission: SubmissionData | null;
+}
+
+export interface AssignmentDetailResponse {
+  success: boolean;
+  data: AssignmentDetailData;
+}
+
+export interface SubmitAssignmentArgs {
+  assignmentId: number;
+  formData: FormData;
+}
+
+export interface SubmitAssignmentResponse {
+  success: boolean;
+  message: string;
+  data: SubmissionData;
+  meta: {
+    submission_status: string;
+    ai_status: string;
+    is_first_submission: boolean;
+    submitted_at: string;
+  };
+}
+
+export interface AssignmentListItem {
+  id: number;
+  title: string;
+  description: string | null;
+  type: 'assignment' | 'quiz' | 'project';
+  due_date: string | null;
+  max_points: number;
+  is_published: boolean;
+  batch_id: number;
+  batch?: { id: number; name: string };
+  my_submission: SubmissionData | null;
+}
+
+export interface AssignmentListResponse {
+  success: boolean;
+  data: {
+    data: AssignmentListItem[];
+    total: number;
+    current_page: number;
+    last_page: number;
+  };
+}
+
 export const studentApiSlice = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getStudentDashboard: builder.query<{ stats: any; upcoming_assignments: any[] }, void>({
@@ -108,7 +183,6 @@ export const studentApiSlice = apiSlice.injectEndpoints({
       query: () => '/student/my-learning',
       transformResponse: (response: MyLearningResponse) => {
         const { courses, batches, classes } = response.data;
-        // Unify for main view, mapping batches/classes to compatible structure if needed
         const unified = [
           ...courses,
           ...batches.map(b => ({ ...b, type: 'batch' as const })),
@@ -142,6 +216,35 @@ export const studentApiSlice = apiSlice.injectEndpoints({
         { type: 'Lesson', id: lessonId }
       ],
     }),
+    getAssignments: builder.query<AssignmentListResponse['data'], { batch_id?: number; per_page?: number } | void>({
+      query: (params) => {
+        const queryParams = new URLSearchParams();
+        if (params && typeof params === 'object') {
+          if (params.batch_id) queryParams.set('batch_id', String(params.batch_id));
+          if (params.per_page) queryParams.set('per_page', String(params.per_page));
+        }
+        const qs = queryParams.toString();
+        return `/student/assignments${qs ? `?${qs}` : ''}`;
+      },
+      transformResponse: (response: AssignmentListResponse) => response.data,
+      providesTags: ['Submissions'],
+    }),
+    getAssignmentDetail: builder.query<AssignmentDetailData, number>({
+
+      query: (assignmentId) => `/student/assignments/${assignmentId}`,
+      transformResponse: (response: AssignmentDetailResponse) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'Submissions', id }],
+    }),
+    submitAssignment: builder.mutation<SubmitAssignmentResponse, SubmitAssignmentArgs>({
+      query: ({ assignmentId, formData }) => ({
+        url: `/student/assignments/${assignmentId}/submit`,
+        method: 'POST',
+        body: formData,
+      }),
+      invalidatesTags: (_result, _error, { assignmentId }) => [
+        { type: 'Submissions', id: assignmentId },
+      ],
+    }),
   }),
 });
 
@@ -151,4 +254,7 @@ export const {
   useGetCourseContentQuery,
   useGetLessonDetailQuery,
   useMarkLessonCompleteMutation,
+  useGetAssignmentsQuery,
+  useGetAssignmentDetailQuery,
+  useSubmitAssignmentMutation,
 } = studentApiSlice;

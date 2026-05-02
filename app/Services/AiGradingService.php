@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Submission;
-use EchoLabs\Prism\Prism;
-use EchoLabs\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
 use Illuminate\Support\Facades\Storage;
 use Smalot\PdfParser\Parser;
 use Illuminate\Support\Facades\Log;
@@ -26,6 +26,9 @@ class AiGradingService
     public function evaluate(Submission $submission)
     {
         try {
+            $config = $this->settingService->getAiConfig();
+            
+            $submission->update(['ai_status' => 'processing']);
             $assignment = $submission->assignment;
             
             // 1. Gather all content
@@ -37,6 +40,7 @@ class AiGradingService
             // 2. Prepare Prompt based on Assignment Type
             $context = "Assignment Title: {$assignment->title}\n";
             $context .= "Assignment Description: {$assignment->description}\n";
+            $context .= "Assignment Instructions/Questions: {$assignment->instructions}\n";
             $context .= "Max Points: {$assignment->max_points}\n";
             $type = $assignment->type; // assignment, project, etc.
 
@@ -129,28 +133,33 @@ class AiGradingService
      */
     protected function generatePrompt(string $context, string $content, string $type): string
     {
-        $instructions = "You are an expert pedagogical AI. Your task is to grade a student submission.\n\n";
-        $instructions .= "CONTEXT:\n{$context}\n\n";
-        $instructions .= "STUDENT SUBMISSION CONTENT:\n{$content}\n\n";
+        $instructions = "Anda adalah asisten pengajar AI yang ahli. Tugas Anda adalah menilai tugas mahasiswa.\n\n";
+        $instructions .= "KONTEKS TUGAS:\n{$context}\n\n";
+        $instructions .= "KONTEN SUBMISI MAHASISWA:\n{$content}\n\n";
         
+        $instructions .= "INSTRUKSI PENILAIAN:\n";
+        $instructions .= "- Berikan penilaian yang objektif berdasarkan konteks tugas di atas.\n";
+        $instructions .= "- Berikan umpan balik (feedback) dalam BAHASA INDONESIA.\n";
+        $instructions .= "- Sesuaikan umpan balik secara spesifik dengan topik dan soal yang ada pada tugas.\n";
+
         if ($type === 'project' || str_contains(strtolower($context), 'coding')) {
-            $instructions .= "CRITERIA FOR CODING:\n";
-            $instructions .= "- Logic correctness and functionality.\n";
-            $instructions .= "- Code quality and readability (naming, indentation).\n";
-            $instructions .= "- Efficient use of algorithms/data structures.\n";
-            $instructions .= "- Adherence to best practices.\n\n";
+            $instructions .= "KRITERIA UNTUK CODING:\n";
+            $instructions .= "- Kebenaran logika dan fungsionalitas.\n";
+            $instructions .= "- Kualitas kode dan keterbacaan (penamaan, indentasi).\n";
+            $instructions .= "- Penggunaan algoritma/struktur data yang efisien.\n";
+            $instructions .= "- Kepatuhan terhadap best practices.\n\n";
         } else {
-            $instructions .= "CRITERIA FOR ASSIGNMENT:\n";
-            $instructions .= "- Completeness and accuracy.\n";
-            $instructions .= "- Clarity of thought and structure.\n";
-            $instructions .= "- Relevance to the task description.\n\n";
+            $instructions .= "KRITERIA UNTUK TUGAS UMUM:\n";
+            $instructions .= "- Kelengkapan dan akurasi jawaban.\n";
+            $instructions .= "- Kejelasan pemikiran dan struktur.\n";
+            $instructions .= "- Relevansi dengan deskripsi tugas.\n\n";
         }
 
-        $instructions .= "FORMAT:\n";
-        $instructions .= "Return your evaluation ONLY as a JSON object with keys 'score' (number) and 'feedback' (detailed string).\n";
-        $instructions .= "Example: {\"score\": 85, \"feedback\": \"Excellent work...\"}\n";
-        $instructions .= "Ensure the score is between 0 and the Max Points specified above.\n";
-        $instructions .= "Do not include any other text or markdown blocks, only the JSON.";
+        $instructions .= "FORMAT OUTPUT:\n";
+        $instructions .= "Kembalikan evaluasi HANYA dalam format JSON object dengan key 'score' (angka) dan 'feedback' (string detail dalam Bahasa Indonesia).\n";
+        $instructions .= "Contoh: {\"score\": 85, \"feedback\": \"Pekerjaan yang sangat baik...\"}\n";
+        $instructions .= "Pastikan skor berada di antara 0 dan Max Points yang ditentukan.\n";
+        $instructions .= "Jangan sertakan teks lain atau blok markdown, hanya JSON murni.";
 
         return $instructions;
     }

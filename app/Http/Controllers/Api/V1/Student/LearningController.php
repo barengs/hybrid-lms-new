@@ -106,7 +106,7 @@ class LearningController extends Controller
             }
 
             // Check if lesson belongs to the course
-            if ($lesson->section->course_id !== $course->id) {
+            if ($lesson->section->course_id != $course->id) {
                 return $this->errorResponse('Pelajaran ini bukan bagian dari kursus ' . $course->title, 404);
             }
 

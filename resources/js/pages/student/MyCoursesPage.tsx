@@ -174,7 +174,7 @@ export function MyCoursesPage() {
       ) : viewMode === 'grid' ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map((course) => (
-            <Card key={course.id} padding="none" className="overflow-hidden">
+            <Card key={`${course.type}-${course.id}`} padding="none" className="overflow-hidden">
               <div className="relative">
                 <img
                   src={course.thumbnail}
@@ -236,7 +236,7 @@ export function MyCoursesPage() {
       ) : (
         <div className="space-y-4">
           {filteredCourses.map((course) => (
-            <Card key={course.id} className="flex gap-6">
+            <Card key={`${course.type}-${course.id}`} className="flex gap-6">
               <div className="relative w-48 flex-shrink-0">
                 <img
                   src={course.thumbnail}

@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1\Student;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Course;
-use Prism\Prism\Facades\Prism;
-use Prism\Prism\Enums\Provider;
+use EchoLabs\Prism\Facades\Prism;
+use EchoLabs\Prism\Enums\Provider;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

@@ -21,7 +21,7 @@ class ClassroomResource extends JsonResource
             'thumbnail' => $this->thumbnail ? Storage::disk('public')->url($this->thumbnail) : null,
             'description' => $this->description,
             'class_code' => $this->class_code,
-            'status' => $this->status,
+            'status' => $this->status === 'open' ? 'active' : $this->status,
             'type' => 'classroom',
             'instructor' => $this->whenLoaded('instructor', function() {
                 return [

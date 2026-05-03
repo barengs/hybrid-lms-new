@@ -82,20 +82,25 @@ export function MyClassesPage() {
       (cls.instructor?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     // Safety check for status, default to ongoing if missing
-    const currentStatus = cls.status || 'ongoing';
+    const currentStatus = (cls.status || 'ongoing').toLowerCase();
     const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'ongoing' && (currentStatus === 'active' || currentStatus === 'in_progress' || currentStatus === 'ongoing')) ||
-                         (filterStatus === 'completed' && currentStatus === 'completed');
+                         (filterStatus === 'ongoing' && ['active', 'in_progress', 'open', 'ongoing'].includes(currentStatus)) ||
+                         (filterStatus === 'completed' && ['completed', 'closed', 'finished'].includes(currentStatus));
     return matchesSearch && matchesStatus;
   });
 
   const stats = {
     total: classes.length,
     ongoing: classes.filter((c) => {
-        const s = c.status || 'ongoing';
-        return s === 'active' || s === 'in_progress' || s === 'ongoing';
+        const s = (c.status || 'ongoing').toLowerCase();
+        const isActive = ['active', 'in_progress', 'open', 'ongoing'].includes(s) || (c.progress || 0) < 100;
+        return isActive;
     }).length,
-    completed: classes.filter((c) => (c.status || 'ongoing') === 'completed').length,
+    completed: classes.filter((c) => {
+        const s = (c.status || '').toLowerCase();
+        const isCompleted = ['completed', 'closed', 'finished'].includes(s) || (c.progress || 0) >= 100;
+        return isCompleted && !(['active', 'in_progress', 'open', 'ongoing'].includes(s));
+    }).length,
   };
 
   if (isLoading) {
@@ -250,9 +255,9 @@ export function MyClassesPage() {
                         >
                           {cls.name}
                         </Link>
-                        <Badge variant={(cls.status === 'active' || cls.status === 'in_progress' || !cls.status) ? 'success' : 'secondary'} size="sm">
-                          {(cls.status === 'active' || cls.status === 'in_progress' || !cls.status)
-                            ? language === 'id' ? 'Aktif' : 'Active'
+                        <Badge variant={(['active', 'in_progress', 'open', 'ongoing'].includes(cls.status?.toLowerCase()) || (cls.progress || 0) < 100 || !cls.status) ? 'success' : 'secondary'} size="sm">
+                          {(['active', 'in_progress', 'open', 'ongoing'].includes(cls.status?.toLowerCase()) || (cls.progress || 0) < 100 || !cls.status)
+                            ? language === 'id' ? 'Aktif (V2)' : 'Active (V2)'
                             : language === 'id' ? 'Selesai' : 'Completed'}
                         </Badge>
                       </div>
@@ -292,7 +297,6 @@ export function MyClassesPage() {
                   </div>
 
                   {/* Progress */}
-                  {(cls.status === 'active' || cls.status === 'in_progress' || !cls.status) && (
                     <div>
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="text-gray-600 dark:text-gray-400">
@@ -307,7 +311,6 @@ export function MyClassesPage() {
                         />
                       </div>
                     </div>
-                  )}
 
                   {/* Notifications */}
                   {((cls.notifications?.newMaterials || 0) > 0 ||

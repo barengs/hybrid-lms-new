@@ -66,16 +66,6 @@ export const LearningTimeline: React.FC<LearningTimelineProps> = ({ activities, 
     }
   };
 
-  if (!activities || activities.length === 0) {
-    return (
-      <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-        <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-        <p className="text-gray-500 font-medium">
-          {language === 'id' ? 'Belum ada alur pembelajaran.' : 'No learning roadmap yet.'}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:ml-[2.25rem] md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent">

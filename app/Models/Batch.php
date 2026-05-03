@@ -126,6 +126,14 @@ class Batch extends Model
     }
 
     /**
+     * Get all activities for this batch (for timeline roadmap).
+     */
+    public function activities(): HasMany
+    {
+        return $this->hasMany(BatchActivity::class)->orderBy('sort_order');
+    }
+
+    /**
      * Get all additional materials (attachments) for this batch.
      */
     public function additionalMaterials(): \Illuminate\Database\Eloquent\Relations\MorphMany

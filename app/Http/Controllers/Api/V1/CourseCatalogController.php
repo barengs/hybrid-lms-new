@@ -20,6 +20,11 @@ class CourseCatalogController extends Controller
         $query = Course::published()
             ->with(['instructor:id,name', 'category:id,name,slug']);
 
+        // Default to self_paced for landing page/public catalog
+        if (!$request->has('type')) {
+            $query->where('type', 'self_paced');
+        }
+
         // Filters
         if ($request->filled('category')) {
             $categoryValue = $request->category;
@@ -38,16 +43,6 @@ class CourseCatalogController extends Controller
             $query->where('type', $request->type);
         }
 
-        if ($request->filled('instructor')) {
-            $query->where('instructor_id', $request->instructor);
-        }
-
-        if ($request->filled('batch_id')) {
-            $query->whereHas('batches', function ($q) use ($request) {
-                $q->where('batches.id', $request->batch_id);
-            });
-        }
-
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -61,10 +56,13 @@ class CourseCatalogController extends Controller
         $sort = $request->get('sort', 'latest');
         switch ($sort) {
             case 'latest':
-                $query->latest();
+                $query->latest('published_at');
                 break;
-            case 'oldest':
-                $query->oldest();
+            case 'popularity':
+                $query->orderByDesc('total_enrollments');
+                break;
+            case 'rating':
+                $query->orderByDesc('average_rating');
                 break;
             case 'price_low':
                 $query->orderBy('price');
@@ -72,27 +70,6 @@ class CourseCatalogController extends Controller
             case 'price_high':
                 $query->orderBy('price', 'desc');
                 break;
-            case 'rating':
-                $query->orderByDesc('average_rating');
-                break;
-            case 'popularity':
-                $query->orderByDesc('total_enrollments');
-                break;
-        }
-
-        // Featured courses
-        if ($request->boolean('featured')) {
-            $query->featured();
-        }
-
-        // Self-paced only
-        if ($request->boolean('self_paced')) {
-            $query->selfPaced();
-        }
-
-        // Structured only
-        if ($request->boolean('structured')) {
-            $query->structured();
         }
 
         $perPage = min($request->get('per_page', 12), 50);
@@ -198,6 +175,11 @@ class CourseCatalogController extends Controller
         // Filter by status
         if ($request->has('status')) {
             $query->where('status', $request->status);
+        }
+
+        // Default to open for enrollment for landing page
+        if (!$request->has('status') && !$request->has('open_enrollment')) {
+            $query->openForEnrollment();
         }
 
         // Only open for enrollment

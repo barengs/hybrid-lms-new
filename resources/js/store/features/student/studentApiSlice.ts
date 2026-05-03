@@ -1,4 +1,5 @@
 import { apiSlice } from '../../api/apiSlice';
+import type { Course } from '@/types';
 // Re-triggering Vite export scan
 
 export interface StudentLearningSummary {
@@ -20,13 +21,18 @@ export interface EnrolledCourse {
 
 export interface MyLearningResponse {
   success: boolean;
-  message: string;
   data: {
     courses: EnrolledCourse[];
-    batches: any[];
-    classes: any[];
-    summary: StudentLearningSummary;
+    batches: EnrolledCourse[];
+    classes: EnrolledCourse[];
   };
+}
+
+export interface MyLearningData {
+  courses: EnrolledCourse[];
+  batches: EnrolledCourse[];
+  classes: EnrolledCourse[];
+  all: EnrolledCourse[];
 }
 
 export interface StudentApiSlice {
@@ -179,22 +185,38 @@ export const studentApiSlice = apiSlice.injectEndpoints({
       query: () => '/student/dashboard',
       transformResponse: (response: { data: any }) => response.data,
     }),
-    getMyLearning: builder.query<EnrolledCourse[], void>({
+    getMyLearning: builder.query<MyLearningData, void>({
       query: () => '/student/my-learning',
       transformResponse: (response: MyLearningResponse) => {
-        const { courses, batches, classes } = response.data;
-        const unified = [
-          ...courses,
-          ...batches.map(b => ({ ...b, type: 'batch' as const })),
-          ...classes.map(c => ({ ...c, type: 'class' as const }))
-        ].sort((a, b) => {
-          const dateA = new Date(a.enrolled_at || a.start_date || a.created_at || 0).getTime();
-          const dateB = new Date(b.enrolled_at || b.start_date || b.created_at || 0).getTime();
-          return dateB - dateA;
-        });
-        return unified;
+        const { courses = [], batches = [], classes = [] } = response.data || {};
+        
+        const mapAndSort = (items: EnrolledCourse[], type?: 'batch' | 'class') => {
+          return items.map(item => ({ 
+            ...item, 
+            type: type || item.type || 'course' 
+          })).sort((a, b) => {
+            const timeA = a.enrolled_at ? new Date(a.enrolled_at).getTime() : 0;
+            const timeB = b.enrolled_at ? new Date(b.enrolled_at).getTime() : 0;
+            return timeB - timeA;
+          });
+        };
+
+        const mappedCourses = mapAndSort(courses);
+        const mappedBatches = mapAndSort(batches, 'batch');
+        const mappedClasses = mapAndSort(classes, 'class');
+
+        return {
+          courses: mappedCourses,
+          batches: mappedBatches,
+          classes: mappedClasses,
+          all: [...mappedCourses, ...mappedBatches, ...mappedClasses].sort((a, b) => {
+            const timeA = a.enrolled_at ? new Date(a.enrolled_at).getTime() : 0;
+            const timeB = b.enrolled_at ? new Date(b.enrolled_at).getTime() : 0;
+            return timeB - timeA;
+          })
+        };
       },
-      providesTags: ['Course'],
+      providesTags: ['Course', 'Class'],
     }),
     getCourseContent: builder.query<CourseContentData, string>({
       query: (slug) => `/student/courses/${slug}/learning`,
@@ -245,6 +267,29 @@ export const studentApiSlice = apiSlice.injectEndpoints({
         { type: 'Submissions', id: assignmentId },
       ],
     }),
+    getOnboardingQuestions: builder.query<any[], void>({
+      query: () => '/student/onboarding/questions',
+      transformResponse: (response: { data: any[] }) => response.data,
+    }),
+    submitOnboardingInterests: builder.mutation<any, { answers: { id: string; value: string }[] }>({
+      query: (body) => ({
+        url: '/student/onboarding/submit',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['User'], // Invalidate user to refresh profile.onboarding_completed status
+    }),
+    getRecommendations: builder.query<Course[], void>({
+      query: () => '/student/recommendations',
+      transformResponse: (response: { data: Course[] }) => response.data,
+    }),
+    toggleActivityComplete: builder.mutation<{ success: boolean; completed: boolean }, string | number>({
+      query: (id) => ({
+        url: `/classes/activities/${id}/toggle-complete`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, id) => ['Class'],
+    }),
   }),
 });
 
@@ -257,4 +302,8 @@ export const {
   useGetAssignmentsQuery,
   useGetAssignmentDetailQuery,
   useSubmitAssignmentMutation,
+  useGetOnboardingQuestionsQuery,
+  useSubmitOnboardingInterestsMutation,
+  useGetRecommendationsQuery,
+  useToggleActivityCompleteMutation,
 } = studentApiSlice;

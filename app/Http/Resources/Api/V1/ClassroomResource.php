@@ -156,6 +156,32 @@ class ClassroomResource extends JsonResource
                     ];
                 });
             }),
+            'timeline' => $this->whenLoaded('activities', function() {
+                return $this->activities->map(function($activity) {
+                    $item = $activity->activityable;
+                    $type = strtolower(class_basename($item));
+                    if ($type === 'batchsession') $type = 'session';
+                    
+                    $isCompleted = $activity->completions->isNotEmpty();
+
+                    return [
+                        'id' => $activity->id,
+                        'title' => $item->title ?? $item->name,
+                        'type' => $type,
+                        'reference_id' => $item->id,
+                        'slug' => $item->slug ?? null,
+                        'sort_order' => $activity->sort_order,
+                        'is_required' => $activity->is_required,
+                        'is_completed' => $isCompleted,
+                        'completed_at' => $isCompleted ? $activity->completions->first()->completed_at : null,
+                        'meta' => [
+                            'thumbnail' => $item->thumbnail ?? null,
+                            'duration' => $item->duration ?? null,
+                            'date' => $item->session_date ?? $item->due_date ?? null,
+                        ]
+                    ];
+                });
+            }),
             'students_count' => $this->current_students,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

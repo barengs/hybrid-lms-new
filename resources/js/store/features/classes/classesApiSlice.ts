@@ -104,6 +104,23 @@ export interface ClassStudent {
   assignments_total: number;
 }
 
+export interface ClassTimelineItem {
+  id: number;
+  title: string;
+  type: 'course' | 'session' | 'assignment' | string;
+  reference_id: number;
+  slug?: string;
+  sort_order: number;
+  is_required: boolean;
+  is_completed: boolean;
+  completed_at?: string;
+  meta?: {
+    thumbnail?: string;
+    duration?: string;
+    date?: string;
+  };
+}
+
 export interface ClassItem {
   id: number | string;
   name: string;
@@ -139,6 +156,7 @@ export interface ClassItem {
   recentStudents?: { id: string; name: string; avatar?: string }[];
   lastActivityAt?: string;
   classwork_topics?: any[];
+  timeline?: ClassTimelineItem[];
 }
 
 export interface ClassesResponse {

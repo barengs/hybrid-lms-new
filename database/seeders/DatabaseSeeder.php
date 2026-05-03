@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             MenuSeeder::class,
             CourseSimulationSeeder::class, // New dedicated seeder
+            OnboardingQuestionSeeder::class, // New dedicated seeder
         ]);
     }
 }

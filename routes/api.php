@@ -239,7 +239,9 @@ Route::prefix('v1')->group(function () {
         Route::get('courses/{slug}/lessons/{lessonId}', [StudentLearningController::class, 'showLesson']);
         Route::post('courses/{slug}/lessons/{lessonId}/complete', [StudentLearningController::class, 'markComplete']);
         
-        // AI Recommendations
+        // AI Recommendations & Onboarding
+        Route::get('onboarding/questions', [RecommendationController::class, 'getOnboardingQuestions']);
+        Route::post('onboarding/submit', [RecommendationController::class, 'submitInterests']);
         Route::get('recommendations', [RecommendationController::class, 'recommend']);
 
         // Batches (Independent Enrollment)
@@ -304,6 +306,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'index']);
         Route::post('/', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'store']);
         Route::get('/{id}', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'show']);
+        Route::post('/activities/{id}/toggle-complete', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'toggleActivityComplete']);
         Route::post('/join', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'join']);
         
         // Session Comments

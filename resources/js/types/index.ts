@@ -8,6 +8,11 @@ export interface User {
   avatar?: string;
   role: UserRole;
   bio?: string;
+  profile?: {
+    onboarding_completed: boolean;
+    interests?: any;
+    expertise?: any;
+  };
   createdAt: string;
   isVerified: boolean;
 }

@@ -7,7 +7,7 @@ import { LockScreen } from '@/components/auth/LockScreen';
 import { HomePage, CourseCatalogPage, CourseDetailPage, InstructorRegisterPage } from '@/pages/public';
 
 // Auth Pages
-import { LoginPage, RegisterPage, ForgotPasswordPage } from '@/pages/auth';
+import { LoginPage, RegisterPage, ForgotPasswordPage, OnboardingPage } from '@/pages/auth';
 
 // Student Pages
 import { StudentDashboard, MyCoursesPage, MyClassesPage, ClassDetailPage, DiscussionsPage, DiscussionDetailPage } from '@/pages/student';
@@ -126,6 +126,14 @@ const router = createBrowserRouter([
       },
 
       // Student Routes (Protected)
+      {
+        path: '/onboarding',
+        element: (
+          <ProtectedRoute allowedRoles={['student']}>
+            <OnboardingPage />
+          </ProtectedRoute>
+        ),
+      },
       {
         path: '/dashboard',
         element: (

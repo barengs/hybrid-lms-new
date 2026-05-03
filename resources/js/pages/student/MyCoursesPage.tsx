@@ -11,7 +11,8 @@ export function MyCoursesPage() {
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: enrolledCourses = [], isLoading } = useGetMyLearningQuery();
+  const { data: learningData, isLoading } = useGetMyLearningQuery();
+  const enrolledCourses = learningData?.all || [];
 
   const filteredCourses = enrolledCourses.filter((course) => {
     if (searchQuery && !course.title.toLowerCase().includes(searchQuery.toLowerCase())) {

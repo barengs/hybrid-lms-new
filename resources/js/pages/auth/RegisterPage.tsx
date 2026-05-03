@@ -36,7 +36,7 @@ export function RegisterPage() {
 
     try {
       await register(name, email, password, confirmPassword);
-      navigate('/dashboard');
+      navigate('/onboarding');
     } catch (err) {
       setError(err instanceof Error ? err.message : t.messages.loginError);
     }

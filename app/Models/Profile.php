@@ -27,6 +27,8 @@ class Profile extends Model
         'twitter',
         'youtube',
         'expertise',
+        'interests',
+        'onboarding_completed',
         'bank_name',
         'bank_account_number',
         'bank_account_name',
@@ -41,6 +43,8 @@ class Profile extends Model
     {
         return [
             'expertise' => 'array',
+            'interests' => 'array',
+            'onboarding_completed' => 'boolean',
         ];
     }
 

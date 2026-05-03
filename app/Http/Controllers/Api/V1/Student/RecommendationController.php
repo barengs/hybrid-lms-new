@@ -17,94 +17,200 @@ use Illuminate\Support\Facades\Log;
 class RecommendationController extends Controller
 {
     use ApiResponse;
+    /**
+     * Get onboarding questions.
+     * 
+     * Returns a pool of random questions from the database.
+     */
+    public function getOnboardingQuestions(): JsonResponse
+    {
+        $questions = \App\Models\OnboardingQuestion::where('is_active', true)
+            ->inRandomOrder()
+            ->limit(5)
+            ->get();
+
+        return $this->successResponse($questions, 'Onboarding questions fetched successfully.');
+    }
 
     /**
-     * Rekomendasi Kursus
-     * 
-     * Menggunakan AI untuk merekomendasikan kursus berdasarkan profil siswa dan preferensi kategori.
-     * Jika layanan AI tidak tersedia, akan menggunakan strategi fallback (kursus populer).
-     *
-     * @group Rekomendasi (AI)
-     * @queryParam category_id string ID Kategori preferensi (opsional).
-     * @responseField success boolean Status keberhasilan request.
-     * @responseField data object[] Daftar kursus yang direkomendasikan.
+     * Submit onboarding interests and get recommendations.
+     */
+    public function submitInterests(Request $request): JsonResponse
+    {
+        $request->validate([
+            'answers' => 'required|array',
+        ]);
+
+        try {
+            $user = $request->user();
+            $answers = $request->input('answers');
+
+            // 1. Save interests to profile
+            $user->profile()->updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'interests' => $answers,
+                    'onboarding_completed' => true
+                ]
+            );
+
+            // 2. Fetch data for AI analysis
+            // Course pool (Random published courses)
+            $allCourses = Course::with('category:id,name')
+                ->published()
+                ->limit(20)
+                ->get();
+
+            // Popular courses (Top 5 by total_enrollments)
+            $popularCourses = Course::published()
+                ->orderBy('total_enrollments', 'desc')
+                ->limit(5)
+                ->get();
+
+            // 3. Prepare AI Prompt
+            $userProfileText = "User: {$user->name}. Interests: " . json_encode($answers);
+            
+            $coursePoolJson = $allCourses->map(fn($c) => [
+                'id' => $c->id,
+                'title' => $c->title,
+                'category' => $c->category->name ?? 'General',
+                'description' => $c->description
+            ])->toJson();
+
+            $popularJson = $popularCourses->map(fn($c) => [
+                'id' => $c->id,
+                'title' => $c->title,
+                'popularity' => 'High'
+            ])->toJson();
+
+            $prompt = "
+                Anda adalah konsultan pendidikan AI. 
+                Profil Siswa: {$userProfileText}
+                
+                Daftar Kursus Tersedia: {$coursePoolJson}
+                
+                Kursus Paling Diminati (Popular): {$popularJson}
+                
+                Tugas Anda:
+                1. Berikan rekomendasi 3 kursus yang paling cocok dengan minat dan gaya belajar siswa.
+                2. Berikan alasan singkat dalam Bahasa Indonesia mengapa kursus tersebut direkomendasikan (tailored feedback).
+                3. Utamakan kursus populer jika relevan dengan minat mereka, namun tetap utamakan kecocokan minat.
+
+                Format output wajib JSON murni:
+                {
+                    \"recommended_ids\": [1, 2, 3],
+                    \"reasoning\": \"Berdasarkan minat Anda pada... kami merekomendasikan...\"
+                }
+                Jangan berikan teks penjelasan lain.
+            ";
+
+            try {
+                $response = Prism::text()
+                    ->using(Provider::Gemini, 'gemini-flash-latest')
+                    ->withPrompt($prompt)
+                    ->generate();
+
+                $aiResult = json_decode($response->text, true);
+                $recommendedIds = $aiResult['recommended_ids'] ?? [];
+                $reasoning = $aiResult['reasoning'] ?? 'Kami merekomendasikan kursus ini berdasarkan minat Anda.';
+
+                if (empty($recommendedIds)) {
+                    $enrolledIds = $user->enrollments()->whereNotNull('course_id')->pluck('course_id')->toArray();
+                    $recommendedIds = Course::published()
+                        ->where('type', 'self_paced')
+                        ->whereNotIn('id', $enrolledIds)
+                        ->limit(3)
+                        ->pluck('id')
+                        ->toArray();
+                }
+
+                $recommendations = Course::whereIn('id', $recommendedIds)
+                    ->with('instructor', 'category')
+                    ->get();
+
+            } catch (\Exception $e) {
+                Log::error('AI Recommendation Error: ' . $e->getMessage());
+                $recommendations = $popularCourses->take(3);
+                $reasoning = 'Kami merekomendasikan kursus populer pilihan kami untuk memulai perjalanan Anda.';
+            }
+
+            return $this->successResponse([
+                'courses' => CourseResource::collection($recommendations),
+                'reasoning' => $reasoning
+            ], 'Interests submitted and recommendations generated.');
+
+        } catch (\Exception $e) {
+            Log::error('Onboarding Submission Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to process onboarding.', 500);
+        }
+    }
+
+    /**
+     * Rekomendasi Kursus (Dashboard)
      */
     public function recommend(Request $request): JsonResponse
     {
         try {
-            // 1. Context Gathering
             $user = $request->user();
-            $preferredCategory = $request->input('category_id') ? Category::find($request->input('category_id')) : null;
+            $interests = $user->profile->interests ?? [];
             
-            // Fetch a pool of courses (e.g., top 20 popular or recent) to choose from
-            // Sending ALL courses to LLM might be too big for context window.
-            $courses = Course::with('category:id,name')
-                ->where('status', 'published') // Assuming 'published' status
-                ->limit(20)
-                ->get()
-                ->map(function ($course) {
-                    return [
-                        'id' => $course->id,
-                        'title' => $course->title,
-                        'category' => $course->category->name ?? 'General',
-                        'description' => $course->description,
-                    ];
-                });
+            // Get already enrolled course IDs to exclude them
+            $enrolledIds = $user->enrollments()->whereNotNull('course_id')->pluck('course_id')->toArray();
 
-            // 2. Prompt Engineering
-            $userContext = "User Name: {$user->name}.";
-            if ($preferredCategory) {
-                $userContext .= " Interested in Category: {$preferredCategory->name}.";
-            }
-            
-            try {
-                // Determine provider based on config availability (simple check)
-                // For now, default to what Prism is configured with.
-                
-                $response = Prism::text()
-                    ->using(Provider::Ollama, 'llama3') // Default to Ollama/llama3
-                    ->withPrompt("
-                        You are an expert educational consultant.
-                        Here is the user profile: {$userContext}
-                        
-                        Here is a list of available courses (JSON format):
-                        {$courses->toJson()}
-                        
-                        Recommend 3 courses that best match the user's profile.
-                        Return ONLY a JSON array of course IDs. 
-                        Example: [1, 5, 12]
-                        Do not add any explanation or markdown formatting. Just the JSON array.
-                    ")
-                    ->generate();
-
-                $recommendedIds = json_decode($response->text);
-                
-                if (!is_array($recommendedIds)) {
-                    // Fallback
-                    $recommendedIds = $courses->pluck('id')->take(3)->toArray(); 
-                }
-
-                // 3. Fetch full course objects
-                $recommendations = Course::whereIn('id', $recommendedIds)
-                    ->with('instructor') // Load for Resource
-                    ->get();
-
-            } catch (\Exception $e) {
-                // Fallback strategy if AI service is down
-                Log::warning('AI Service Error: ' . $e->getMessage());
-                $recommendations = Course::where('status', 'published')
-                    ->with('instructor')
+            if (empty($interests)) {
+                $recommendations = Course::with('instructor', 'category')
+                    ->published()
+                    ->where('type', 'self_paced') // Only recommend public/general materials
+                    ->whereNotIn('id', $enrolledIds)
+                    ->orderBy('total_enrollments', 'desc')
                     ->limit(3)
                     ->get();
+                
+                return $this->successResponse(
+                    CourseResource::collection($recommendations),
+                    'Popular general courses recommended.'
+                );
+            }
+
+            // Fetch pool of courses excluding enrolled ones and restricted to self_paced
+            $allCourses = Course::published()
+                ->where('type', 'self_paced') // Only recommend public/general materials
+                ->whereNotIn('id', $enrolledIds)
+                ->limit(15)
+                ->get();
+            
+            $prompt = "Siswa tertarik pada: " . json_encode($interests) . ". Rekomendasikan 3 ID kursus dari daftar ini: " . $allCourses->map(fn($c) => ['id' => $c->id, 'title' => $c->title, 'category' => $c->category->name ?? 'General'])->toJson() . ". Kembalikan hanya array ID dalam format JSON: [1, 2, 3]";
+            
+            try {
+                $response = Prism::text()
+                    ->using(Provider::Gemini, 'gemini-flash-latest')
+                    ->withPrompt($prompt)
+                    ->generate();
+
+                $ids = json_decode($response->text, true);
+                if (!is_array($ids)) {
+                    // Try to extract array if AI wrapped it in markdown or text
+                    preg_match('/\[.*\]/', $response->text, $matches);
+                    $ids = isset($matches[0]) ? json_decode($matches[0], true) : [];
+                }
+
+                $recommendations = Course::whereIn('id', is_array($ids) ? $ids : [])
+                    ->with('instructor', 'category')
+                    ->get();
+                    
+                if ($recommendations->isEmpty()) {
+                    $recommendations = $allCourses->take(3);
+                }
+            } catch (\Exception $e) {
+                $recommendations = $allCourses->take(3);
             }
 
             return $this->successResponse(
                 CourseResource::collection($recommendations), 
-                'Course recommendations generated successfully.'
+                'Recommendations generated based on interests.'
             );
 
         } catch (\Exception $e) {
-            Log::error('Recommendation System Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to generate recommendations.', 500);
         }
     }

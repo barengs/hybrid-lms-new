@@ -33,6 +33,7 @@ class CourseSimulationSeeder extends Seeder
         if (!$admin->hasRole('admin')) {
             $admin->assignRole('admin');
         }
+        $admin->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
         // 1. Create/Update Instructors
         $instructor1 = User::updateOrCreate(
@@ -46,6 +47,7 @@ class CourseSimulationSeeder extends Seeder
         if (!$instructor1->hasRole('instructor')) {
             $instructor1->assignRole('instructor');
         }
+        $instructor1->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
         $instructor2 = User::updateOrCreate(
             ['email' => 'jane@molang.com'],
@@ -58,6 +60,7 @@ class CourseSimulationSeeder extends Seeder
         if (!$instructor2->hasRole('instructor')) {
             $instructor2->assignRole('instructor');
         }
+        $instructor2->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
         // 2. Create Categories
         $categories = [
@@ -157,7 +160,7 @@ class CourseSimulationSeeder extends Seeder
                 'name' => 'Batch Flutter September 2024',
                 'class_code' => 'FLT101',
                 'description' => 'Sesi belajar intensif Mobile Programming dengan Flutter dalam rentang waktu tertentu.',
-                'type' => 'structured', // Tipe BATCH
+                'type' => 'structured', // Only 'structured' for batches
                 'status' => 'in_progress',
                 'start_date' => now()->subDays(10),
                 'end_date' => now()->addDays(20),
@@ -183,7 +186,7 @@ class CourseSimulationSeeder extends Seeder
                     'category_id' => $categoryModels[0]->id,
                     'title' => $title,
                     'status' => 'published',
-                    'type' => 'structured',
+                    'type' => 'structured', // Class-only course
                     'published_at' => now(),
                     'thumbnail' => 'https://images.unsplash.com/photo-1617042375876-a13e36734a04?q=80&w=800&auto=format&fit=crop',
                 ]
@@ -205,13 +208,24 @@ class CourseSimulationSeeder extends Seeder
                 'name' => 'Kelas Pemrograman (Mobile Programming)',
                 'class_code' => 'PEM-MOB-01',
                 'description' => 'Ruang belajar kolaboratif ala Google Classroom untuk materi Mobile Programming.',
-                'type' => 'classroom', // Tipe KELAS
+                'type' => 'classroom', // Corrected to classroom type
                 'status' => 'open',
                 'start_date' => now(),
                 'end_date' => now()->addYear(), // Jangka panjang
                 'is_public' => true,
                 'max_students' => 100,
             ]
+        );
+
+        // 5a. Create Topics for Classroom
+        $topicFundamental = $classroom->batchTopics()->updateOrCreate(
+            ['title' => 'Dasar & Fundamental'],
+            ['sort_order' => 1]
+        );
+
+        $topicIntermediate = $classroom->batchTopics()->updateOrCreate(
+            ['title' => 'Deep Dive & Q&A'],
+            ['sort_order' => 2]
         );
 
         // Associate some existing courses to this classroom
@@ -261,24 +275,30 @@ class CourseSimulationSeeder extends Seeder
             ],
         ];
 
-        foreach ($sessions as $sData) {
-            $session = $classroom->sessions()->create($sData);
+        foreach ($sessions as $index => $sData) {
+            // Assign sessions to topics
+            $topic = ($index < 2) ? $topicFundamental : $topicIntermediate;
+            
+            $session = $classroom->sessions()->updateOrCreate(
+                ['title' => $sData['title'], 'batch_id' => $classroom->id],
+                array_merge($sData, ['batch_topic_id' => $topic->id])
+            );
             
             // Add a comment to the first session
             if ($sData['title'] === 'Pengenalan React & Dasar Komponen') {
                 $student = User::where('email', 'student@molang.com')->first();
                 if ($student) {
-                    $session->comments()->create([
-                        'user_id' => $student->id,
-                        'comment' => 'Materi yang sangat membantu pak! Apakah ada link tambahan untuk latihan state?',
-                    ]);
+                    $session->comments()->updateOrCreate(
+                        ['user_id' => $student->id, 'comment' => 'Materi yang sangat membantu pak! Apakah ada link tambahan untuk latihan state?'],
+                        ['comment' => 'Materi yang sangat membantu pak! Apakah ada link tambahan untuk latihan state?']
+                    );
                     
                     $instructor = User::where('email', 'instructor@molang.com')->first();
                     if ($instructor) {
-                        $session->comments()->create([
-                            'user_id' => $instructor->id,
-                            'comment' => 'Terima kasih John. Coba cek dokumentasi di bagian "Beta Docs" untuk contoh lebih interaktif.',
-                        ]);
+                        $session->comments()->updateOrCreate(
+                            ['user_id' => $instructor->id, 'comment' => 'Terima kasih John. Coba cek dokumentasi di bagian "Beta Docs" untuk contoh lebih interaktif.'],
+                            ['comment' => 'Terima kasih John. Coba cek dokumentasi di bagian "Beta Docs" untuk contoh lebih interaktif.']
+                        );
                     }
                 }
             }
@@ -293,13 +313,30 @@ class CourseSimulationSeeder extends Seeder
             'file_size' => 5 * 1024 * 1024, // 5MB
         ]);
 
-        $classroom->additionalMaterials()->create([
-            'title' => 'Video Tips Productivity Developer',
-            'file_path' => 'materials/tips.mp4',
-            'file_name' => 'tips.mp4',
-            'file_type' => 'video',
-            'file_size' => 25 * 1024 * 1024, // 25MB
-        ]);
+        $classroom->additionalMaterials()->updateOrCreate(
+            ['title' => 'Video Tips Productivity Developer'],
+            [
+                'file_path' => 'materials/tips.mp4',
+                'file_name' => 'tips.mp4',
+                'file_type' => 'video',
+                'file_size' => 25 * 1024 * 1024, // 25MB
+            ]
+        );
+
+        // 5c. Create a standalone assignment for the classroom
+        $classroom->assignments()->updateOrCreate(
+            ['title' => 'Tugas Mandiri: Analisis Aplikasi Mobile'],
+            [
+                'batch_topic_id' => $topicIntermediate->id,
+                'description' => 'Silahkan cari satu aplikasi mobile populer dan analisis struktur navigasinya.',
+                'instructions' => 'Kumpulkan dalam format PDF atau Link Google Drive.',
+                'type' => 'assignment',
+                'max_points' => 100,
+                'due_date' => now()->addDays(7),
+                'is_published' => true,
+                'gradable' => true,
+            ]
+        );
 
         // 6. Create Dummy Students and Enrollments
         $students = [
@@ -323,6 +360,7 @@ class CourseSimulationSeeder extends Seeder
             if (!$student->hasRole('student')) {
                 $student->assignRole('student');
             }
+            $student->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
             // Enroll in some courses/batches
             $numEnrollments = rand(1, 3);

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1\Classroom;
 
 use App\Http\Controllers\Controller;
 use App\Models\Batch;
+use App\Models\BatchActivity;
+use App\Models\BatchActivityCompletion;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\User; // Added this line
@@ -299,7 +301,7 @@ class ClassController extends Controller
      */
     public function show($id)
     {
-        $batch = Batch::classroom()
+        $batch = Batch::query()
             // Student and Instructor views might differ, but for now we return all data
         
             ->with([
@@ -317,6 +319,10 @@ class ClassController extends Controller
                     $q->with('student'); // Ensure user data is loaded
                 },
                 'batchTopics',
+                'activities.activityable',
+                'activities.completions' => function($q) {
+                    $q->where('user_id', auth()->id());
+                },
             ])
             ->findOrFail($id);
 
@@ -345,7 +351,7 @@ class ClassController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $batch = Batch::classroom()->findOrFail($id);
+        $batch = Batch::query()->findOrFail($id);
         
         if ($request->user()->id !== $batch->instructor_id) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -376,7 +382,7 @@ class ClassController extends Controller
      */
     public function destroy(Request $request, $id)
     {
-        $batch = Batch::classroom()->findOrFail($id);
+        $batch = Batch::query()->findOrFail($id);
         
         if ($request->user()->id !== $batch->instructor_id) {
             return response()->json(['message' => 'Unauthorized'], 403);
@@ -410,8 +416,8 @@ class ClassController extends Controller
 
         $user = $request->user();
 
-        // Get classroom batch
-        $batch = Batch::classroom()->findOrFail($classId);
+        // Get batch
+        $batch = Batch::findOrFail($classId);
 
         // Verify instructor owns the class
         if ($batch->instructor_id !== $user->id) {
@@ -455,8 +461,8 @@ class ClassController extends Controller
     {
         $user = $request->user();
 
-        // Get classroom batch
-        $batch = Batch::classroom()->findOrFail($classId);
+        // Get batch
+        $batch = Batch::findOrFail($classId);
 
         // Verify instructor owns the class
         if ($batch->instructor_id !== $user->id) {
@@ -491,7 +497,7 @@ class ClassController extends Controller
             'class_code' => 'required|string|size:6',
         ]);
 
-        $batch = Batch::classroom()
+        $batch = Batch::query()
             ->where('class_code', $request->class_code)
             ->first();
 

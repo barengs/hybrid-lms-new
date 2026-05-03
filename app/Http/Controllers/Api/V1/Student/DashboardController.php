@@ -78,9 +78,11 @@ class DashboardController extends Controller
         try {
             $user = $request->user();
 
-            // 1. Self-paced courses (enrollments without batch)
-            $selfPacedCourses = Enrollment::where('user_id', $user->id)
-                ->whereNull('batch_id')
+            // 1. General Courses (self_paced)
+            $generalCourses = Enrollment::where('user_id', $user->id)
+                ->whereHas('course', function($q) {
+                    $q->where('type', 'self_paced');
+                })
                 ->with(['course.instructor:id,name'])
                 ->active()
                 ->latest()
@@ -94,40 +96,48 @@ class DashboardController extends Controller
                         'thumbnail' => $enrollment->course->thumbnail,
                         'instructor' => $enrollment->course->instructor?->name,
                         'progress' => $enrollment->progress_percentage,
-                        'enrolled_at' => $enrollment->enrolled_at,
+                        'enrolled_at' => $enrollment->enrolled_at?->toIso8601String(),
                     ];
                 });
 
-            // 2. Enrolled batches (structured learning)
+            // 2. Batches (structured)
             $enrolledBatches = \App\Models\Batch::whereHas('enrollments', function ($query) use ($user) {
                     $query->where('user_id', $user->id);
                 })
                 ->where('type', 'structured')
-                ->with(['courses:id,title,thumbnail', 'instructor:id,name'])
+                ->with(['courses:id,title,thumbnail', 'instructor:id,name', 'enrollments' => function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                }])
                 ->latest()
                 ->get()
-                ->map(function ($batch) {
+                ->map(function ($batch) use ($user) {
+                    $enrollment = $batch->enrollments->first();
                     return [
                         'type' => 'batch',
                         'id' => $batch->id,
                         'title' => $batch->name,
+                        'class_code' => $batch->class_code,
                         'thumbnail' => $batch->courses->first()?->thumbnail,
-                        'status' => $batch->status,
                         'instructor' => $batch->instructor?->name,
-                        'start_date' => $batch->start_date,
-                        'end_date' => $batch->end_date,
+                        'status' => $batch->status,
+                        'start_date' => $batch->start_date?->toIso8601String(),
+                        'end_date' => $batch->end_date?->toIso8601String(),
+                        'enrolled_at' => $enrollment?->enrolled_at?->toIso8601String() ?? $batch->created_at->toIso8601String(),
                     ];
                 });
 
-            // 3. Joined classes (classroom style)
-            $joinedClasses = \App\Models\Batch::whereHas('enrollments', function ($query) use ($user) {
+            // 3. Classes (classroom)
+            $enrolledClasses = \App\Models\Batch::whereHas('enrollments', function ($query) use ($user) {
                     $query->where('user_id', $user->id);
                 })
                 ->where('type', 'classroom')
-                ->with(['courses:id,title,thumbnail', 'instructor:id,name'])
+                ->with(['courses:id,title,thumbnail', 'instructor:id,name', 'enrollments' => function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                }])
                 ->latest()
                 ->get()
-                ->map(function ($batch) {
+                ->map(function ($batch) use ($user) {
+                    $enrollment = $batch->enrollments->first();
                     return [
                         'type' => 'class',
                         'id' => $batch->id,
@@ -135,18 +145,21 @@ class DashboardController extends Controller
                         'class_code' => $batch->class_code,
                         'thumbnail' => $batch->courses->first()?->thumbnail,
                         'instructor' => $batch->instructor?->name,
-                        'created_at' => $batch->created_at,
+                        'status' => $batch->status,
+                        'start_date' => $batch->start_date?->toIso8601String(),
+                        'end_date' => $batch->end_date?->toIso8601String(),
+                        'enrolled_at' => $enrollment?->enrolled_at?->toIso8601String() ?? $batch->created_at->toIso8601String(),
                     ];
                 });
 
             return $this->successResponse([
-                'courses' => $selfPacedCourses,
+                'courses' => $generalCourses,
                 'batches' => $enrolledBatches,
-                'classes' => $joinedClasses,
+                'classes' => $enrolledClasses,
                 'summary' => [
-                    'total_courses' => $selfPacedCourses->count(),
+                    'total_courses' => $generalCourses->count(),
                     'total_batches' => $enrolledBatches->count(),
-                    'total_classes' => $joinedClasses->count(),
+                    'total_classes' => $enrolledClasses->count(),
                 ]
             ], 'My learning data retrieved successfully.');
 

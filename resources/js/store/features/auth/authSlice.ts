@@ -72,10 +72,16 @@ const authSlice = createSlice({
     setLocked: (state, action: PayloadAction<boolean>) => {
       state.isLocked = action.payload;
     },
+    updateOnboardingStatus: (state, action: PayloadAction<boolean>) => {
+      if (state.user && state.user.profile) {
+        state.user.profile.onboarding_completed = action.payload;
+        localStorage.setItem('hlms_user', JSON.stringify(state.user));
+      }
+    },
   },
 });
 
-export const { setCredentials, updateToken, logOut, setLocked } = authSlice.actions;
+export const { setCredentials, updateToken, logOut, setLocked, updateOnboardingStatus } = authSlice.actions;
 
 export default authSlice.reducer;
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,6 +24,8 @@ import {
 
 export function LessonPage() {
   const { slug = '', lessonId } = useParams<{ slug: string; lessonId: string }>();
+  const [searchParams] = useSearchParams();
+  const fromClass = searchParams.get('fromClass');
   const numericLessonId = Number(lessonId);
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -116,21 +118,21 @@ export function LessonPage() {
       }
 
       if (nextLessonObj?.type === 'quiz') {
-        navigate(`/learn/${slug}/quiz/${lesson.next_lesson_id}`);
+        navigate(`/learn/${slug}/quiz/${lesson.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
       } else if (nextLessonObj?.type === 'assignment') {
-        navigate(`/assignments/${lesson.next_lesson_id}`);
+        navigate(`/assignments/${lesson.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
       } else {
-        navigate(`/learn/${slug}/lesson/${lesson.next_lesson_id}`);
+        navigate(`/learn/${slug}/lesson/${lesson.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
       }
     } else {
       // If no next lesson, go back to curriculum
-      navigate(`/learn/${slug}`);
+      navigate(`/learn/${slug}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
     }
   };
 
   const handlePrevLesson = () => {
     if (lesson?.prev_lesson_id) {
-      navigate(`/learn/${slug}/lesson/${lesson.prev_lesson_id}`);
+      navigate(`/learn/${slug}/lesson/${lesson.prev_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
     }
   };
 
@@ -160,7 +162,7 @@ export function LessonPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             {language === 'id' ? 'Materi tidak ditemukan' : 'Lesson not found'}
           </h2>
-          <Button onClick={() => navigate(`/learn/${slug}`)}>
+          <Button onClick={() => navigate(`/learn/${slug}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}>
             {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Curriculum'}
           </Button>
         </div>
@@ -195,7 +197,7 @@ export function LessonPage() {
                   {section.lessons.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => navigate(`/learn/${slug}/lesson/${item.id}`)}
+                      onClick={() => navigate(`/learn/${slug}/lesson/${item.id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}
                       className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${item.id === numericLessonId
                         ? 'bg-blue-50 text-blue-700'
                         : 'hover:bg-gray-50 text-gray-700'
@@ -234,15 +236,15 @@ export function LessonPage() {
                   <Menu className="w-5 h-5 text-gray-600" />
                 </button>
               )}
-              <Link
-                to={`/learn/${slug}`}
+              <button
+                onClick={() => navigate(`/learn/${slug}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}
                 className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">
                   {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Curriculum'}
                 </span>
-              </Link>
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -443,7 +445,7 @@ export function LessonPage() {
                   ) : (
                     <Button
                       variant="outline"
-                      onClick={() => navigate(`/learn/${slug}`)}
+                      onClick={() => navigate(`/learn/${slug}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}
                     >
                       {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Curriculum'}
                     </Button>

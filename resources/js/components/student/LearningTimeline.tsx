@@ -22,9 +22,11 @@ import toast from 'react-hot-toast';
 interface LearningTimelineProps {
   activities: ClassTimelineItem[];
   language: string;
+  onOpenSession?: (sessionId: number) => void;
+  classId?: string | number;
 }
 
-export const LearningTimeline: React.FC<LearningTimelineProps> = ({ activities, language }) => {
+export const LearningTimeline: React.FC<LearningTimelineProps> = ({ activities, language, onOpenSession, classId }) => {
   const navigate = useNavigate();
   const [toggleComplete, { isLoading: isToggling }] = useToggleActivityCompleteMutation();
 
@@ -60,9 +62,18 @@ export const LearningTimeline: React.FC<LearningTimelineProps> = ({ activities, 
 
   const getLink = (item: ClassTimelineItem) => {
     switch (item.type) {
-      case 'course': return `/learn/${item.slug}`;
-      case 'assignment': return `/student/assignments/${item.reference_id}`;
+      case 'course': return `/learn/${item.slug}${classId ? `?fromClass=${classId}` : ''}`;
+      case 'assignment': return `/student/assignments/${item.reference_id}${classId ? `?fromClass=${classId}` : ''}`;
       default: return null;
+    }
+  };
+
+  const handleOpen = (item: ClassTimelineItem) => {
+    if (item.type === 'session' && onOpenSession) {
+      onOpenSession(item.reference_id);
+    } else {
+      const link = getLink(item);
+      if (link) navigate(link);
     }
   };
 
@@ -145,10 +156,10 @@ export const LearningTimeline: React.FC<LearningTimelineProps> = ({ activities, 
                     )}
                   </Button>
                   
-                  {itemLink && (
+                  {(itemLink || item.type === 'session') && (
                     <Button
                       size="sm"
-                      onClick={() => navigate(itemLink)}
+                      onClick={() => handleOpen(item)}
                       disabled={!isActive}
                       className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-5"
                     >

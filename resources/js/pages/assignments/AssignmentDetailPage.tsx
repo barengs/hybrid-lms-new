@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   FileText,
   Clock,
@@ -277,7 +277,10 @@ function SubmitResultBanner({
 // -------------------------------------------------------
 export function AssignmentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const fromClass = searchParams.get('fromClass');
   const { language } = useLanguage();
+  const navigate = useNavigate();
 
   const assignmentId = Number(id);
 
@@ -359,10 +362,13 @@ export function AssignmentDetailPage() {
     return (
       <DashboardLayout>
         <div className="max-w-4xl mx-auto">
-          <Link to="/assignments" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6">
+          <button 
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+          >
             <ArrowLeft className="w-4 h-4" />
             {language === 'id' ? 'Kembali' : 'Back'}
-          </Link>
+          </button>
           <Card>
             <div className="flex flex-col items-center py-12 text-center gap-3 text-red-500">
               <AlertCircle className="w-10 h-10" />
@@ -384,10 +390,13 @@ export function AssignmentDetailPage() {
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
         {/* Back */}
-        <Link to="/assignments" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6">
+        <button 
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        >
           <ArrowLeft className="w-4 h-4" />
-          {language === 'id' ? 'Kembali ke Tugas' : 'Back to Assignments'}
-        </Link>
+          {language === 'id' ? 'Kembali' : 'Back'}
+        </button>
 
         {/* Header Card */}
         <Card className="mb-6">

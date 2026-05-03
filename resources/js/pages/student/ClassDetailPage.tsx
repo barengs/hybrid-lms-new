@@ -303,7 +303,7 @@ export function ClassDetailPage() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {language === 'id' ? 'Alur Belajar' : 'Learning Roadmap'}
+                    {language === 'id' ? 'Alur Belajar (V2)' : 'Learning Roadmap (V2)'}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
                     {language === 'id' 
@@ -315,75 +315,31 @@ export function ClassDetailPage() {
                    {classData.timeline?.filter((t: any) => t.is_completed).length || 0} / {classData.timeline?.length || 0} {language === 'id' ? 'Selesai' : 'Done'}
                 </Badge>
               </div>
-              
-              {classData.timeline && classData.timeline.length > 0 ? (
-                <LearningTimeline 
-                  activities={classData.timeline} 
-                  language={language} 
-                />
-              ) : (
-                <div className="space-y-4">
-                  {/* Debug: {classData.classwork_topics?.length} topics found */}
-                  {classData.classwork_topics && classData.classwork_topics.length > 0 ? (
-                    classData.classwork_topics.map((topic: any) => (
-                      <Card key={topic.id} className="p-4 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-50">
-                           <h4 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                             {topic.title}
-                           </h4>
-                           <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-none">
-                             {(topic.sessions?.length || 0) + (topic.assignments?.length || 0)} {language === 'id' ? 'Materi' : 'Items'}
-                           </Badge>
-                        </div>
-                        <div className="space-y-3">
-                           {topic.sessions?.map((session: any) => (
-                             <div key={session.id} className="flex items-center gap-4 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-50 hover:border-blue-100 transition-colors">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm">
-                                   <Video className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1">
-                                   <p className="text-sm font-bold text-gray-800">{session.title}</p>
-                                   <div className="flex items-center gap-3 mt-1">
-                                      <p className="text-[10px] text-gray-500 flex items-center gap-1 uppercase tracking-wider">
-                                        <Clock className="w-3 h-3" />
-                                        {session.sessionDate ? formatDate(session.sessionDate) : '-'}
-                                      </p>
-                                      <Badge variant="outline" size="sm" className="text-[10px] uppercase">{session.type}</Badge>
-                                   </div>
-                                </div>
-                             </div>
-                           ))}
-                           {topic.assignments?.map((assignment: any) => (
-                             <div key={assignment.id} className="flex items-center gap-4 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-50 hover:border-orange-100 transition-colors">
-                                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shadow-sm">
-                                   <FileText className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1">
-                                   <p className="text-sm font-bold text-gray-800">{assignment.title}</p>
-                                   <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 uppercase tracking-wider">
-                                      <Calendar className="w-3 h-3" />
-                                      {language === 'id' ? 'Batas Waktu' : 'Due'}: {assignment.due_date ? formatDate(assignment.due_date) : '-'}
-                                   </p>
-                                </div>
-                             </div>
-                           ))}
-                        </div>
-                      </Card>
-                    ))
-                  ) : (
-                    <div className="text-center py-16 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200">
-                      <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mx-auto mb-4">
-                        <BookOpen className="w-8 h-8 text-gray-300" />
-                      </div>
-                      <p className="text-gray-500 font-bold text-lg">
-                        {language === 'id' ? 'Belum ada materi pembelajaran' : 'No learning materials yet'}
-                      </p>
-                      <p className="text-gray-400 text-sm mt-1">
-                        {language === 'id' ? 'Silahkan hubungi pengajar Anda.' : 'Please contact your instructor.'}
-                      </p>
-                    </div>
-                  )}
+
+              <LearningTimeline 
+                activities={classData.timeline || []} 
+                language={language}
+                classId={classId}
+                onOpenSession={(id) => {
+                  const session = classData.sessions?.find((s: any) => s.id === id);
+                  if (session) {
+                    setSelectedSession(session);
+                    setIsModalOpen(true);
+                  }
+                }}
+              />
+
+              {(!classData.timeline || classData.timeline.length === 0) && (
+                <div className="text-center py-16 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200 mt-4">
+                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm mx-auto mb-4">
+                    <BookOpen className="w-8 h-8 text-gray-300" />
+                  </div>
+                  <p className="text-gray-500 font-bold text-lg">
+                    {language === 'id' ? 'Belum ada alur pembelajaran' : 'No learning roadmap yet'}
+                  </p>
+                  <p className="text-gray-400 text-sm mt-1">
+                    {language === 'id' ? 'Materi utama dan tambahan akan segera ditambahkan.' : 'Main and additional materials will be added soon.'}
+                  </p>
                 </div>
               )}
             </div>

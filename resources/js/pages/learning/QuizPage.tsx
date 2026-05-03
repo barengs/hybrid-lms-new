@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Clock,
@@ -36,77 +36,13 @@ interface Quiz {
 
 type QuizState = 'intro' | 'taking' | 'result';
 
-// Mock quiz data
-const mockQuiz: Quiz = {
-  id: 'quiz-4-6',
-  title: 'Module 4 Quiz: Advanced Hooks',
-  description: 'Test your understanding of advanced React hooks including useContext, useReducer, useRef, useMemo, and custom hooks.',
-  timeLimit: 15,
-  passingScore: 70,
-  questions: [
-    {
-      id: 'q1',
-      text: 'What is the primary purpose of the useRef hook?',
-      options: [
-        { id: 'a', text: 'To manage component state' },
-        { id: 'b', text: 'To persist values between renders without causing re-renders' },
-        { id: 'c', text: 'To handle side effects' },
-        { id: 'd', text: 'To create context providers' },
-      ],
-      correctOptionId: 'b',
-    },
-    {
-      id: 'q2',
-      text: 'When should you use useMemo?',
-      options: [
-        { id: 'a', text: 'For all computations in a component' },
-        { id: 'b', text: 'Only for expensive calculations that don\'t need to run on every render' },
-        { id: 'c', text: 'To store DOM references' },
-        { id: 'd', text: 'To replace useState' },
-      ],
-      correctOptionId: 'b',
-    },
-    {
-      id: 'q3',
-      text: 'What does useReducer return?',
-      options: [
-        { id: 'a', text: 'A single state value' },
-        { id: 'b', text: 'An array with state and a dispatch function' },
-        { id: 'c', text: 'A function to update state' },
-        { id: 'd', text: 'A context provider' },
-      ],
-      correctOptionId: 'b',
-    },
-    {
-      id: 'q4',
-      text: 'What is the correct way to access a ref\'s current value?',
-      options: [
-        { id: 'a', text: 'ref.value' },
-        { id: 'b', text: 'ref()' },
-        { id: 'c', text: 'ref.current' },
-        { id: 'd', text: 'useRef.current' },
-      ],
-      correctOptionId: 'c',
-    },
-    {
-      id: 'q5',
-      text: 'Which hook is best for sharing state across multiple components without prop drilling?',
-      options: [
-        { id: 'a', text: 'useState' },
-        { id: 'b', text: 'useEffect' },
-        { id: 'c', text: 'useContext' },
-        { id: 'd', text: 'useRef' },
-      ],
-      correctOptionId: 'c',
-    },
-  ],
-};
-
 import { useGetCourseContentQuery, useGetLessonDetailQuery, useMarkLessonCompleteMutation } from '@/store/features/student/studentApiSlice';
 import { toast } from 'react-hot-toast';
 
 export function QuizPage() {
   const { slug = '', quizId } = useParams<{ slug: string; quizId: string }>();
+  const [searchParams] = useSearchParams();
+  const fromClass = searchParams.get('fromClass');
   const numericQuizId = Number(quizId);
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -227,15 +163,15 @@ export function QuizPage() {
       }
 
       if (nextLessonObj?.type === 'quiz') {
-        navigate(`/learn/${slug}/quiz/${remoteQuiz.next_lesson_id}`);
+        navigate(`/learn/${slug}/quiz/${remoteQuiz.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
       } else if (nextLessonObj?.type === 'assignment') {
-        navigate(`/assignments/${remoteQuiz.next_lesson_id}`);
+        navigate(`/assignments/${remoteQuiz.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
       } else {
-        navigate(`/learn/${slug}/lesson/${remoteQuiz.next_lesson_id}`);
+        navigate(`/learn/${slug}/lesson/${remoteQuiz.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
       }
     } else {
       // If no next lesson, go back to curriculum
-      navigate(`/learn/${slug}`);
+      navigate(`/learn/${slug}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
     }
   };
 
@@ -377,12 +313,12 @@ export function QuizPage() {
                   {language === 'id' ? 'Materi Berikutnya' : 'Next Lesson'}
                 </Button>
               ) : (
-                <Link
-                  to={`/learn/${slug}`}
+                <button
+                  onClick={() => navigate(`/learn/${slug}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-all"
                 >
                   {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Course'}
-                </Link>
+                </button>
               )}
             </div>
           </Card>
@@ -522,7 +458,7 @@ export function QuizPage() {
                   {section.lessons.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => navigate(`/learn/${slug}/lesson/${item.id}`)}
+                      onClick={() => navigate(`/learn/${slug}/lesson/${item.id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}
                       className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${item.id === numericQuizId
                         ? 'bg-blue-50 text-blue-700'
                         : 'hover:bg-gray-50 text-gray-700'
@@ -560,15 +496,15 @@ export function QuizPage() {
                   <Menu className="w-5 h-5 text-gray-600" />
                 </button>
               )}
-              <Link
-                to={`/learn/${slug}`}
+              <button
+                onClick={() => navigate(`/learn/${slug}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}
                 className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">
                   {language === 'id' ? 'Kembali ke Kurikulum' : 'Back to Curriculum'}
                 </span>
-              </Link>
+              </button>
             </div>
           </div>
 

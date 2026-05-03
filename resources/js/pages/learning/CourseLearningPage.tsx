@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Play,
   FileText,
@@ -41,6 +41,8 @@ interface LearningSection {
 
 export function CourseLearningPage() {
   const { slug = '' } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+  const fromClass = searchParams.get('fromClass');
   const { language } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -110,13 +112,15 @@ export function CourseLearningPage() {
     }
 
     let url = '';
+    const query = fromClass ? `?fromClass=${fromClass}` : '';
+    
     if (lesson.type === 'quiz') {
-      url = `/learn/${slug}/quiz/${lesson.id}`;
+      url = `/learn/${slug}/quiz/${lesson.id}${query}`;
     } else if (lesson.type === 'assignment') {
       // Navigate with lesson_id — backend will resolve to the correct assignment
-      url = `/assignments/${lesson.id}`;
+      url = `/assignments/${lesson.id}${query}`;
     } else {
-      url = `/learn/${slug}/lesson/${lesson.id}`;
+      url = `/learn/${slug}/lesson/${lesson.id}${query}`;
     }
 
     console.log('DEBUG: Navigating to', url);
@@ -169,9 +173,11 @@ export function CourseLearningPage() {
           <p className="text-gray-600 mb-6">
             {language === 'id' ? 'Silakan coba lagi nanti atau hubungi bantuan.' : 'Please try again later or contact support.'}
           </p>
-          <Link to="/my-courses">
+          <Link to={fromClass ? `/student/class/${fromClass}` : "/my-courses"}>
             <Button>
-              {language === 'id' ? 'Kembali ke Kursus Saya' : 'Back to My Courses'}
+              {fromClass 
+                ? (language === 'id' ? 'Kembali ke Kelas' : 'Back to Class')
+                : (language === 'id' ? 'Kembali ke Kursus Saya' : 'Back to My Courses')}
             </Button>
           </Link>
         </div>
@@ -183,13 +189,13 @@ export function CourseLearningPage() {
     <DashboardLayout>
       <div className="max-w-6xl mx-auto">
         {/* Back Button */}
-        <Link
-          to="/my-courses"
+        <button
+          onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          {language === 'id' ? 'Kembali ke Kursus Saya' : 'Back to My Courses'}
-        </Link>
+          {language === 'id' ? 'Kembali' : 'Back'}
+        </button>
 
         {/* Course Header */}
         <Card className="mb-6 overflow-hidden">

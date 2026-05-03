@@ -10,6 +10,7 @@ use App\Models\Lesson;
 use App\Models\Batch;
 use App\Models\Assignment;
 use App\Models\Enrollment;
+use App\Models\Submission;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -102,23 +103,9 @@ class CourseSimulationSeeder extends Seeder
                 'instructor_id' => $instructor1->id,
                 'thumbnail' => 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=800&auto=format&fit=crop',
             ],
-            [
-                'title' => 'Digital Marketing Strategy',
-                'price' => 120.00,
-                'category_id' => $categoryModels[3]->id,
-                'instructor_id' => $instructor2->id,
-                'thumbnail' => 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800&auto=format&fit=crop',
-            ],
-            [
-                'title' => 'Financial Management for Startups',
-                'price' => 150.00,
-                'category_id' => $categoryModels[2]->id,
-                'instructor_id' => $instructor2->id,
-                'thumbnail' => 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=800&auto=format&fit=crop',
-            ],
         ];
 
-        // 3. Create Courses (Self-paced)
+        // Create Self-paced Batch (Unified Learning Path for all public courses)
         $selfPacedBatch = Batch::updateOrCreate(
             ['slug' => 'self-paced-learning'],
             [
@@ -132,6 +119,7 @@ class CourseSimulationSeeder extends Seeder
             ]
         );
 
+        $createdCourses = [];
         foreach ($coursesData as $cData) {
             $course = Course::updateOrCreate(
                 ['slug' => Str::slug($cData['title'])],
@@ -160,7 +148,7 @@ class CourseSimulationSeeder extends Seeder
                 'name' => 'Batch Flutter September 2024',
                 'class_code' => 'FLT101',
                 'description' => 'Sesi belajar intensif Mobile Programming dengan Flutter dalam rentang waktu tertentu.',
-                'type' => 'structured', // Only 'structured' for batches
+                'type' => 'structured',
                 'status' => 'in_progress',
                 'start_date' => now()->subDays(10),
                 'end_date' => now()->addDays(20),
@@ -175,7 +163,6 @@ class CourseSimulationSeeder extends Seeder
         $classroomCourses = [
             'Dart Language Basics',
             'Flutter UI Components',
-            'Advanced State Management',
         ];
 
         foreach ($classroomCourses as $index => $title) {
@@ -186,7 +173,7 @@ class CourseSimulationSeeder extends Seeder
                     'category_id' => $categoryModels[0]->id,
                     'title' => $title,
                     'status' => 'published',
-                    'type' => 'structured', // Class-only course
+                    'type' => 'structured',
                     'published_at' => now(),
                     'thumbnail' => 'https://images.unsplash.com/photo-1617042375876-a13e36734a04?q=80&w=800&auto=format&fit=crop',
                 ]
@@ -208,16 +195,16 @@ class CourseSimulationSeeder extends Seeder
                 'name' => 'Kelas Pemrograman (Mobile Programming)',
                 'class_code' => 'PEM-MOB-01',
                 'description' => 'Ruang belajar kolaboratif ala Google Classroom untuk materi Mobile Programming.',
-                'type' => 'classroom', // Corrected to classroom type
+                'type' => 'classroom',
                 'status' => 'open',
                 'start_date' => now(),
-                'end_date' => now()->addYear(), // Jangka panjang
+                'end_date' => now()->addYear(),
                 'is_public' => true,
                 'max_students' => 100,
             ]
         );
 
-        // 5a. Create Topics for Classroom
+        // Topics for Classroom
         $topicFundamental = $classroom->batchTopics()->updateOrCreate(
             ['title' => 'Dasar & Fundamental'],
             ['sort_order' => 1]
@@ -228,13 +215,12 @@ class CourseSimulationSeeder extends Seeder
             ['sort_order' => 2]
         );
 
-        // Associate some existing courses to this classroom
+        // Associate main course
         $classroom->courses()->syncWithoutDetaching([
             $createdCourses[0]->id => ['order' => 1, 'is_required' => true],
-            $createdCourses[2]->id => ['order' => 2, 'is_required' => false],
         ]);
 
-        // 5a. Seed Sessions for Classroom
+        // Seed Sessions for Classroom
         $sessions = [
             [
                 'title' => 'Pengenalan React & Dasar Komponen',
@@ -245,20 +231,7 @@ class CourseSimulationSeeder extends Seeder
                 'status' => 'completed',
                 'materials' => [
                     ['type' => 'file', 'title' => 'Slide Dasar React.pdf', 'url' => 'https://example.com/slide.pdf'],
-                    ['type' => 'youtube', 'title' => 'Video Review Komponen', 'url' => 'dQw4w9WgXcQ'], // YouTube video ID
-                    ['type' => 'link', 'title' => 'Dokumentasi React Docs', 'url' => 'https://react.dev'],
-                ],
-            ],
-            [
-                'title' => 'Q&A: Troubleshooting State & Props',
-                'type' => 'online_class',
-                'description' => 'Sesi tatap muka online untuk tanya jawab seputar kendala di modul 1.',
-                'session_date' => now()->addDays(1)->setTime(19, 30),
-                'duration' => '1 Jam',
-                'status' => 'upcoming',
-                'meeting_url' => 'molang-qa-state-props',
-                'materials' => [
-                    ['type' => 'link', 'title' => 'Papan Tulis Kolaboratif', 'url' => 'https://miro.com/example'],
+                    ['type' => 'youtube', 'title' => 'Video Review Komponen', 'url' => 'dQw4w9WgXcQ'],
                 ],
             ],
             [
@@ -276,55 +249,15 @@ class CourseSimulationSeeder extends Seeder
         ];
 
         foreach ($sessions as $index => $sData) {
-            // Assign sessions to topics
-            $topic = ($index < 2) ? $topicFundamental : $topicIntermediate;
-            
-            $session = $classroom->sessions()->updateOrCreate(
+            $topic = ($index == 0) ? $topicFundamental : $topicIntermediate;
+            $classroom->sessions()->updateOrCreate(
                 ['title' => $sData['title'], 'batch_id' => $classroom->id],
                 array_merge($sData, ['batch_topic_id' => $topic->id])
             );
-            
-            // Add a comment to the first session
-            if ($sData['title'] === 'Pengenalan React & Dasar Komponen') {
-                $student = User::where('email', 'student@molang.com')->first();
-                if ($student) {
-                    $session->comments()->updateOrCreate(
-                        ['user_id' => $student->id, 'comment' => 'Materi yang sangat membantu pak! Apakah ada link tambahan untuk latihan state?'],
-                        ['comment' => 'Materi yang sangat membantu pak! Apakah ada link tambahan untuk latihan state?']
-                    );
-                    
-                    $instructor = User::where('email', 'instructor@molang.com')->first();
-                    if ($instructor) {
-                        $session->comments()->updateOrCreate(
-                            ['user_id' => $instructor->id, 'comment' => 'Terima kasih John. Coba cek dokumentasi di bagian "Beta Docs" untuk contoh lebih interaktif.'],
-                            ['comment' => 'Terima kasih John. Coba cek dokumentasi di bagian "Beta Docs" untuk contoh lebih interaktif.']
-                        );
-                    }
-                }
-            }
         }
 
-        // 5b. Seed Additional Materials (Attachments) for Classroom
-        $classroom->additionalMaterials()->create([
-            'title' => 'Buku Panduan React (Indonesian)',
-            'file_path' => 'materials/react-guide.pdf',
-            'file_name' => 'react-guide.pdf',
-            'file_type' => 'document',
-            'file_size' => 5 * 1024 * 1024, // 5MB
-        ]);
-
-        $classroom->additionalMaterials()->updateOrCreate(
-            ['title' => 'Video Tips Productivity Developer'],
-            [
-                'file_path' => 'materials/tips.mp4',
-                'file_name' => 'tips.mp4',
-                'file_type' => 'video',
-                'file_size' => 25 * 1024 * 1024, // 25MB
-            ]
-        );
-
-        // 5c. Create a standalone assignment for the classroom
-        $classroom->assignments()->updateOrCreate(
+        // STANDALONE Assignment for Classroom
+        $classroomAssignment = $classroom->assignments()->updateOrCreate(
             ['title' => 'Tugas Mandiri: Analisis Aplikasi Mobile'],
             [
                 'batch_topic_id' => $topicIntermediate->id,
@@ -338,162 +271,166 @@ class CourseSimulationSeeder extends Seeder
             ]
         );
 
-        // 6. Create Dummy Students and Enrollments
-        $students = [
-            ['email' => 'student@molang.com', 'name' => 'John Student'],
-            ['email' => 'alice@molang.com', 'name' => 'Alice Wonderland'],
-            ['email' => 'bob@molang.com', 'name' => 'Bob Builder'],
-        ];
+        // POPULATE TIMELINE (BatchActivity)
+        $order = 1;
+        $classroom->activities()->delete();
+        $classroom->activities()->create([
+            'activityable_id' => $createdCourses[0]->id,
+            'activityable_type' => \App\Models\Course::class,
+            'sort_order' => $order++,
+            'is_required' => true,
+        ]);
+        foreach ($classroom->sessions()->orderBy('session_date')->get() as $session) {
+            $classroom->activities()->create([
+                'activityable_id' => $session->id,
+                'activityable_type' => \App\Models\BatchSession::class,
+                'sort_order' => $order++,
+                'is_required' => true,
+            ]);
+        }
+        $classroom->activities()->create([
+            'activityable_id' => $classroomAssignment->id,
+            'activityable_type' => \App\Models\Assignment::class,
+            'sort_order' => $order++,
+            'is_required' => true,
+        ]);
 
-        // Clear existing enrollments to avoid stale data
-        Enrollment::whereIn('user_id', User::whereIn('email', array_column($students, 'email'))->pluck('id'))->delete();
+        // 6. Create Student and Enrollments
+        $studentUser = User::updateOrCreate(
+            ['email' => 'student@molang.com'],
+            [
+                'name' => 'John Student',
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+            ]
+        );
+        if (!$studentUser->hasRole('student')) {
+            $studentUser->assignRole('student');
+        }
+        $studentUser->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
-        foreach ($students as $sData) {
-            $student = User::updateOrCreate(
-                ['email' => $sData['email']],
+        // Enroll in React Course
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser->id, 'course_id' => $createdCourses[0]->id],
+            ['enrolled_at' => now()->subDays(10), 'progress_percentage' => 45]
+        );
+
+        // Enroll in Classroom
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser->id, 'batch_id' => $classroom->id],
+            ['enrolled_at' => now()->subDays(5), 'progress_percentage' => 20]
+        );
+
+        // 7. SEED SUBMISSIONS (REALISTIC)
+        $this->seedStudentSubmissions($studentUser, $classroom, $createdCourses[0]);
+
+        // AI Settings
+        $settingService = app(\App\Services\AppSettingService::class);
+        $settingService->set('ai_provider', 'gemini', 'string', 'ai');
+        $settingService->set('ai_model', 'gemini-flash-latest', 'string', 'ai');
+    }
+
+    private function seedCourseContent($course, $batchId)
+    {
+        $isReact = str_contains($course->title, 'React');
+        
+        for ($i = 1; $i <= 2; $i++) {
+            $section = Section::updateOrCreate(
+                ['course_id' => $course->id, 'sort_order' => $i],
+                ['title' => "Module $i: " . ($i == 1 ? ($isReact ? 'React Fundamentals' : 'Getting Started') : 'Advanced Concepts')]
+            );
+
+            // Lesson 1: Video
+            Lesson::updateOrCreate(
+                ['section_id' => $section->id, 'sort_order' => 1],
                 [
-                    'name' => $sData['name'],
-                    'password' => Hash::make('password'),
-                    'email_verified_at' => now(),
+                    'title' => "Introduction to " . ($isReact ? 'JSX' : 'Topic'),
+                    'type' => 'video',
+                    'content' => 'In this lesson, we cover the basic syntax and structure.',
+                    'duration' => 600,
+                    'is_published' => true,
                 ]
             );
-            if (!$student->hasRole('student')) {
-                $student->assignRole('student');
-            }
-            $student->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
-            // Enroll in some courses/batches
-            $numEnrollments = rand(1, 3);
-            $targetCourses = $sData['email'] === 'student@molang.com' 
-                ? collect($createdCourses)->take(2) 
-                : collect($createdCourses)->random($numEnrollments);
-            
-            foreach ($targetCourses as $course) {
-                $progress = rand(60, 95); // High progress for demo
-                
-                // Get all lesson IDs for this course to calculate which ones are completed
-                $lessonIds = \App\Models\Lesson::whereHas('section', function($q) use ($course) {
-                    $q->where('course_id', $course->id);
-                })->pluck('id')->toArray();
-                
-                $totalLessons = count($lessonIds);
-                $numCompleted = round(($progress / 100) * $totalLessons);
-                $completedLessons = array_slice($lessonIds, 0, $numCompleted);
-                
-                Enrollment::updateOrCreate(
-                    ['user_id' => $student->id, 'course_id' => $course->id],
+            // Lesson 2: Quiz
+            $quizData = [
+                'title' => "Quiz " . $section->title,
+                'description' => "Test your knowledge on " . $section->title,
+                'timeLimit' => 15,
+                'passingScore' => 70,
+                'questions' => [
                     [
-                        'enrolled_at' => now()->subDays(rand(1, 30)),
-                        'progress_percentage' => $progress,
-                        'completed_lessons' => $completedLessons,
-                    ]
-                );
-            }
+                        'id' => 'q1',
+                        'text' => $isReact ? 'What is the purpose of useState?' : 'What is the first step in this process?',
+                        'options' => [
+                            ['id' => 'a', 'text' => $isReact ? 'To manage local component state' : 'Step A'],
+                            ['id' => 'b', 'text' => $isReact ? 'To perform API calls' : 'Step B'],
+                        ],
+                        'correctOptionId' => 'a',
+                    ],
+                ]
+            ];
 
-            // Also enroll in the classroom
-            Enrollment::updateOrCreate(
-                ['user_id' => $student->id, 'batch_id' => $classroom->id],
+            $lesson = Lesson::updateOrCreate(
+                ['section_id' => $section->id, 'sort_order' => 2],
                 [
-                    'enrolled_at' => now(),
-                    'progress_percentage' => 0,
+                    'title' => "Module $i Quiz",
+                    'type' => 'quiz',
+                    'content' => json_encode($quizData),
+                    'duration' => 900,
+                    'is_published' => true,
                 ]
             );
 
-            // Also enroll in the structured batch (which has all assignments)
-            Enrollment::updateOrCreate(
-                ['user_id' => $student->id, 'batch_id' => $batch->id],
+            // Create assignment record for this quiz in the batch
+            Assignment::updateOrCreate(
+                ['batch_id' => $batchId, 'lesson_id' => $lesson->id],
                 [
-                    'enrolled_at' => now(),
-                    'progress_percentage' => 0,
+                    'title' => $lesson->title,
+                    'description' => 'Complete the quiz to test your understanding.',
+                    'type' => 'quiz',
+                    'max_points' => 100,
+                    'is_published' => true,
+                    'content' => $quizData,
                 ]
             );
+        }
+    }
 
-            // Also enroll in self-paced batch
-            Enrollment::updateOrCreate(
-                ['user_id' => $student->id, 'batch_id' => $selfPacedBatch->id],
+    private function seedStudentSubmissions($user, $batch, $course)
+    {
+        // 1. Seed a Quiz Submission
+        $quizAssignment = Assignment::where('batch_id', $batch->id)->where('type', 'quiz')->first();
+        if ($quizAssignment) {
+            Submission::updateOrCreate(
+                ['assignment_id' => $quizAssignment->id, 'user_id' => $user->id],
                 [
-                    'enrolled_at' => now(),
-                    'progress_percentage' => 0,
+                    'status' => 'graded',
+                    'submitted_at' => now()->subDays(2),
+                    'points_awarded' => 100,
+                    'answers' => ['q1' => 'a'],
+                    'instructor_feedback' => 'Excellent work on the fundamentals!',
+                    'graded_at' => now()->subDays(1),
+                    'graded_by' => $batch->instructor_id,
                 ]
             );
         }
 
-        // 4. Seed AI Settings
-        $settingService = app(\App\Services\AppSettingService::class);
-        $settingService->set('ai_provider', 'gemini', 'string', 'ai');
-        $settingService->set('ai_model', 'gemini-flash-latest', 'string', 'ai');
-        $settingService->set('ai_temperature', 0.7, 'float', 'ai');
-    }
-
-    /**
-     * Helper to seed modules, lessons, quizzes, and assignments for a course.
-     */
-    private function seedCourseContent($course, $batchId = null)
-    {
-        for ($i = 1; $i <= 3; $i++) {
-            $section = Section::updateOrCreate(
-                ['course_id' => $course->id, 'sort_order' => $i],
-                ['title' => "Module $i: " . ($i == 1 ? 'Introduction' : ($i == 2 ? 'Core Concepts' : 'Final Project Preparation'))]
+        // 2. Seed a Regular Assignment Submission with AI Feedback
+        $taskAssignment = Assignment::where('batch_id', $batch->id)->where('type', 'assignment')->first();
+        if ($taskAssignment) {
+            Submission::updateOrCreate(
+                ['assignment_id' => $taskAssignment->id, 'user_id' => $user->id],
+                [
+                    'status' => 'submitted',
+                    'submitted_at' => now()->subHours(5),
+                    'content' => 'Saya telah menganalisis aplikasi Gojek. Navigasinya menggunakan Bottom Navigation Bar dengan 4 menu utama: Beranda, Promo, Pesanan, dan Profil. Ini memudahkan user menjangkau fitur utama.',
+                    'ai_status' => 'completed',
+                    'ai_score' => 85,
+                    'ai_feedback' => 'Analisis Anda cukup baik dan terfokus pada kemudahan pengguna (accessibility). Namun, Anda bisa menambahkan analisis mengenai hirarki visual pada elemen promo.',
+                    'ai_evaluated_at' => now()->subHours(4),
+                ]
             );
-
-            for ($j = 1; $j <= 2; $j++) {
-                $quizData = [
-                    'id' => "quiz-$i-$j",
-                    'title' => "Quiz Materi $i.$j",
-                    'description' => "Uji pemahaman Anda mengenai materi di Modul $i.",
-                    'timeLimit' => 10,
-                    'passingScore' => 70,
-                    'questions' => [
-                        [
-                            'id' => 'q1',
-                            'text' => 'Manakah pernyataan yang paling tepat mengenai materi ini?',
-                            'options' => [
-                                ['id' => 'a', 'text' => 'Pernyataan A (Benar)'],
-                                ['id' => 'b', 'text' => 'Pernyataan B'],
-                                ['id' => 'c', 'text' => 'Pernyataan C'],
-                            ],
-                            'correctOptionId' => 'a',
-                        ],
-                        [
-                            'id' => 'q2',
-                            'text' => 'Apa komponen utama dari pembahasan di atas?',
-                            'options' => [
-                                ['id' => 'x', 'text' => 'Komponen X'],
-                                ['id' => 'y', 'text' => 'Komponen Y (Benar)'],
-                                ['id' => 'z', 'text' => 'Komponen Z'],
-                            ],
-                            'correctOptionId' => 'y',
-                        ],
-                    ],
-                ];
-
-                $lesson = Lesson::updateOrCreate(
-                    ['section_id' => $section->id, 'sort_order' => $j],
-                    [
-                        'title' => ($i == 3 && $j == 2) ? 'Final Project Submission' : ($j == 1 ? "Lesson $i.$j: Video Material" : "Lesson $i.$j: Quiz"),
-                        'type' => ($i == 3 && $j == 2) ? 'assignment' : ($j == 1 ? 'video' : 'quiz'),
-                        'content' => $j == 2 ? json_encode($quizData) : 'Sample content for this lesson.',
-                        'duration' => 600,
-                        'is_published' => true,
-                    ]
-                );
-
-                if ($batchId) {
-                    if ($j == 2 || ($i == 3 && $j == 2)) {
-                        Assignment::updateOrCreate(
-                            ['batch_id' => $batchId, 'lesson_id' => $lesson->id],
-                            [
-                                'title' => $lesson->title,
-                                'description' => 'Simulation assignment for batch ' . $batchId,
-                                'type' => ($i == 3 && $j == 2) ? 'assignment' : 'quiz',
-                                'max_points' => 100,
-                                'is_published' => true,
-                                'content' => $quizData,
-                            ]
-                        );
-                    }
-                }
-            }
         }
     }
 }

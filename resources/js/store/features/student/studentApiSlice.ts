@@ -169,6 +169,18 @@ export interface AssignmentListItem {
   my_submission: SubmissionData | null;
 }
 
+export interface OnboardingOption {
+  value: string;
+  label: string;
+  icon: string;
+}
+
+export interface OnboardingQuestion {
+  id: string;
+  question: string;
+  options: OnboardingOption[];
+}
+
 export interface AssignmentListResponse {
   success: boolean;
   data: {
@@ -267,11 +279,11 @@ export const studentApiSlice = apiSlice.injectEndpoints({
         { type: 'Submissions', id: assignmentId },
       ],
     }),
-    getOnboardingQuestions: builder.query<any[], void>({
+    getOnboardingQuestions: builder.query<OnboardingQuestion[], void>({
       query: () => '/student/onboarding/questions',
-      transformResponse: (response: { data: any[] }) => response.data,
+      transformResponse: (response: { data: OnboardingQuestion[] }) => response.data,
     }),
-    submitOnboardingInterests: builder.mutation<any, { answers: { id: string; value: string }[] }>({
+    submitOnboardingInterests: builder.mutation<{ success: boolean; data: any }, { answers: { id: string; value: string }[] }>({
       query: (body) => ({
         url: '/student/onboarding/submit',
         method: 'POST',

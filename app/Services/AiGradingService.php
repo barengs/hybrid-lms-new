@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Submission;
-use EchoLabs\Prism\Facades\Prism;
-use EchoLabs\Prism\Enums\Provider;
+use Prism\Prism\Facades\Prism;
+use Prism\Prism\Enums\Provider;
 use Illuminate\Support\Facades\Storage;
 use Smalot\PdfParser\Parser;
 use Illuminate\Support\Facades\Log;

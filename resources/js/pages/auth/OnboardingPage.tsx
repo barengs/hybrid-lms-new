@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Button, Card, Badge } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
-import { useGetOnboardingQuestionsQuery, useSubmitOnboardingInterestsMutation } from '@/store/features/student/studentApiSlice';
+import { useGetOnboardingQuestionsQuery, useSubmitOnboardingInterestsMutation, type OnboardingQuestion, type OnboardingOption } from '@/store/features/student/studentApiSlice';
 import { useAppDispatch } from '@/store';
 import { updateOnboardingStatus } from '@/store/features/auth/authSlice';
 
@@ -39,17 +39,9 @@ const iconMap: Record<string, any> = {
   Zap, Activity, Cpu, Clock, Calendar
 };
 
-interface Option {
-  value: string;
-  label: string;
-  icon: string;
-}
-
-interface Question {
-  id: string;
-  question: string;
-  options: Option[];
-}
+// Type alias for local use if preferred, or just use the imported types directly
+type Option = OnboardingOption;
+type Question = OnboardingQuestion;
 
 interface Recommendation {
   courses: any[];
@@ -154,7 +146,7 @@ export function OnboardingPage() {
                 {language === 'id' ? 'Langkah' : 'Step'} {currentQuestionIndex + 1} {language === 'id' ? 'dari' : 'of'} {questions.length}
               </span>
               <div className="flex gap-1">
-                {questions.map((_, i) => (
+                {questions.map((_: any, i: number) => (
                   <div 
                     key={i} 
                     className={`h-1.5 w-8 rounded-full transition-all duration-300 ${i <= currentQuestionIndex ? 'bg-blue-600' : 'bg-slate-200'}`} 
@@ -168,7 +160,7 @@ export function OnboardingPage() {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {currentQuestion.options.map((option) => {
+              {currentQuestion.options.map((option: Option) => {
                 const Icon = iconMap[option.icon] || Sparkles;
                 const isSelected = answers[currentQuestion.id] === option.value;
                 
@@ -245,7 +237,7 @@ export function OnboardingPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 mb-10">
-                  {recommendation.courses.map((course, idx) => (
+                  {recommendation.courses.map((course: any, idx: number) => (
                     <Card 
                       key={course.id} 
                       className="p-5 flex flex-col md:flex-row gap-6 hover:shadow-xl transition-all duration-300 border-none shadow-md group overflow-hidden relative"

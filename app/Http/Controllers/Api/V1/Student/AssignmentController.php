@@ -38,8 +38,13 @@ class AssignmentController extends Controller
             $user = $request->user();
             
             $query = Assignment::query()
-                ->whereHas('batch.enrollments', function ($q) use ($user) {
-                    $q->where('user_id', $user->id)->active();
+                ->where(function ($q) use ($user) {
+                    $q->whereHas('batch.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    })
+                    ->orWhereHas('lesson.section.course.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    });
                 })
                 ->where('is_published', true);
 
@@ -87,8 +92,13 @@ class AssignmentController extends Controller
             // 1) First, by its own primary key (assignment_id)
             // 2) Fallback: by lesson_id (for navigation from lesson/course pages)
             $assignment = Assignment::where('is_published', '=', true)
-                ->whereHas('batch.enrollments', function ($q) use ($user) {
-                    $q->where('user_id', $user->id)->active();
+                ->where(function ($q) use ($user) {
+                    $q->whereHas('batch.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    })
+                    ->orWhereHas('lesson.section.course.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    });
                 })
                 ->with(['batch', 'submissions' => function($q) use ($user) {
                     $q->where('user_id', $user->id);
@@ -99,8 +109,13 @@ class AssignmentController extends Controller
             // Fallback: try lookup by lesson_id
             if (!$assignment) {
                 $assignment = Assignment::where('is_published', '=', true)
-                    ->whereHas('batch.enrollments', function ($q) use ($user) {
-                        $q->where('user_id', $user->id)->active();
+                    ->where(function ($q) use ($user) {
+                        $q->whereHas('batch.enrollments', function ($eq) use ($user) {
+                            $eq->where('user_id', $user->id)->active();
+                        })
+                        ->orWhereHas('lesson.section.course.enrollments', function ($eq) use ($user) {
+                            $eq->where('user_id', $user->id)->active();
+                        });
                     })
                     ->with(['batch', 'submissions' => function($q) use ($user) {
                         $q->where('user_id', $user->id);
@@ -142,16 +157,26 @@ class AssignmentController extends Controller
             
             // Try lookup by assignment ID first, then by lesson_id as fallback
             $assignment = Assignment::where('is_published', '=', true)
-                ->whereHas('batch.enrollments', function ($q) use ($user) {
-                    $q->where('user_id', $user->id)->active();
+                ->where(function ($q) use ($user) {
+                    $q->whereHas('batch.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    })
+                    ->orWhereHas('lesson.section.course.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    });
                 })
                 ->where('id', $id)
                 ->first();
 
             if (!$assignment) {
                 $assignment = Assignment::where('is_published', '=', true)
-                    ->whereHas('batch.enrollments', function ($q) use ($user) {
-                        $q->where('user_id', $user->id)->active();
+                    ->where(function ($q) use ($user) {
+                        $q->whereHas('batch.enrollments', function ($eq) use ($user) {
+                            $eq->where('user_id', $user->id)->active();
+                        })
+                        ->orWhereHas('lesson.section.course.enrollments', function ($eq) use ($user) {
+                            $eq->where('user_id', $user->id)->active();
+                        });
                     })
                     ->where('lesson_id', $id)
                     ->first();
@@ -178,7 +203,17 @@ class AssignmentController extends Controller
                 ->first();
 
             if ($submission && !$assignment->allow_multiple_submissions) {
-                return $this->errorResponse('Multiple submissions are not allowed.', 422);
+                $isWithinRevisionWindow = false;
+                if ($submission->ai_status === 'completed' && $submission->ai_evaluated_at && $submission->ai_score !== null && $submission->ai_score < 50) {
+                    $evaluatedAt = \Carbon\Carbon::parse($submission->ai_evaluated_at);
+                    if (now()->diffInSeconds($evaluatedAt) <= 60) {
+                        $isWithinRevisionWindow = true;
+                    }
+                }
+
+                if (!$isWithinRevisionWindow) {
+                    return $this->errorResponse('Multiple submissions are not allowed.', 422);
+                }
             }
 
             $files = $submission ? ($submission->files ?? []) : [];
@@ -300,6 +335,77 @@ class AssignmentController extends Controller
         } catch (\Exception $e) {
             Log::error('Assignment Submission Error: ' . $e->getMessage());
             return $this->errorResponse('Failed to submit assignment.', 500);
+        }
+    }
+
+    /**
+     * Retry AI Grading
+     * 
+     * Retry AI evaluation if the previous attempt failed.
+     */
+    public function retryAi(Request $request, string $id): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            
+            // Try lookup by assignment ID first, then by lesson_id as fallback
+            $assignment = Assignment::where('is_published', '=', true)
+                ->where(function ($q) use ($user) {
+                    $q->whereHas('batch.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    })
+                    ->orWhereHas('lesson.section.course.enrollments', function ($eq) use ($user) {
+                        $eq->where('user_id', $user->id)->active();
+                    });
+                })
+                ->where('id', $id)
+                ->first();
+
+            if (!$assignment) {
+                $assignment = Assignment::where('is_published', '=', true)
+                    ->where(function ($q) use ($user) {
+                        $q->whereHas('batch.enrollments', function ($eq) use ($user) {
+                            $eq->where('user_id', $user->id)->active();
+                        })
+                        ->orWhereHas('lesson.section.course.enrollments', function ($eq) use ($user) {
+                            $eq->where('user_id', $user->id)->active();
+                        });
+                    })
+                    ->where('lesson_id', $id)
+                    ->first();
+            }
+
+            if (!$assignment) {
+                return $this->errorResponse('Assignment not found.', 404);
+            }
+
+            $submission = Submission::where('assignment_id', $assignment->id)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$submission) {
+                return $this->errorResponse('Submission not found.', 404);
+            }
+
+            if ($submission->ai_status !== 'failed') {
+                return $this->successResponse(
+                    new SubmissionResource($submission->refresh()),
+                    'AI evaluation is already ' . $submission->ai_status . '.'
+                );
+            }
+
+            // Dispatch job
+            GradeSubmission::dispatch($submission)->onQueue('default');
+            $submission->update(['ai_status' => 'processing']);
+
+            return $this->successResponse(
+                new SubmissionResource($submission->refresh()),
+                'AI evaluation retry has been queued.'
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Assignment AI Retry Error: ' . $e->getMessage());
+            return $this->errorResponse('Failed to retry AI evaluation.', 500);
         }
     }
 }

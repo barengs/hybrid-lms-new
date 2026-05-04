@@ -103,6 +103,22 @@ class CourseSimulationSeeder extends Seeder
                 'instructor_id' => $instructor1->id,
                 'thumbnail' => 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=800&auto=format&fit=crop',
             ],
+            [
+                'title' => 'Data Science with Python',
+                'price' => 150.00,
+                'discount_price' => 100.00,
+                'category_id' => $categoryModels[0]->id,
+                'instructor_id' => $instructor1->id,
+                'thumbnail' => 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=800&auto=format&fit=crop',
+            ],
+            [
+                'title' => 'Machine Learning Fundamentals',
+                'price' => 120.00,
+                'discount_price' => 90.00,
+                'category_id' => $categoryModels[0]->id,
+                'instructor_id' => $instructor1->id,
+                'thumbnail' => 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?q=80&w=800&auto=format&fit=crop',
+            ],
         ];
 
         // Create Self-paced Batch (Unified Learning Path for all public courses)
@@ -321,6 +337,47 @@ class CourseSimulationSeeder extends Seeder
             ['enrolled_at' => now()->subDays(5), 'progress_percentage' => 20]
         );
 
+        // Enroll in new Data Science and ML Courses
+        $dsCourse = $createdCourses[3];
+        $mlCourse = $createdCourses[4];
+        
+        $dsEnrollment = Enrollment::updateOrCreate(
+            ['user_id' => $studentUser->id, 'course_id' => $dsCourse->id],
+            ['enrolled_at' => now()->subDays(5), 'progress_percentage' => 80]
+        );
+        $mlEnrollment = Enrollment::updateOrCreate(
+            ['user_id' => $studentUser->id, 'course_id' => $mlCourse->id],
+            ['enrolled_at' => now()->subDays(3), 'progress_percentage' => 80]
+        );
+
+        // Mark lessons as completed (except the final assignment)
+        foreach ([$dsCourse, $mlCourse] as $c) {
+            $enrollment = Enrollment::where('user_id', $studentUser->id)->where('course_id', $c->id)->first();
+            $lessonIds = Lesson::whereHas('section', fn($q) => $q->where('course_id', $c->id))->pluck('id')->toArray();
+            
+            // Pop the last lesson (the assignment) so it remains incomplete
+            array_pop($lessonIds);
+            
+            $enrollment->update(['completed_lessons' => $lessonIds]);
+            
+            // Seed graded quiz submissions so the progress is valid
+            $quizAssignments = Assignment::whereHas('lesson.section', fn($q) => $q->where('course_id', $c->id))->where('type', 'quiz')->get();
+            foreach ($quizAssignments as $qa) {
+                Submission::updateOrCreate(
+                    ['assignment_id' => $qa->id, 'user_id' => $studentUser->id],
+                    [
+                        'status' => 'graded',
+                        'submitted_at' => now()->subDays(1),
+                        'points_awarded' => 100,
+                        'answers' => ['q1' => 'a'],
+                        'instructor_feedback' => 'Good job on the quiz!',
+                        'graded_at' => now(),
+                        'graded_by' => $instructor1->id,
+                    ]
+                );
+            }
+        }
+
         // 7. SEED SUBMISSIONS (REALISTIC)
         $this->seedStudentSubmissions($studentUser, $classroom, $createdCourses[0]);
 
@@ -395,6 +452,30 @@ class CourseSimulationSeeder extends Seeder
                 ]
             );
         }
+
+        // Add a final regular assignment to simulate AI grading
+        $assignmentLesson = Lesson::updateOrCreate(
+            ['section_id' => $section->id, 'sort_order' => 3],
+            [
+                'title' => "Tugas Akhir: " . $course->title,
+                'type' => 'assignment',
+                'content' => 'Tugas ini bertujuan untuk menguji pemahaman akhir Anda. Silakan kumpulkan file laporan yang relevan.',
+                'duration' => 0,
+                'is_published' => true,
+            ]
+        );
+
+        Assignment::updateOrCreate(
+            ['batch_id' => $batchId, 'lesson_id' => $assignmentLesson->id],
+            [
+                'title' => 'Final Submission: ' . $course->title,
+                'description' => 'Tugas Akhir untuk ' . $course->title . '. Pastikan file yang Anda unggah sangat relevan dengan topik kursus ini.',
+                'type' => 'assignment',
+                'max_points' => 100,
+                'is_published' => true,
+                'gradable' => true,
+            ]
+        );
     }
 
     private function seedStudentSubmissions($user, $batch, $course)

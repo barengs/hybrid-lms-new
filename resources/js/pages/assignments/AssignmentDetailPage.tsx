@@ -18,6 +18,7 @@ import {
   Loader2,
   Sparkles,
   HelpCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
 import { Card, CardHeader, CardTitle, Button, Badge } from '@/components/ui';
@@ -25,6 +26,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import {
   useGetAssignmentDetailQuery,
   useSubmitAssignmentMutation,
+  useRetryAiGradingMutation,
   type SubmissionData,
   type AssignmentDetailData,
 } from '@/store/features/student/studentApiSlice';
@@ -117,10 +119,14 @@ function AiStatusBanner({
   submission,
   maxPoints,
   language,
+  onRetry,
+  isRetrying,
 }: {
   submission: SubmissionData;
   maxPoints: number;
   language: string;
+  onRetry?: () => void;
+  isRetrying?: boolean;
 }) {
   const { ai_status, ai_score, ai_feedback } = submission;
 
@@ -199,11 +205,28 @@ function AiStatusBanner({
           )}
 
           {ai_status === 'failed' && (
-            <p className="text-xs text-red-600 mt-1">
-              {language === 'id'
-                ? 'Evaluasi otomatis gagal. Instruktur akan menilai secara manual.'
-                : 'Automated evaluation failed. The instructor will grade manually.'}
-            </p>
+            <div className="mt-2 space-y-3">
+              <p className="text-xs text-red-600">
+                {language === 'id'
+                  ? 'Evaluasi otomatis gagal (mungkin karena server AI sibuk). Instruktur akan menilai secara manual, atau Anda dapat mencoba lagi.'
+                  : 'Automated evaluation failed (likely due to busy AI server). The instructor will grade manually, or you can try again.'}
+              </p>
+              {onRetry && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={onRetry} 
+                  disabled={isRetrying}
+                  className="bg-white hover:bg-red-50 text-red-600 border-red-200"
+                >
+                  {isRetrying ? (
+                    <><Loader2 className="w-3 h-3 mr-2 animate-spin" /> {language === 'id' ? 'Mencoba...' : 'Retrying...'}</>
+                  ) : (
+                    <><RefreshCw className="w-3 h-3 mr-2" /> {language === 'id' ? 'Coba Evaluasi AI Lagi' : 'Retry AI Evaluation'}</>
+                  )}
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -301,7 +324,33 @@ export function AssignmentDetailPage() {
     }
   }, [assignment?.my_submission?.ai_status]);
 
+  const [revisionTimeLeft, setRevisionTimeLeft] = useState<number>(0);
+
+  useEffect(() => {
+    const sub = assignment?.my_submission;
+    if (sub?.ai_status === 'completed' && sub?.ai_evaluated_at && sub?.ai_score !== null && sub?.ai_score < 50) {
+      // Create date from UTC string and get local time equivalent safely
+      const evaluatedAt = new Date(sub.ai_evaluated_at + (sub.ai_evaluated_at.endsWith('Z') ? '' : 'Z')).getTime();
+      const checkTime = () => {
+        const now = Date.now();
+        const diffInSeconds = Math.floor((now - evaluatedAt) / 1000);
+        if (diffInSeconds < 60 && diffInSeconds >= 0) {
+          setRevisionTimeLeft(60 - diffInSeconds);
+        } else {
+          setRevisionTimeLeft(0);
+        }
+      };
+      
+      checkTime();
+      const interval = setInterval(checkTime, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setRevisionTimeLeft(0);
+    }
+  }, [assignment?.my_submission?.ai_status, assignment?.my_submission?.ai_evaluated_at, assignment?.my_submission?.ai_score]);
+
   const [submitAssignment, { isLoading: isSubmitting }] = useSubmitAssignmentMutation();
+  const [retryAiGrading, { isLoading: isRetrying }] = useRetryAiGradingMutation();
 
   const [submissionContent, setSubmissionContent] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -320,6 +369,15 @@ export function AssignmentDetailPage() {
 
   const removeFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRetryAi = async () => {
+    if (!assignment?.id) return;
+    try {
+      await retryAiGrading(assignment.id).unwrap();
+    } catch (err: any) {
+      console.error('Failed to retry AI:', err);
+    }
   };
 
   const handleSubmit = async () => {
@@ -397,7 +455,8 @@ export function AssignmentDetailPage() {
   const isGraded = sub?.status === 'graded';
   const hasSubmitted = !!sub;
   const canResubmit = hasSubmitted && assignment.allow_multiple_submissions && !isGraded;
-  const showForm = !hasSubmitted || canResubmit;
+  const isWithinRevisionWindow = revisionTimeLeft > 0;
+  const showForm = !hasSubmitted || canResubmit || isWithinRevisionWindow;
 
   return (
     <DashboardLayout>
@@ -474,7 +533,13 @@ export function AssignmentDetailPage() {
         {/* ---- AI STATUS BANNER (from saved submission) ---- */}
         {sub && sub.ai_status && sub.ai_status !== 'not_applicable' && (
           <div className="mb-6">
-            <AiStatusBanner submission={sub} maxPoints={assignment.max_points} language={language} />
+            <AiStatusBanner 
+              submission={sub} 
+              maxPoints={assignment.max_points} 
+              language={language} 
+              onRetry={handleRetryAi}
+              isRetrying={isRetrying}
+            />
           </div>
         )}
 
@@ -562,12 +627,33 @@ export function AssignmentDetailPage() {
           </Card>
         )}
 
+        {/* ---- REVISION TIMER BANNER ---- */}
+        {isWithinRevisionWindow && (
+          <div className="mb-6">
+            <div className="rounded-xl border p-4 bg-yellow-50 border-yellow-200 flex items-start gap-3">
+              <Clock className="w-5 h-5 mt-0.5 text-yellow-600 flex-shrink-0 animate-pulse" />
+              <div>
+                <p className="font-semibold text-yellow-700 text-sm">
+                  {language === 'id' ? 'Waktu Revisi Terbuka!' : 'Revision Window Open!'}
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  {language === 'id' 
+                    ? `Anda dapat memperbaiki dan mengumpulkan ulang tugas ini dalam waktu ${revisionTimeLeft} detik.` 
+                    : `You can revise and resubmit this assignment within ${revisionTimeLeft} seconds.`}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ---- SUBMISSION FORM ---- */}
         {showForm && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>
-                {canResubmit
+                {isWithinRevisionWindow
+                  ? language === 'id' ? 'Revisi Tugas' : 'Revise Submission'
+                  : canResubmit
                   ? language === 'id' ? 'Perbarui Pengumpulan' : 'Update Submission'
                   : language === 'id' ? 'Kirim Tugas' : 'Submit Assignment'}
               </CardTitle>
@@ -676,7 +762,9 @@ export function AssignmentDetailPage() {
                     onClick={handleSubmit}
                     disabled={isSubmitting}
                   >
-                    {canResubmit
+                    {isWithinRevisionWindow
+                      ? language === 'id' ? 'Kirim Revisi' : 'Submit Revision'
+                      : canResubmit
                       ? language === 'id' ? 'Perbarui Tugas' : 'Update Submission'
                       : language === 'id' ? 'Kirim Tugas' : 'Submit Assignment'}
                   </Button>

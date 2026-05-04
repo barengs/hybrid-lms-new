@@ -119,6 +119,7 @@ export interface SubmissionData {
   ai_status: 'pending' | 'processing' | 'completed' | 'failed' | 'not_applicable';
   submitted_at: string;
   graded_at: string | null;
+  ai_evaluated_at: string | null;
 }
 
 export interface AssignmentDetailData {
@@ -279,6 +280,15 @@ export const studentApiSlice = apiSlice.injectEndpoints({
         { type: 'Submissions', id: assignmentId },
       ],
     }),
+    retryAiGrading: builder.mutation<{ success: boolean; message: string; data: SubmissionData }, number>({
+      query: (assignmentId) => ({
+        url: `/student/assignments/${assignmentId}/retry-ai`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, assignmentId) => [
+        { type: 'Submissions', id: assignmentId },
+      ],
+    }),
     getOnboardingQuestions: builder.query<OnboardingQuestion[], void>({
       query: () => '/student/onboarding/questions',
       transformResponse: (response: { data: OnboardingQuestion[] }) => response.data,
@@ -314,6 +324,7 @@ export const {
   useGetAssignmentsQuery,
   useGetAssignmentDetailQuery,
   useSubmitAssignmentMutation,
+  useRetryAiGradingMutation,
   useGetOnboardingQuestionsQuery,
   useSubmitOnboardingInterestsMutation,
   useGetRecommendationsQuery,

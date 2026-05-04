@@ -255,6 +255,7 @@ Route::prefix('v1')->group(function () {
         Route::get('assignments', [App\Http\Controllers\Api\V1\Student\AssignmentController::class, 'index']); // List all my assignments or filter by batch_id
         Route::get('assignments/{assignment}', [App\Http\Controllers\Api\V1\Student\AssignmentController::class, 'show']);
         Route::post('assignments/{assignment}/submit', [App\Http\Controllers\Api\V1\Student\AssignmentController::class, 'submit']);
+        Route::post('assignments/{assignment}/retry-ai', [App\Http\Controllers\Api\V1\Student\AssignmentController::class, 'retryAi']);
 
         // Grades
         Route::get('grades', [App\Http\Controllers\Api\V1\Student\GradeController::class, 'index']);

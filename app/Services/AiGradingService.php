@@ -137,19 +137,20 @@ class AiGradingService
         $instructions .= "KONTEKS TUGAS:\n{$context}\n\n";
         $instructions .= "KONTEN SUBMISI MAHASISWA:\n{$content}\n\n";
         
-        $instructions .= "INSTRUKSI PENILAIAN:\n";
-        $instructions .= "- Berikan penilaian yang objektif berdasarkan konteks tugas di atas.\n";
-        $instructions .= "- Berikan umpan balik (feedback) dalam BAHASA INDONESIA.\n";
-        $instructions .= "- Sesuaikan umpan balik secara spesifik dengan topik dan soal yang ada pada tugas.\n";
+        $instructions .= "INSTRUKSI PENILAIAN UTAMA (SANGAT PENTING):\n";
+        $instructions .= "1. VERIFIKASI RELEVANSI: Pertama, periksa apakah submisi mahasiswa sesuai dengan Deskripsi dan Instruksi Tugas di atas. Jika submisi sama sekali tidak relevan, menyimpang dari topik, atau hanya berupa file sembarang/dummy, berikan SKOR 0 dan jelaskan ketidaksesuaian tersebut dalam feedback.\n";
+        $instructions .= "2. OBJEKTIVITAS: Jangan memberikan skor tinggi hanya karena dokumen terlihat panjang atau formal jika isinya tidak menjawab tugas yang diberikan.\n";
+        $instructions .= "3. BAHASA: Berikan umpan balik (feedback) secara mendalam dalam BAHASA INDONESIA.\n";
+        $instructions .= "4. SPESIFIK: Hubungkan feedback langsung dengan poin-poin spesifik dalam submisi mahasiswa.\n\n";
 
         if ($type === 'project' || str_contains(strtolower($context), 'coding')) {
-            $instructions .= "KRITERIA UNTUK CODING:\n";
+            $instructions .= "KRITERIA KHUSUS CODING:\n";
             $instructions .= "- Kebenaran logika dan fungsionalitas.\n";
             $instructions .= "- Kualitas kode dan keterbacaan (penamaan, indentasi).\n";
             $instructions .= "- Penggunaan algoritma/struktur data yang efisien.\n";
             $instructions .= "- Kepatuhan terhadap best practices.\n\n";
         } else {
-            $instructions .= "KRITERIA UNTUK TUGAS UMUM:\n";
+            $instructions .= "KRITERIA KHUSUS TUGAS UMUM:\n";
             $instructions .= "- Kelengkapan dan akurasi jawaban.\n";
             $instructions .= "- Kejelasan pemikiran dan struktur.\n";
             $instructions .= "- Relevansi dengan deskripsi tugas.\n\n";

@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText,
   Clock,
@@ -284,10 +284,23 @@ export function AssignmentDetailPage() {
 
   const assignmentId = Number(id);
 
+  const [pollingInterval, setPollingInterval] = useState(0);
   const { data: assignment, isLoading, isError, error } = useGetAssignmentDetailQuery(
     assignmentId,
-    { skip: !id }
+    { 
+      skip: !id,
+      pollingInterval
+    }
   );
+
+  useEffect(() => {
+    if (assignment?.my_submission?.ai_status === 'processing') {
+      setPollingInterval(3000);
+    } else {
+      setPollingInterval(0);
+    }
+  }, [assignment?.my_submission?.ai_status]);
+
   const [submitAssignment, { isLoading: isSubmitting }] = useSubmitAssignmentMutation();
 
   const [submissionContent, setSubmissionContent] = useState('');

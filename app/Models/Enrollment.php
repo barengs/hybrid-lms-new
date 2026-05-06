@@ -81,7 +81,10 @@ class Enrollment extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('is_completed', false)
+        return $query->where(function ($q) {
+                $q->where('is_completed', false)
+                  ->orWhereNull('is_completed');
+            })
             ->where(function ($q) {
                 $q->whereNull('expires_at')
                   ->orWhere('expires_at', '>', now());

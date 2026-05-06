@@ -55,13 +55,16 @@ class CheckoutController extends Controller
         DB::beginTransaction();
 
         try {
+            $isFree = $cart->total <= 0;
+            
             // Create order
             $order = Order::create([
                 'user_id' => $request->user()->id,
                 'subtotal' => $cart->subtotal,
                 'discount' => $cart->discount,
                 'total' => $cart->total,
-                'status' => 'pending',
+                'status' => $isFree ? 'paid' : 'pending',
+                'paid_at' => $isFree ? now() : null,
             ]);
 
             // Create order items
@@ -76,12 +79,12 @@ class CheckoutController extends Controller
                     'discount_price' => $course->discount_price,
                 ]);
 
-                // Create enrollment record (will be activated after payment)
+                // Create enrollment record
                 Enrollment::create([
                     'user_id' => $request->user()->id,
                     'course_id' => $course->id,
                     'order_item_id' => $orderItem->id,
-                    'enrolled_at' => null, // Will be set after payment
+                    'enrolled_at' => $isFree ? now() : null,
                 ]);
             }
 
@@ -94,11 +97,22 @@ class CheckoutController extends Controller
 
             DB::commit();
 
+            if ($isFree) {
+                return response()->json([
+                    'message' => 'Pendaftaran berhasil! Kursus telah ditambahkan ke dashboard Anda.',
+                    'data' => [
+                        'order' => $order->load('items.course'),
+                        'is_free' => true,
+                    ],
+                ], 201);
+            }
+
             return response()->json([
                 'message' => 'Order created successfully. Please proceed to payment.',
                 'data' => [
                     'order' => $order->load('items.course'),
                     'redirect_url' => route('payment.process', ['order' => $order->id]),
+                    'is_free' => false,
                 ],
             ], 201);
 

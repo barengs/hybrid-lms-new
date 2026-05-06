@@ -317,12 +317,11 @@ export function AssignmentDetailPage() {
   );
 
   useEffect(() => {
-    if (assignment?.my_submission?.ai_status === 'processing') {
-      setPollingInterval(3000);
-    } else {
-      setPollingInterval(0);
+    const nextInterval = assignment?.my_submission?.ai_status === 'processing' ? 5000 : 0;
+    if (pollingInterval !== nextInterval) {
+      setPollingInterval(nextInterval);
     }
-  }, [assignment?.my_submission?.ai_status]);
+  }, [assignment?.my_submission?.ai_status, pollingInterval]);
 
   const [revisionTimeLeft, setRevisionTimeLeft] = useState<number>(0);
 

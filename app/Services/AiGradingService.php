@@ -81,14 +81,15 @@ class AiGradingService
                 return $result;
             }
 
-            throw new \Exception("AI failed to return valid JSON: " . $response->text);
+        throw new \Exception("AI failed to return valid JSON: " . $response->text);
 
-        } catch (\Exception $e) {
-            Log::error("AI Grading Error for Submission {$submission->id}: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error("CRITICAL AI Grading Error for Submission {$submission->id}: " . $e->getMessage());
+            Log::error($e->getTraceAsString());
             
             $submission->update([
                 'ai_status' => 'failed',
-                'ai_feedback' => 'AI Evaluation failed: ' . $e->getMessage(),
+                'ai_feedback' => 'AI Evaluation encountered a critical error. Technical details logged.',
             ]);
             
             return null;

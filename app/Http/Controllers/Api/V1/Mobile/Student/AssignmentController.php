@@ -44,10 +44,13 @@ class AssignmentController extends Controller
                 ->get()
                 ->map(function($a) {
                     $submission = $a->submissions->first();
+                    $quiz = $a->lesson ? $a->lesson->quiz : null;
+                    
                     return [
                         'id' => $a->id,
                         'title' => $a->title,
-                        'type' => $a->type,
+                        'type' => $quiz ? 'quiz_v2' : $a->type,
+                        'quiz_id' => $quiz ? $quiz->id : null,
                         'due_date' => $a->due_date,
                         'status' => $submission ? $submission->status : 'pending',
                         'score' => $submission ? $submission->points_awarded : null,

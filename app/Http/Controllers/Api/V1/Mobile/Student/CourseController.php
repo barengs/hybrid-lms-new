@@ -42,25 +42,27 @@ class CourseController extends Controller
 
             $sections = $course->sections->map(function ($section) use ($completedLessons, $enrollment) {
                 // Get Lessons
-                $lessons = $section->lessons->map(function ($lesson) use ($completedLessons, $enrollment) {
-                    $assignment = \App\Models\Assignment::where('lesson_id', $lesson->id)
-                        ->when($enrollment && $enrollment->batch_id, function($q) use ($enrollment) {
-                            $q->where('batch_id', $enrollment->batch_id);
-                        })
-                        ->first();
-                        
-                    return [
-                        'id' => $lesson->id,
-                        'title' => $lesson->title,
-                        'type' => $lesson->type,
-                        'duration' => $lesson->duration,
-                        'is_completed' => in_array($lesson->id, $completedLessons),
-                        'is_locked' => false,
-                        'assignment_id' => $assignment ? $assignment->id : null,
-                        'assignment_type' => $assignment ? $assignment->type : null,
-                        'sort_order' => $lesson->sort_order,
-                    ];
-                });
+                $lessons = $section->lessons
+                    ->reject(fn($l) => $l->type === 'quiz' && empty($l->content))
+                    ->map(function ($lesson) use ($completedLessons, $enrollment) {
+                        $assignment = \App\Models\Assignment::where('lesson_id', $lesson->id)
+                            ->when($enrollment && $enrollment->batch_id, function($q) use ($enrollment) {
+                                $q->where('batch_id', $enrollment->batch_id);
+                            })
+                            ->first();
+                            
+                        return [
+                            'id' => $lesson->id,
+                            'title' => $lesson->title,
+                            'type' => $lesson->type,
+                            'duration' => $lesson->duration,
+                            'is_completed' => in_array($lesson->id, $completedLessons),
+                            'is_locked' => false,
+                            'assignment_id' => $assignment ? $assignment->id : null,
+                            'assignment_type' => $assignment ? $assignment->type : null,
+                            'sort_order' => $lesson->sort_order,
+                        ];
+                    });
 
                 // Get Quizzes
                 $quizzes = \App\Models\Quiz::where('section_id', $section->id)
@@ -155,6 +157,38 @@ class CourseController extends Controller
                     $q->where('batch_id', $enrollment->batch_id);
                 })
                 ->first();
+
+            // Bridge: If it's a quiz lesson but content is empty, try to get relational quiz data
+            if ($lesson->type === 'quiz' && empty($lesson->content)) {
+                $relatedQuiz = \App\Models\Quiz::with(['questions.options'])
+                    ->where('section_id', $lesson->section_id)
+                    ->where('title', $lesson->title)
+                    ->first();
+                
+                if ($relatedQuiz) {
+                    $legacyFormat = [
+                        'id' => $relatedQuiz->id,
+                        'title' => $relatedQuiz->title,
+                        'description' => $relatedQuiz->description,
+                        'timeLimit' => $relatedQuiz->time_limit,
+                        'passingScore' => $relatedQuiz->passing_score,
+                        'questions' => $relatedQuiz->questions->map(function($q) {
+                            return [
+                                'id' => $q->id,
+                                'text' => $q->question_text,
+                                'options' => $q->options->map(function($o) {
+                                    return [
+                                        'id' => $o->id,
+                                        'text' => $o->option_text
+                                    ];
+                                }),
+                                'correctOptionId' => $q->options->where('is_correct', true)->first()?->id
+                            ];
+                        })
+                    ];
+                    $lesson->content = json_encode($legacyFormat);
+                }
+            }
 
             $content = $lesson->content;
             if (is_string($content) && !empty($content)) {

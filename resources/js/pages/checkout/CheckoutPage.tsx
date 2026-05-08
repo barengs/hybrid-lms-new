@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
@@ -10,12 +10,17 @@ import {
   Check,
   X,
   AlertCircle,
+  Gift,
 } from 'lucide-react';
 import { MainLayout } from '@/components/layouts';
 import { Card, Button } from '@/components/ui';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
 import { formatCurrency, cn } from '@/lib/utils';
+import { useProcessCheckoutMutation } from '@/store/features/student/studentApiSlice';
+import { useAddToCartBackendMutation } from '@/store/features/cart/cartApiSlice';
+import { toast } from 'react-hot-toast';
 
 type PaymentMethod = 'credit_card' | 'bank_transfer' | 'e_wallet' | 'virtual_account';
 type EWallet = 'gopay' | 'ovo' | 'dana' | 'linkaja' | 'shopeepay';
@@ -24,6 +29,7 @@ type Bank = 'bca' | 'mandiri' | 'bni' | 'bri' | 'cimb';
 export function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
   const { language } = useLanguage();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card');
@@ -34,6 +40,8 @@ export function CheckoutPage() {
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processCheckout] = useProcessCheckoutMutation();
+  const [addToCartBackend] = useAddToCartBackendMutation();
 
   // Billing form state
   const [billingForm, setBillingForm] = useState({
@@ -45,6 +53,21 @@ export function CheckoutPage() {
     city: '',
     postalCode: '',
   });
+
+  // Auto-fill billing form with user profile
+  useEffect(() => {
+    if (user) {
+      setBillingForm(prev => ({
+        ...prev,
+        fullName: user.name || prev.fullName,
+        email: user.email || prev.email,
+        // @ts-ignore - phone might exist on runtime user object
+        phone: user.phone || prev.phone || '',
+        // @ts-ignore - country might exist on runtime user object
+        country: user.country || prev.country || 'Indonesia',
+      }));
+    }
+  }, [user]);
 
   // Card form state
   const [cardForm, setCardForm] = useState({
@@ -58,17 +81,26 @@ export function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Redirect if cart is empty
+  useEffect(() => {
+    if (items.length === 0) {
+      navigate('/cart');
+    }
+  }, [items.length, navigate]);
+
   if (items.length === 0) {
-    navigate('/cart');
     return null;
   }
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + item.course.price, 0);
-  const discount = items.reduce((sum, item) => sum + (item.course.price - (item.course.discountPrice || item.course.price)), 0);
+  const totalItemPrice = items.reduce((sum, item) => sum + (item.course.discountPrice ?? item.course.price), 0);
+  const discount = subtotal - totalItemPrice;
   const promoDiscountAmount = promoApplied ? promoDiscount : 0;
-  const tax = (totalPrice - promoDiscountAmount) * 0.11; // 11% PPN
-  const finalTotal = totalPrice - promoDiscountAmount + tax;
+  
+  const netTotal = Math.max(0, totalItemPrice - promoDiscountAmount);
+  const isFree = netTotal <= 0;
+  const tax = isFree ? 0 : netTotal * 0.11; // 11% PPN only if not free
+  const finalTotal = isFree ? 0 : netTotal + tax;
 
   const handleApplyPromo = () => {
     // Mock promo code validation
@@ -91,16 +123,18 @@ export function CheckoutPage() {
     }
     if (!billingForm.phone.trim()) newErrors.phone = 'Nomor telepon wajib diisi';
 
-    // Payment method validation
-    if (paymentMethod === 'credit_card') {
-      if (!cardForm.cardNumber.replace(/\s/g, '')) newErrors.cardNumber = 'Nomor kartu wajib diisi';
-      else if (cardForm.cardNumber.replace(/\s/g, '').length < 16) {
-        newErrors.cardNumber = 'Nomor kartu tidak valid';
+    // Payment method validation - skip if free
+    if (!isFree) {
+      if (paymentMethod === 'credit_card') {
+        if (!cardForm.cardNumber.replace(/\s/g, '')) newErrors.cardNumber = 'Nomor kartu wajib diisi';
+        else if (cardForm.cardNumber.replace(/\s/g, '').length < 16) {
+          newErrors.cardNumber = 'Nomor kartu tidak valid';
+        }
+        if (!cardForm.cardholderName.trim()) newErrors.cardholderName = 'Nama pemegang kartu wajib diisi';
+        if (!cardForm.expiryDate) newErrors.expiryDate = 'Tanggal kadaluarsa wajib diisi';
+        if (!cardForm.cvv) newErrors.cvv = 'CVV wajib diisi';
+        else if (cardForm.cvv.length < 3) newErrors.cvv = 'CVV tidak valid';
       }
-      if (!cardForm.cardholderName.trim()) newErrors.cardholderName = 'Nama pemegang kartu wajib diisi';
-      if (!cardForm.expiryDate) newErrors.expiryDate = 'Tanggal kadaluarsa wajib diisi';
-      if (!cardForm.cvv) newErrors.cvv = 'CVV wajib diisi';
-      else if (cardForm.cvv.length < 3) newErrors.cvv = 'CVV tidak valid';
     }
 
     // Terms validation
@@ -119,19 +153,38 @@ export function CheckoutPage() {
 
     setIsProcessing(true);
 
-    // Mock payment processing
-    setTimeout(() => {
-      // Clear cart and navigate to success page
-      clearCart();
-      navigate('/payment/success', {
-        state: {
-          transactionId: 'TRX-' + Date.now(),
-          amount: finalTotal,
-          paymentMethod,
-          courses: items.map(item => item.course),
-        },
-      });
-    }, 2000);
+    try {
+      // Sync local cart items to backend if not already synced
+      // The backend processCheckout depends on the backend Cart model
+      for (const item of items) {
+        // Now idempotent, no longer throws 422 if already in cart
+        await addToCartBackend(Number(item.courseId)).unwrap();
+      }
+
+      const response = await processCheckout().unwrap();
+      
+      if (response.success) {
+        toast.success(response.message || (language === 'id' ? 'Pendaftaran berhasil!' : 'Enrollment successful!'));
+        
+        // Clear cart and navigate to success page
+        clearCart();
+        navigate('/payment/success', {
+          state: {
+            transactionId: response.data.order.order_number,
+            amount: finalTotal,
+            paymentMethod: isFree ? 'free' : paymentMethod,
+            courses: items.map(item => item.course),
+            redirect_url: response.data.redirect_url
+          },
+        });
+      }
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      const errorMessage = err?.data?.message || (language === 'id' ? 'Gagal memproses checkout' : 'Failed to process checkout');
+      toast.error(errorMessage);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const formatCardNumber = (value: string) => {
@@ -261,232 +314,254 @@ export function CheckoutPage() {
               </Card>
 
               {/* Payment Method */}
-              <Card>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  {language === 'id' ? 'Metode Pembayaran' : 'Payment Method'}
+              <Card className={cn(isFree && 'opacity-75 bg-gray-50')}>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+                  <span>{language === 'id' ? 'Metode Pembayaran' : 'Payment Method'}</span>
+                  {isFree && (
+                    <span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-700 rounded-full flex items-center gap-1">
+                      <Gift className="w-3 h-3" />
+                      {language === 'id' ? 'Kursus Gratis' : 'Free Course'}
+                    </span>
+                  )}
                 </h2>
 
-                {/* Payment Method Selection */}
-                <div className="grid md:grid-cols-2 gap-3 mb-6">
-                  <button
-                    onClick={() => setPaymentMethod('credit_card')}
-                    className={cn(
-                      'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
-                      paymentMethod === 'credit_card'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    )}
-                  >
-                    <CreditCard className={cn(
-                      'w-6 h-6',
-                      paymentMethod === 'credit_card' ? 'text-blue-600' : 'text-gray-400'
-                    )} />
-                    <span className="font-medium text-gray-900">
-                      {language === 'id' ? 'Kartu Kredit/Debit' : 'Credit/Debit Card'}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('bank_transfer')}
-                    className={cn(
-                      'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
-                      paymentMethod === 'bank_transfer'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    )}
-                  >
-                    <Building2 className={cn(
-                      'w-6 h-6',
-                      paymentMethod === 'bank_transfer' ? 'text-blue-600' : 'text-gray-400'
-                    )} />
-                    <span className="font-medium text-gray-900">
-                      {language === 'id' ? 'Transfer Bank' : 'Bank Transfer'}
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('e_wallet')}
-                    className={cn(
-                      'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
-                      paymentMethod === 'e_wallet'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    )}
-                  >
-                    <Smartphone className={cn(
-                      'w-6 h-6',
-                      paymentMethod === 'e_wallet' ? 'text-blue-600' : 'text-gray-400'
-                    )} />
-                    <span className="font-medium text-gray-900">E-Wallet</span>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('virtual_account')}
-                    className={cn(
-                      'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
-                      paymentMethod === 'virtual_account'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    )}
-                  >
-                    <Building2 className={cn(
-                      'w-6 h-6',
-                      paymentMethod === 'virtual_account' ? 'text-blue-600' : 'text-gray-400'
-                    )} />
-                    <span className="font-medium text-gray-900">Virtual Account</span>
-                  </button>
-                </div>
-
-                {/* Credit Card Form */}
-                {paymentMethod === 'credit_card' && (
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'id' ? 'Nomor Kartu' : 'Card Number'} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={cardForm.cardNumber}
-                        onChange={(e) => setCardForm({ ...cardForm, cardNumber: formatCardNumber(e.target.value) })}
-                        maxLength={19}
-                        className={cn(
-                          'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
-                          errors.cardNumber ? 'border-red-500' : 'border-gray-300'
-                        )}
-                        placeholder="1234 5678 9012 3456"
-                      />
-                      {errors.cardNumber && <p className="text-sm text-red-500 mt-1">{errors.cardNumber}</p>}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'id' ? 'Nama Pemegang Kartu' : 'Cardholder Name'} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={cardForm.cardholderName}
-                        onChange={(e) => setCardForm({ ...cardForm, cardholderName: e.target.value.toUpperCase() })}
-                        className={cn(
-                          'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
-                          errors.cardholderName ? 'border-red-500' : 'border-gray-300'
-                        )}
-                        placeholder="JOHN DOE"
-                      />
-                      {errors.cardholderName && <p className="text-sm text-red-500 mt-1">{errors.cardholderName}</p>}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {language === 'id' ? 'Tanggal Kadaluarsa' : 'Expiry Date'} <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={cardForm.expiryDate}
-                          onChange={(e) => {
-                            let value = e.target.value.replace(/\D/g, '');
-                            if (value.length >= 2) {
-                              value = value.slice(0, 2) + '/' + value.slice(2, 4);
-                            }
-                            setCardForm({ ...cardForm, expiryDate: value });
-                          }}
-                          maxLength={5}
-                          className={cn(
-                            'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
-                            errors.expiryDate ? 'border-red-500' : 'border-gray-300'
-                          )}
-                          placeholder="MM/YY"
-                        />
-                        {errors.expiryDate && <p className="text-sm text-red-500 mt-1">{errors.expiryDate}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          CVV <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={cardForm.cvv}
-                          onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value.replace(/\D/g, '') })}
-                          maxLength={4}
-                          className={cn(
-                            'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
-                            errors.cvv ? 'border-red-500' : 'border-gray-300'
-                          )}
-                          placeholder="123"
-                        />
-                        {errors.cvv && <p className="text-sm text-red-500 mt-1">{errors.cvv}</p>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* E-Wallet Selection */}
-                {paymentMethod === 'e_wallet' && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-3">
-                      {language === 'id' ? 'Pilih E-Wallet Anda:' : 'Select your E-Wallet:'}
+                {isFree ? (
+                  <div className="p-6 text-center border-2 border-dashed border-gray-300 rounded-lg">
+                    <Gift className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                    <h3 className="font-semibold text-gray-900 mb-1">
+                      {language === 'id' ? 'Tidak Ada Pembayaran Diperlukan' : 'No Payment Required'}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {language === 'id' 
+                        ? 'Kursus ini gratis. Anda dapat langsung menyelesaikan pendaftaran tanpa biaya.' 
+                        : 'This course is free. You can complete the enrollment without any charges.'}
                     </p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {eWallets.map((wallet) => (
-                        <button
-                          key={wallet.id}
-                          onClick={() => setSelectedEWallet(wallet.id)}
-                          className={cn(
-                            'flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all',
-                            selectedEWallet === wallet.id
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          )}
-                        >
-                          <span className="text-2xl">{wallet.logo}</span>
-                          <span className="font-medium text-sm">{wallet.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        {language === 'id'
-                          ? 'Anda akan diarahkan ke aplikasi ' + eWallets.find(w => w.id === selectedEWallet)?.name + ' untuk menyelesaikan pembayaran.'
-                          : 'You will be redirected to ' + eWallets.find(w => w.id === selectedEWallet)?.name + ' app to complete payment.'}
-                      </p>
-                    </div>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* Payment Method Selection */}
+                    <div className="grid md:grid-cols-2 gap-3 mb-6">
+                      <button
+                        onClick={() => setPaymentMethod('credit_card')}
+                        className={cn(
+                          'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
+                          paymentMethod === 'credit_card'
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        )}
+                      >
+                        <CreditCard className={cn(
+                          'w-6 h-6',
+                          paymentMethod === 'credit_card' ? 'text-blue-600' : 'text-gray-400'
+                        )} />
+                        <span className="font-medium text-gray-900">
+                          {language === 'id' ? 'Kartu Kredit/Debit' : 'Credit/Debit Card'}
+                        </span>
+                      </button>
 
-                {/* Bank Transfer / Virtual Account */}
-                {(paymentMethod === 'bank_transfer' || paymentMethod === 'virtual_account') && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-3">
-                      {language === 'id' ? 'Pilih Bank:' : 'Select Bank:'}
-                    </p>
-                    <select
-                      value={selectedBank}
-                      onChange={(e) => setSelectedBank(e.target.value as Bank)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {banks.map((bank) => (
-                        <option key={bank.id} value={bank.id}>
-                          {bank.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex gap-2">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-                        <div className="text-sm text-yellow-800">
-                          <p className="font-medium mb-1">
-                            {language === 'id' ? 'Instruksi Pembayaran' : 'Payment Instructions'}
-                          </p>
-                          <p>
+                      <button
+                        onClick={() => setPaymentMethod('bank_transfer')}
+                        className={cn(
+                          'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
+                          paymentMethod === 'bank_transfer'
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        )}
+                      >
+                        <Building2 className={cn(
+                          'w-6 h-6',
+                          paymentMethod === 'bank_transfer' ? 'text-blue-600' : 'text-gray-400'
+                        )} />
+                        <span className="font-medium text-gray-900">
+                          {language === 'id' ? 'Transfer Bank' : 'Bank Transfer'}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => setPaymentMethod('e_wallet')}
+                        className={cn(
+                          'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
+                          paymentMethod === 'e_wallet'
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        )}
+                      >
+                        <Smartphone className={cn(
+                          'w-6 h-6',
+                          paymentMethod === 'e_wallet' ? 'text-blue-600' : 'text-gray-400'
+                        )} />
+                        <span className="font-medium text-gray-900">E-Wallet</span>
+                      </button>
+
+                      <button
+                        onClick={() => setPaymentMethod('virtual_account')}
+                        className={cn(
+                          'flex items-center gap-3 p-4 rounded-lg border-2 transition-all',
+                          paymentMethod === 'virtual_account'
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        )}
+                      >
+                        <Building2 className={cn(
+                          'w-6 h-6',
+                          paymentMethod === 'virtual_account' ? 'text-blue-600' : 'text-gray-400'
+                        )} />
+                        <span className="font-medium text-gray-900">Virtual Account</span>
+                      </button>
+                    </div>
+
+                    {/* Credit Card Form */}
+                    {paymentMethod === 'credit_card' && (
+                      <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {language === 'id' ? 'Nomor Kartu' : 'Card Number'} <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cardForm.cardNumber}
+                            onChange={(e) => setCardForm({ ...cardForm, cardNumber: formatCardNumber(e.target.value) })}
+                            maxLength={19}
+                            className={cn(
+                              'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                              errors.cardNumber ? 'border-red-500' : 'border-gray-300'
+                            )}
+                            placeholder="1234 5678 9012 3456"
+                          />
+                          {errors.cardNumber && <p className="text-sm text-red-500 mt-1">{errors.cardNumber}</p>}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {language === 'id' ? 'Nama Pemegang Kartu' : 'Cardholder Name'} <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cardForm.cardholderName}
+                            onChange={(e) => setCardForm({ ...cardForm, cardholderName: e.target.value.toUpperCase() })}
+                            className={cn(
+                              'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                              errors.cardholderName ? 'border-red-500' : 'border-gray-300'
+                            )}
+                            placeholder="JOHN DOE"
+                          />
+                          {errors.cardholderName && <p className="text-sm text-red-500 mt-1">{errors.cardholderName}</p>}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {language === 'id' ? 'Tanggal Kadaluarsa' : 'Expiry Date'} <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={cardForm.expiryDate}
+                              onChange={(e) => {
+                                let value = e.target.value.replace(/\D/g, '');
+                                if (value.length >= 2) {
+                                  value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                                }
+                                setCardForm({ ...cardForm, expiryDate: value });
+                              }}
+                              maxLength={5}
+                              className={cn(
+                                'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                                errors.expiryDate ? 'border-red-500' : 'border-gray-300'
+                              )}
+                              placeholder="MM/YY"
+                            />
+                            {errors.expiryDate && <p className="text-sm text-red-500 mt-1">{errors.expiryDate}</p>}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              CVV <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={cardForm.cvv}
+                              onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value.replace(/\D/g, '') })}
+                              maxLength={4}
+                              className={cn(
+                                'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                                errors.cvv ? 'border-red-500' : 'border-gray-300'
+                              )}
+                              placeholder="123"
+                            />
+                            {errors.cvv && <p className="text-sm text-red-500 mt-1">{errors.cvv}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* E-Wallet Selection */}
+                    {paymentMethod === 'e_wallet' && (
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-600 mb-3">
+                          {language === 'id' ? 'Pilih E-Wallet Anda:' : 'Select your E-Wallet:'}
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {eWallets.map((wallet) => (
+                            <button
+                              key={wallet.id}
+                              onClick={() => setSelectedEWallet(wallet.id)}
+                              className={cn(
+                                'flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all',
+                                selectedEWallet === wallet.id
+                                  ? 'border-blue-600 bg-blue-50'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              )}
+                            >
+                              <span className="text-2xl">{wallet.logo}</span>
+                              <span className="font-medium text-sm">{wallet.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-800">
                             {language === 'id'
-                              ? 'Nomor virtual account akan muncul setelah Anda mengklik tombol "Selesaikan Pembayaran". Lakukan transfer sesuai nominal yang tertera.'
-                              : 'Virtual account number will appear after you click "Complete Payment" button. Transfer the exact amount shown.'}
+                              ? 'Anda akan diarahkan ke aplikasi ' + eWallets.find(w => w.id === selectedEWallet)?.name + ' untuk menyelesaikan pembayaran.'
+                              : 'You will be redirected to ' + eWallets.find(w => w.id === selectedEWallet)?.name + ' app to complete payment.'}
                           </p>
                         </div>
                       </div>
-                    </div>
-                  </div>
+                    )}
+
+                    {/* Bank Transfer / Virtual Account */}
+                    {(paymentMethod === 'bank_transfer' || paymentMethod === 'virtual_account') && (
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-600 mb-3">
+                          {language === 'id' ? 'Pilih Bank:' : 'Select Bank:'}
+                        </p>
+                        <select
+                          value={selectedBank}
+                          onChange={(e) => setSelectedBank(e.target.value as Bank)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {banks.map((bank) => (
+                            <option key={bank.id} value={bank.id}>
+                              {bank.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex gap-2">
+                            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                            <div className="text-sm text-yellow-800">
+                              <p className="font-medium mb-1">
+                                {language === 'id' ? 'Instruksi Pembayaran' : 'Payment Instructions'}
+                              </p>
+                              <p>
+                                {language === 'id'
+                                  ? 'Nomor virtual account akan muncul setelah Anda mengklik tombol "Selesaikan Pembayaran". Lakukan transfer sesuai nominal yang tertera.'
+                                  : 'Virtual account number will appear after you click "Complete Payment" button. Transfer the exact amount shown.'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </Card>
 
@@ -623,7 +698,9 @@ export function CheckoutPage() {
                   ) : (
                     <>
                       <Lock className="w-5 h-5 mr-2" />
-                      {language === 'id' ? 'Selesaikan Pembayaran' : 'Complete Payment'}
+                      {isFree 
+                        ? (language === 'id' ? 'Ambil Kursus' : 'Enroll Now') 
+                        : (language === 'id' ? 'Selesaikan Pembayaran' : 'Complete Payment')}
                     </>
                   )}
                 </Button>

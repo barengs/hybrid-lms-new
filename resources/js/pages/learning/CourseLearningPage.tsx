@@ -24,8 +24,9 @@ import { useGetCourseContentQuery } from '@/store/features/student/studentApiSli
 
 interface LearningLesson {
   id: number;
+  quiz_id?: number;
   title: string;
-  type: 'video' | 'article' | 'quiz' | 'assignment';
+  type: 'video' | 'article' | 'quiz' | 'quiz_v2' | 'assignment';
   duration: number;
   is_completed: boolean;
   is_locked: boolean;
@@ -75,6 +76,7 @@ export function CourseLearningPage() {
       case 'article':
         return <FileText className="w-4 h-4 text-purple-500" />;
       case 'quiz':
+      case 'quiz_v2':
         return <HelpCircle className="w-4 h-4 text-yellow-500" />;
       case 'assignment':
         return <FileText className="w-4 h-4 text-orange-500" />;
@@ -90,6 +92,7 @@ export function CourseLearningPage() {
       case 'article':
         return language === 'id' ? 'Artikel' : 'Article';
       case 'quiz':
+      case 'quiz_v2':
         return 'Quiz';
       case 'assignment':
         return language === 'id' ? 'Tugas' : 'Assignment';
@@ -114,8 +117,10 @@ export function CourseLearningPage() {
     let url = '';
     const query = fromClass ? `?fromClass=${fromClass}` : '';
     
-    if (lesson.type === 'quiz') {
-      url = `/learn/${slug}/quiz/${lesson.id}${query}`;
+    if (lesson.type === 'quiz' || lesson.type === 'quiz_v2') {
+      const qId = lesson.quiz_id || lesson.id;
+      const qType = lesson.type === 'quiz_v2' ? 'v2' : 'v1';
+      url = `/learn/${slug}/quiz/${qId}${query}${query ? '&' : '?'}type=${qType}`;
     } else if (lesson.type === 'assignment') {
       // Navigate with lesson_id — backend will resolve to the correct assignment
       url = `/assignments/${lesson.id}${query}`;

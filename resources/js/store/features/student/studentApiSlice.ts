@@ -312,6 +312,29 @@ export const studentApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, id) => ['Class'],
     }),
+    getQuizDetail: builder.query<any, number>({
+      query: (quizId) => `/student/quizzes/${quizId}`,
+      transformResponse: (response: { data: any }) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'Lesson', id: `quiz_${id}` }],
+    }),
+    submitQuiz: builder.mutation<{ success: boolean; data: any; message: string }, { quizId: number; answers: any }>({
+      query: ({ quizId, answers }) => ({
+        url: `/student/quizzes/${quizId}/submit`,
+        method: 'POST',
+        body: { answers },
+      }),
+      invalidatesTags: (_result, _error, { quizId }) => [
+        { type: 'Course' },
+        { type: 'Lesson', id: `quiz_${quizId}` }
+      ],
+    }),
+    processCheckout: builder.mutation<{ success: boolean; message: string; data: any }, void>({
+      query: () => ({
+        url: '/checkout/process',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Course', 'Transactions'],
+    }),
   }),
 });
 
@@ -329,4 +352,7 @@ export const {
   useSubmitOnboardingInterestsMutation,
   useGetRecommendationsQuery,
   useToggleActivityCompleteMutation,
+  useGetQuizDetailQuery,
+  useSubmitQuizMutation,
+  useProcessCheckoutMutation,
 } = studentApiSlice;

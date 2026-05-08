@@ -22,6 +22,7 @@ class Enrollment extends Model
         'completed_at',
         'progress_percentage',
         'completed_lessons',
+        'completed_quizzes',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class Enrollment extends Model
             'completed_at' => 'datetime',
             'progress_percentage' => 'integer',
             'completed_lessons' => 'array',
+            'completed_quizzes' => 'array',
         ];
     }
 

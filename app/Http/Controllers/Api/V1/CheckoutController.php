@@ -65,9 +65,9 @@ class CheckoutController extends Controller
                 'subtotal' => $cart->subtotal,
                 'discount' => $cart->discount,
                 'total' => $cart->total,
+                'tax' => 0, // Default tax
                 'status' => $isPaid ? 'paid' : 'pending',
                 'paid_at' => $isPaid ? now() : null,
-                'payment_method' => $simulatePayment ? 'simulation' : null,
             ]);
 
             // Create order items
@@ -82,16 +82,29 @@ class CheckoutController extends Controller
                     'discount_price' => $course->discount_price,
                 ]);
 
-                // Create enrollment record
-                Enrollment::create([
-                    'user_id' => $request->user()->id,
-                    'course_id' => $course->id,
-                    'order_item_id' => $orderItem->id,
-                    'enrolled_at' => $isPaid ? now() : null,
-                ]);
+                // Create enrollment record if doesn't exist
+                $existingEnrollment = Enrollment::where('user_id', $request->user()->id)
+                    ->where('course_id', $course->id)
+                    ->first();
 
-                // If paid, increment enrollment count
-                if ($isPaid) {
+                if (!$existingEnrollment) {
+                    Enrollment::create([
+                        'user_id' => $request->user()->id,
+                        'course_id' => $course->id,
+                        'order_item_id' => $orderItem->id,
+                        'enrolled_at' => $isPaid ? now() : null,
+                    ]);
+
+                    // If paid, increment enrollment count
+                    if ($isPaid) {
+                        $course->increment('total_enrollments');
+                    }
+                } else if ($isPaid && !$existingEnrollment->enrolled_at) {
+                    // Update existing enrollment if it was pending
+                    $existingEnrollment->update([
+                        'order_item_id' => $orderItem->id,
+                        'enrolled_at' => now(),
+                    ]);
                     $course->increment('total_enrollments');
                 }
             }
@@ -107,6 +120,7 @@ class CheckoutController extends Controller
 
             if ($isFree) {
                 return response()->json([
+                    'success' => true,
                     'message' => 'Pendaftaran berhasil! Kursus telah ditambahkan ke dashboard Anda.',
                     'data' => [
                         'order' => $order->load('items.course'),
@@ -116,16 +130,20 @@ class CheckoutController extends Controller
             }
 
             return response()->json([
+                'success' => true,
                 'message' => 'Order created successfully. Please proceed to payment.',
                 'data' => [
                     'order' => $order->load('items.course'),
-                    'redirect_url' => route('payment.process', ['order' => $order->id]),
                     'is_free' => false,
                 ],
             ], 201);
 
         } catch (\Exception $e) {
             DB::rollback();
+            \Log::error('Checkout processing failed: ' . $e->getMessage(), [
+                'user_id' => $request->user()->id,
+                'exception' => $e
+            ]);
             
             return response()->json([
                 'message' => 'An error occurred while processing your order.',

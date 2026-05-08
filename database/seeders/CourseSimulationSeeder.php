@@ -11,6 +11,9 @@ use App\Models\Batch;
 use App\Models\Assignment;
 use App\Models\Enrollment;
 use App\Models\Submission;
+use App\Models\Quiz;
+use App\Models\QuizQuestion;
+use App\Models\QuizOption;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -409,15 +412,10 @@ class CourseSimulationSeeder extends Seeder
                 ]
             );
 
-            // Lesson 2: Quiz
+            // Quiz Data Definition
             $quizData = [
-                'title' => "Quiz " . $section->title,
-                'description' => "Test your knowledge on " . $section->title,
-                'timeLimit' => 15,
-                'passingScore' => 70,
                 'questions' => [
                     [
-                        'id' => 'q1',
                         'text' => $isReact ? 'What is the purpose of useState?' : 'What is the first step in this process?',
                         'options' => [
                             ['id' => 'a', 'text' => $isReact ? 'To manage local component state' : 'Step A'],
@@ -428,27 +426,56 @@ class CourseSimulationSeeder extends Seeder
                 ]
             ];
 
-            $lesson = Lesson::updateOrCreate(
+            // New Relational Quiz
+            $quiz = Quiz::updateOrCreate(
+                ['section_id' => $section->id, 'title' => "Module $i Quiz"],
+                [
+                    'description' => "Test your knowledge on " . $section->title,
+                    'time_limit' => 15,
+                    'passing_score' => 70,
+                    'is_published' => true,
+                    'sort_order' => 2,
+                ]
+            );
+
+            foreach ($quizData['questions'] as $qData) {
+                $question = QuizQuestion::updateOrCreate(
+                    ['quiz_id' => $quiz->id, 'question_text' => $qData['text']],
+                    ['points' => 10, 'sort_order' => 1]
+                );
+
+                foreach ($qData['options'] as $oData) {
+                    QuizOption::updateOrCreate(
+                        ['quiz_question_id' => $question->id, 'option_text' => $oData['text']],
+                        ['is_correct' => $oData['id'] === $qData['correctOptionId']]
+                    );
+                }
+            }
+
+            /* 
+            // Still create a lesson placeholder if you want it to appear in legacy parts, 
+            // but the new syllabus logic will prefer the quiz table.
+            Lesson::updateOrCreate(
                 ['section_id' => $section->id, 'sort_order' => 2],
                 [
                     'title' => "Module $i Quiz",
                     'type' => 'quiz',
-                    'content' => json_encode($quizData),
+                    'content' => null, // Empty content for new quizzes
                     'duration' => 900,
                     'is_published' => true,
                 ]
             );
+            */
 
-            // Create assignment record for this quiz in the batch
+            // Update assignment record for this quiz in the batch if needed
             Assignment::updateOrCreate(
-                ['batch_id' => $batchId, 'lesson_id' => $lesson->id],
+                ['batch_id' => $batchId, 'lesson_id' => Lesson::where('section_id', $section->id)->where('sort_order', 2)->first()->id],
                 [
-                    'title' => $lesson->title,
+                    'title' => "Module $i Quiz",
                     'description' => 'Complete the quiz to test your understanding.',
                     'type' => 'quiz',
                     'max_points' => 100,
                     'is_published' => true,
-                    'content' => $quizData,
                 ]
             );
         }

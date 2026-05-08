@@ -35,6 +35,14 @@ class Section extends Model
     }
 
     /**
+     * Get all quizzes in this section.
+     */
+    public function quizzes(): HasMany
+    {
+        return $this->hasMany(Quiz::class)->orderBy('sort_order');
+    }
+
+    /**
      * Get total duration of all lessons in this section.
      */
     public function getTotalDurationAttribute(): int

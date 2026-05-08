@@ -77,6 +77,10 @@ Route::prefix('v1/mobile')->group(function () {
             Route::get('assignments', [\App\Http\Controllers\Api\V1\Mobile\Student\AssignmentController::class, 'index']);
             Route::get('assignments/{id}', [\App\Http\Controllers\Api\V1\Mobile\Student\AssignmentController::class, 'show']);
             Route::post('assignments/{id}/submit', [\App\Http\Controllers\Api\V1\Mobile\Student\AssignmentController::class, 'submit']);
+            
+            // New Quiz Architecture Routes
+            Route::get('quizzes/{id}', [\App\Http\Controllers\Api\V1\Mobile\Student\QuizController::class, 'show']);
+            Route::post('quizzes/{id}/submit', [\App\Http\Controllers\Api\V1\Mobile\Student\QuizController::class, 'submit']);
         });
     });
 });
@@ -223,6 +227,11 @@ Route::prefix('v1')->group(function () {
         Route::get('assignments/{assignment}', [App\Http\Controllers\Api\V1\Student\AssignmentController::class, 'show']);
         Route::post('assignments/{assignment}/submit', [App\Http\Controllers\Api\V1\Student\AssignmentController::class, 'submit']);
         Route::post('assignments/{assignment}/retry-ai', [App\Http\Controllers\Api\V1\Student\AssignmentController::class, 'retryAi']);
+        
+        // New Quiz Architecture Routes (Web)
+        Route::get('quizzes/{id}', [\App\Http\Controllers\Api\V1\Mobile\Student\QuizController::class, 'show']);
+        Route::post('quizzes/{id}/submit', [\App\Http\Controllers\Api\V1\Mobile\Student\QuizController::class, 'submit']);
+
         Route::get('grades', [App\Http\Controllers\Api\V1\Student\GradeController::class, 'index']);
         Route::get('learning-history', [StudentLearningController::class, 'history']);
     });

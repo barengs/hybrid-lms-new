@@ -41,26 +41,51 @@ class CourseController extends Controller
             $completedLessons = $enrollment ? ($enrollment->completed_lessons ?? []) : [];
 
             $sections = $course->sections->map(function ($section) use ($completedLessons, $enrollment) {
+                // Get Lessons
+                $lessons = $section->lessons->map(function ($lesson) use ($completedLessons, $enrollment) {
+                    $assignment = \App\Models\Assignment::where('lesson_id', $lesson->id)
+                        ->when($enrollment && $enrollment->batch_id, function($q) use ($enrollment) {
+                            $q->where('batch_id', $enrollment->batch_id);
+                        })
+                        ->first();
+                        
+                    return [
+                        'id' => $lesson->id,
+                        'title' => $lesson->title,
+                        'type' => $lesson->type,
+                        'duration' => $lesson->duration,
+                        'is_completed' => in_array($lesson->id, $completedLessons),
+                        'is_locked' => false,
+                        'assignment_id' => $assignment ? $assignment->id : null,
+                        'assignment_type' => $assignment ? $assignment->type : null,
+                        'sort_order' => $lesson->sort_order,
+                    ];
+                });
+
+                // Get Quizzes
+                $quizzes = \App\Models\Quiz::where('section_id', $section->id)
+                    ->where('is_published', true)
+                    ->get()
+                    ->map(function ($quiz) {
+                        return [
+                            'id' => $quiz->id,
+                            'quiz_id' => $quiz->id, // Special field for new quiz structure
+                            'title' => $quiz->title,
+                            'type' => 'quiz_v2', // Mark as new quiz architecture
+                            'duration' => $quiz->time_limit ?? 0,
+                            'is_completed' => false, // TODO: Implement quiz completion
+                            'is_locked' => false,
+                            'sort_order' => $quiz->sort_order,
+                        ];
+                    });
+
+                // Merge and Sort
+                $allItems = $lessons->concat($quizzes)->sortBy('sort_order')->values();
+
                 return [
                     'id' => $section->id,
                     'title' => $section->title,
-                    'lessons' => $section->lessons->map(function ($lesson) use ($completedLessons, $enrollment) {
-                        $assignment = \App\Models\Assignment::where('lesson_id', $lesson->id)
-                            ->when($enrollment && $enrollment->batch_id, function($q) use ($enrollment) {
-                                $q->where('batch_id', $enrollment->batch_id);
-                            })
-                            ->first();
-                            
-                        return [
-                            'id' => $lesson->id,
-                            'title' => $lesson->title,
-                            'type' => $lesson->type,
-                            'duration' => $lesson->duration,
-                            'is_completed' => in_array($lesson->id, $completedLessons),
-                            'is_locked' => false,
-                            'assignment_id' => $assignment ? $assignment->id : null,
-                        ];
-                    })
+                    'lessons' => $allItems
                 ];
             });
 

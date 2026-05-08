@@ -48,7 +48,8 @@ class CartController extends Controller
         if (CartItem::existsInCart($cart->id, $course->id)) {
             return response()->json([
                 'message' => 'Course is already in your cart.',
-            ], 422);
+                'data' => $cart->items()->where('course_id', $course->id)->first()->load('course'),
+            ], 200);
         }
 
         // Add to cart

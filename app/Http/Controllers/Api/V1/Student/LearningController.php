@@ -44,21 +44,47 @@ class LearningController extends Controller
             $completedLessons = $enrollment->completed_lessons ?? [];
 
             $sections = $course->sections->map(function ($section) use ($completedLessons) {
-                return [
-                    'id' => $section->id,
-                    'title' => $section->title,
-                    'sort_order' => $section->sort_order,
-                    'lessons' => $section->lessons->map(function ($lesson) use ($completedLessons) {
+                // Get Lessons (Filter out legacy quiz placeholders)
+                $lessons = $section->lessons
+                    ->reject(fn($l) => $l->type === 'quiz' && empty($l->content))
+                    ->map(function ($lesson) use ($completedLessons) {
                         return [
                             'id' => $lesson->id,
                             'title' => $lesson->title,
                             'type' => $lesson->type,
                             'duration' => $lesson->duration,
                             'is_completed' => in_array($lesson->id, $completedLessons),
-                            'is_locked' => false, // Implement drip-feed logic here if needed
+                            'is_locked' => false,
                             'sort_order' => $lesson->sort_order,
                         ];
-                    })
+                    });
+
+                // Get Quizzes
+                $completedQuizzes = $enrollment->completed_quizzes ?? [];
+                $quizzes = \App\Models\Quiz::where('section_id', $section->id)
+                    ->where('is_published', true)
+                    ->get()
+                    ->map(function ($quiz) use ($completedQuizzes) {
+                        return [
+                            'id' => $quiz->id,
+                            'quiz_id' => $quiz->id,
+                            'title' => $quiz->title,
+                            'type' => 'quiz_v2',
+                            'duration' => ($quiz->time_limit ?? 0) * 60,
+                            'is_completed' => in_array($quiz->id, $completedQuizzes),
+                            'is_locked' => false,
+                            'sort_order' => $quiz->sort_order,
+                        ];
+                    });
+
+                // Merge and Sort
+                $allItems = $lessons->concat($quizzes)->sortBy('sort_order')->values();
+
+                return [
+                    'id' => $section->id,
+                    'title' => $section->title,
+                    'sort_order' => $section->sort_order,
+                    'lessons' => $allItems
                 ];
             });
 
@@ -108,6 +134,38 @@ class LearningController extends Controller
             // Check if lesson belongs to the course
             if ($lesson->section->course_id != $course->id) {
                 return $this->errorResponse('Pelajaran ini bukan bagian dari kursus ' . $course->title, 404);
+            }
+
+            // Bridge: If it's a quiz with no content, try to find a relational quiz to use as content
+            if ($lesson->type === 'quiz' && empty($lesson->content)) {
+                $relatedQuiz = \App\Models\Quiz::with(['questions.options'])
+                    ->where('section_id', $lesson->section_id)
+                    ->where('title', $lesson->title)
+                    ->first();
+                
+                if ($relatedQuiz) {
+                    $legacyFormat = [
+                        'id' => $relatedQuiz->id,
+                        'title' => $relatedQuiz->title,
+                        'description' => $relatedQuiz->description,
+                        'timeLimit' => $relatedQuiz->time_limit,
+                        'passingScore' => $relatedQuiz->passing_score,
+                        'questions' => $relatedQuiz->questions->map(function($q) {
+                            return [
+                                'id' => $q->id,
+                                'text' => $q->question_text,
+                                'options' => $q->options->map(function($o) {
+                                    return [
+                                        'id' => $o->id,
+                                        'text' => $o->option_text
+                                    ];
+                                }),
+                                'correctOptionId' => $q->options->where('is_correct', true)->first()?->id
+                            ];
+                        })
+                    ];
+                    $lesson->content = json_encode($legacyFormat);
+                }
             }
 
             $completedLessons = $enrollment->completed_lessons ?? [];

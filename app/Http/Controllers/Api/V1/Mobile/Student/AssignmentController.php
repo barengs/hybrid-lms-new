@@ -79,6 +79,16 @@ class AssignmentController extends Controller
             $submission = $assignment->submissions->first();
 
             $content = $assignment->content;
+            
+            // Fallback: If assignment content is empty but it's a quiz linked to a lesson,
+            // try to get content from the lesson (common in some seeders/migrations)
+            if (($assignment->type === 'quiz' || $assignment->type === 'assignment') && empty($content) && $assignment->lesson_id) {
+                $lesson = \App\Models\Lesson::find($assignment->lesson_id);
+                if ($lesson && !empty($lesson->content)) {
+                    $content = $lesson->content;
+                }
+            }
+
             if (is_string($content) && !empty($content)) {
                 $decoded = json_decode($content, true);
                 if (json_last_error() === JSON_ERROR_NONE) {
@@ -121,7 +131,7 @@ class AssignmentController extends Controller
             $assignment = Assignment::findOrFail($id);
 
             $request->validate([
-                'file' => 'nullable|file|max:10240',
+                'file' => 'nullable|file|max:51200',
                 'content' => 'nullable|string',
                 'answers' => 'nullable|array',
             ]);
@@ -150,6 +160,19 @@ class AssignmentController extends Controller
             
             if ($assignment->type === 'quiz' && $request->filled('answers')) {
                 $content = $assignment->content;
+                
+                // Fallback for grading
+                if (empty($content) && $assignment->lesson_id) {
+                    $lesson = \App\Models\Lesson::find($assignment->lesson_id);
+                    if ($lesson && !empty($lesson->content)) {
+                        $content = $lesson->content;
+                    }
+                }
+
+                if (is_string($content)) {
+                    $content = json_decode($content, true);
+                }
+
                 $questions = (is_array($content) && isset($content['questions'])) ? $content['questions'] : [];
                 $totalQuestions = count($questions);
                 $correctCount = 0;

@@ -36,7 +36,13 @@ interface Quiz {
 
 type QuizState = 'intro' | 'taking' | 'result';
 
-import { useGetCourseContentQuery, useGetLessonDetailQuery, useMarkLessonCompleteMutation } from '@/store/features/student/studentApiSlice';
+import { 
+  useGetCourseContentQuery, 
+  useGetLessonDetailQuery, 
+  useMarkLessonCompleteMutation,
+  useGetQuizDetailQuery,
+  useSubmitQuizMutation,
+} from '@/store/features/student/studentApiSlice';
 import { toast } from 'react-hot-toast';
 
 export function QuizPage() {
@@ -47,11 +53,21 @@ export function QuizPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
 
+  const isV2 = searchParams.get('type') === 'v2';
+  
   // API Queries
   const { data: course, isLoading: isLoadingCourse } = useGetCourseContentQuery(slug, { skip: !slug });
-  const { data: remoteQuiz, isLoading: isLoadingQuiz, error } = useGetLessonDetailQuery(
+  
+  // Legacy Query
+  const { data: remoteLesson, isLoading: isLoadingLesson, error: lessonError } = useGetLessonDetailQuery(
     { slug, lessonId: numericQuizId },
-    { skip: !slug || isNaN(numericQuizId) }
+    { skip: !slug || isNaN(numericQuizId) || isV2 }
+  );
+
+  // New Architecture Query
+  const { data: remoteQuizV2, isLoading: isLoadingQuizV2, error: quizV2Error } = useGetQuizDetailQuery(
+    numericQuizId,
+    { skip: isNaN(numericQuizId) || !isV2 }
   );
 
   const [quizState, setQuizState] = useState<QuizState>('intro');
@@ -61,21 +77,52 @@ export function QuizPage() {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [serverResult, setServerResult] = useState<any>(null);
 
-  const [markComplete, { isLoading: isMarkingComplete }] = useMarkLessonCompleteMutation();
+  const [markComplete] = useMarkLessonCompleteMutation();
+  const [submitQuizV2] = useSubmitQuizMutation();
 
-  // Parse quiz data from content JSON
+  // Parse quiz data
   const quiz = useMemo(() => {
-    if (!remoteQuiz?.content) return null;
-    try {
-      return JSON.parse(remoteQuiz.content);
-    } catch (e) {
-      console.error('Failed to parse quiz JSON', e);
-      return null;
+    if (isV2) {
+      if (!remoteQuizV2) return null;
+      return {
+        id: remoteQuizV2.id,
+        title: remoteQuizV2.title,
+        description: remoteQuizV2.description,
+        timeLimit: remoteQuizV2.time_limit,
+        passingScore: remoteQuizV2.passing_score,
+        questions: remoteQuizV2.questions.map((q: any) => ({
+          id: q.id.toString(),
+          text: q.text,
+          options: q.options.map((o: any) => ({
+            id: o.id.toString(),
+            text: o.text
+          })),
+          correctOptionId: q.options.find((o: any) => o.is_correct)?.id?.toString()
+        }))
+      };
+    } else {
+      if (!remoteLesson?.content) return null;
+      try {
+        const parsed = JSON.parse(remoteLesson.content);
+        return {
+          ...parsed,
+          questions: parsed.questions.map((q: any) => ({
+            ...q,
+            id: q.id.toString()
+          }))
+        };
+      } catch (e) {
+        console.error('Failed to parse quiz JSON', e);
+        return null;
+      }
     }
-  }, [remoteQuiz]);
+  }, [remoteLesson, remoteQuizV2, isV2]);
 
   const totalQuestions = quiz?.questions?.length || 0;
+  const isLoadingQuiz = isV2 ? isLoadingQuizV2 : isLoadingLesson;
+  const error = isV2 ? quizV2Error : lessonError;
 
   useEffect(() => {
     if (quiz && timeRemaining === 0) {
@@ -125,12 +172,17 @@ export function QuizPage() {
 
   const handleSubmit = async () => {
     try {
-      await markComplete({ slug, lessonId: numericQuizId }).unwrap();
+      if (isV2) {
+        const result = await submitQuizV2({ quizId: numericQuizId, answers }).unwrap();
+        setServerResult(result.data);
+      } else {
+        await markComplete({ slug, lessonId: numericQuizId }).unwrap();
+      }
       setQuizState('result');
       setShowResults(true);
     } catch (err) {
       console.error('Failed to submit quiz:', err);
-      toast.error(language === 'id' ? 'Gagal menyimpan progres kuis' : 'Failed to save quiz progress');
+      toast.error(language === 'id' ? 'Gagal mengirim jawaban kuis' : 'Failed to submit quiz answers');
       setQuizState('result');
       setShowResults(true);
     }
@@ -150,24 +202,39 @@ export function QuizPage() {
     setShowResults(false);
   };
 
-  const handleNextLesson = async () => {
-    if (remoteQuiz?.next_lesson_id && course) {
-      // Find the next lesson object in the course content to check its type
-      let nextLessonObj = null;
-      for (const section of course.sections) {
-        const found = section.lessons.find(l => l.id === remoteQuiz.next_lesson_id);
-        if (found) {
-          nextLessonObj = found;
-          break;
-        }
-      }
+  const handleNextLesson = () => {
+    if (!course) return;
 
-      if (nextLessonObj?.type === 'quiz') {
-        navigate(`/learn/${slug}/quiz/${remoteQuiz.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
-      } else if (nextLessonObj?.type === 'assignment') {
-        navigate(`/assignments/${remoteQuiz.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
+    // Find current item in syllabus
+    let currentIndex = -1;
+    const allItems: any[] = [];
+    
+    course.sections.forEach(section => {
+      section.lessons.forEach(lesson => {
+        allItems.push(lesson);
+        // Check if this is the current quiz
+        const isCurrent = isV2 
+          ? (lesson.quiz_id === numericQuizId || (lesson.type === 'quiz_v2' && lesson.id === numericQuizId))
+          : (lesson.id === numericQuizId && lesson.type === 'quiz');
+        
+        if (isCurrent && currentIndex === -1) {
+          currentIndex = allItems.length - 1;
+        }
+      });
+    });
+
+    const nextItem = allItems[currentIndex + 1];
+
+    if (nextItem) {
+      const query = fromClass ? `?fromClass=${fromClass}` : '';
+      if (nextItem.type === 'quiz' || nextItem.type === 'quiz_v2') {
+        const qId = nextItem.quiz_id || nextItem.id;
+        const qType = nextItem.type === 'quiz_v2' ? 'v2' : 'v1';
+        navigate(`/learn/${slug}/quiz/${qId}${query}${query ? '&' : '?'}type=${qType}`, { replace: true });
+      } else if (nextItem.type === 'assignment') {
+        navigate(`/assignments/${nextItem.id}${query}`, { replace: true });
       } else {
-        navigate(`/learn/${slug}/lesson/${remoteQuiz.next_lesson_id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true });
+        navigate(`/learn/${slug}/lesson/${nextItem.id}${query}`, { replace: true });
       }
     } else {
       // If no next lesson, go back to curriculum
@@ -187,8 +254,9 @@ export function QuizPage() {
     return Math.round((correct / quiz.questions.length) * 100);
   };
 
-  const score = calculateScore();
-  const passed = quiz ? score >= quiz.passingScore : false;
+  const score = serverResult ? serverResult.score : calculateScore();
+  const passed = serverResult ? serverResult.passed : (quiz ? score >= quiz.passingScore : false);
+  const resultMessage = serverResult?.message;
 
   if (isLoadingCourse || isLoadingQuiz) {
     return (
@@ -281,13 +349,13 @@ export function QuizPage() {
             </div>
 
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {passed
+              {resultMessage || (passed
                 ? language === 'id'
                   ? 'Selamat! Anda Lulus!'
                   : 'Congratulations! You Passed!'
                 : language === 'id'
                   ? 'Maaf, Anda Belum Lulus'
-                  : 'Sorry, You Did Not Pass'}
+                  : 'Sorry, You Did Not Pass')}
             </h1>
 
             <div className="flex justify-center gap-8 mb-8">
@@ -455,28 +523,42 @@ export function QuizPage() {
                   <h4 className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
                     {section.title}
                   </h4>
-                  {section.lessons.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => navigate(`/learn/${slug}/lesson/${item.id}${fromClass ? `?fromClass=${fromClass}` : ''}`, { replace: true })}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${item.id === numericQuizId
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'hover:bg-gray-50 text-gray-700'
-                        }`}
-                    >
-                      <div
-                        className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium ${item.is_completed
-                          ? 'bg-green-500 text-white'
-                          : item.id === numericQuizId
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 text-gray-600'
+                  {section.lessons.map((item) => {
+                    const isCurrent = item.id === numericQuizId || item.quiz_id === numericQuizId;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          const query = fromClass ? `?fromClass=${fromClass}` : '';
+                          if (item.type === 'quiz' || item.type === 'quiz_v2') {
+                            const qId = item.quiz_id || item.id;
+                            const qType = item.type === 'quiz_v2' ? 'v2' : 'v1';
+                            navigate(`/learn/${slug}/quiz/${qId}${query}${query ? '&' : '?'}type=${qType}`, { replace: true });
+                          } else if (item.type === 'assignment') {
+                            navigate(`/assignments/${item.id}${query}`, { replace: true });
+                          } else {
+                            navigate(`/learn/${slug}/lesson/${item.id}${query}`, { replace: true });
+                          }
+                        }}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${isCurrent
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'hover:bg-gray-50 text-gray-700'
                           }`}
                       >
-                        {item.is_completed ? <CheckCircle className="w-4 h-4" /> : ''}
-                      </div>
-                      <span className="text-sm truncate">{item.title}</span>
-                    </button>
-                  ))}
+                        <div
+                          className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium ${item.is_completed
+                            ? 'bg-green-500 text-white'
+                            : isCurrent
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-600'
+                            }`}
+                        >
+                          {item.is_completed ? <CheckCircle className="w-4 h-4" /> : ''}
+                        </div>
+                        <span className="text-sm truncate">{item.title}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>

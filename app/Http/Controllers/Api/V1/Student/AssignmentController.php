@@ -188,7 +188,7 @@ class AssignmentController extends Controller
 
             // 1. Validation
             $request->validate([
-                'file' => ['nullable', 'file', 'max:10240'], 
+                'file' => 'nullable|file|max:51200',
                 'content' => ['nullable', 'string'],
                 'answers' => ['nullable', 'array'],
             ]);

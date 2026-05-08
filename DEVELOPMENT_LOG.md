@@ -8,9 +8,10 @@
 | 2026-05-06 | API Mobile: Enrollment & Class Code | Selesai |
 | 2026-05-06 | API Mobile: Learning Content (Lesson, Quiz, Submission) | Selesai |
 | 2026-05-08 | Penambahan fitur Simulasi Pembayaran pada Checkout API | Selesai |
-| 2026-05-08 | Perbaikan Mobile API: Penambahan `assignment_id` pada detail Lesson | Selesai |
-| 2026-05-08 | Peningkatan Robustness: Null check pada konten kuis di Assignment API | Selesai |
 | 2026-05-08 | Sinkronisasi API: Penyelarasan Web & Mobile API untuk data Kuis/Assignment | Selesai |
+| 2026-05-08 | Stabilisasi Kuis Relasional (v2) & Integrasi Progres di Dashboard | Selesai |
+| 2026-05-08 | Perbaikan Checkout 500 Error & Optimalisasi API Cart | Selesai |
+| 2026-05-08 | Peningkatan Limit Upload Submission (10MB -> 50MB) | Selesai |
 
 ## 2. Implementation Plans
 
@@ -21,22 +22,31 @@
 - Endpoint akan dioptimalkan untuk kebutuhan mobile (minimal data, flat structure).
 - Route baru di `api.php` dengan prefix `mobile`.
 
+### [2026-05-08] Phase 2: Instructor Course Builder
+**Tujuan**: Membangun alur kerja instruktur yang utuh untuk pengelolaan kursus berbasis relasional.
+**Pendekatan**:
+- Fokus pada Core Flow: Kursus -> Modul -> Materi -> Kuis v2 -> Tugas Akhir.
+- Implementasi Quiz Builder UI khusus untuk arsitektur relasional baru.
+
 ## 3. Task List
 - [x] Inisialisasi DEVELOPMENT_LOG.md
-- [x] Membuat folder `app/Http/Controllers/Api/V1/Mobile`
-- [x] Membuat `Mobile/Student/DashboardController.php` (Salinan dari original dengan optimasi)
-- [x] Mendaftarkan route mobile di `routes/api.php`
-- [ ] **Auth & Profile (Mobile)**
-    - [ ] Membuat `Mobile/Auth/AuthController.php`
-    - [ ] Membuat `Mobile/Student/ProfileController.php`
-- [ ] **Learning & Enrollment (Mobile)**
-    - [ ] Membuat `Mobile/Student/CourseController.php` (Detail, Syllabus, Lessons)
-    - [ ] Membuat `Mobile/Student/AssignmentController.php` (Quiz & Submission)
-    - [x] Implementasi Join Class via Class Code di `Mobile/Student/BatchController.php`
-- [x] **Checkout & Payment Updates (2026-05-08)**
-    - [x] Update `CheckoutController@processCheckout` untuk mendukung parameter `payment_simulation`
-    - [x] Penambahan logic aktivasi enrollment instan dan increment `total_enrollments` saat pembayaran sukses/disimulasikan
-    - [x] Update `CourseController@showLesson` untuk menyertakan `assignment_id`
-    - [x] Update `AssignmentController@submit` untuk menangani konten kuis yang null/kosong
-    - [x] Sinkronisasi `LearningController` (Web) agar menyertakan `assignment_id` untuk kebutuhan Mobile
-    - [x] Implementasi auto-decoding JSON string pada `content` di semua API Kuis/Lesson
+- [x] **Quiz Stabilization & Enrollment Integration (2026-05-08)**
+    - [x] Perbaikan `ReferenceError: remoteQuiz` pada navigasi kuis
+    - [x] Migrasi: Penambahan kolom `completed_quizzes` pada tabel `enrollments`
+    - [x] Update `QuizController@submit` (Mobile) untuk tracking progres database
+    - [x] Sinkronisasi Dashboard: Centang hijau untuk kuis relasional di syllabus
+- [x] **Checkout & UX Fixes (2026-05-08)**
+    - [x] Perbaikan 500 error di `CheckoutController` (Unique constraint handle)
+    - [x] Idempotent Cart API (200 OK untuk duplikasi) untuk membersihkan console log
+    - [x] Update label tombol checkout kursus gratis ("Ambil Kursus")
+    - [x] Peningkatan limit upload file submission menjadi 50MB
+- [ ] **Instructor Dashboard - Course Builder (Phase 2)**
+    - [ ] **Curriculum Management**
+        - [ ] Integrasi API untuk CRUD Section & Lesson (Instructor)
+        - [ ] Fungsionalitas Kurikulum di `CourseManagePage.tsx` (Real API)
+    - [ ] **Relational Quiz Builder (v2)**
+        - [ ] Membuat `Instructor/QuizController` untuk kuis v2
+        - [ ] Membangun UI Quiz Builder (Manager Pertanyaan & Opsi)
+    - [ ] **Final Assignment Editor**
+        - [ ] Membangun UI untuk pengaturan Tugas Akhir
+        - [ ] Integrasi dengan AI Grading settings

@@ -128,6 +128,21 @@ class LearningController extends Controller
             $nextLessonId = $allLessons[$currentIndex + 1] ?? null;
             $prevLessonId = $allLessons[$currentIndex - 1] ?? null;
 
+            // Fetch assignment ID if it exists for this lesson
+            $assignment = \App\Models\Assignment::where('lesson_id', $lesson->id)
+                ->when($enrollment->batch_id, function($q) use ($enrollment) {
+                    $q->where('batch_id', $enrollment->batch_id);
+                })
+                ->first();
+
+            $content = $lesson->content;
+            if (is_string($content) && !empty($content)) {
+                $decoded = json_decode($content, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $content = $decoded;
+                }
+            }
+
             $data = [
                 'id' => $lesson->id,
                 'title' => $lesson->title,
@@ -139,6 +154,7 @@ class LearningController extends Controller
                 'attachments' => $lesson->attachments,
                 'next_lesson_id' => $nextLessonId,
                 'prev_lesson_id' => $prevLessonId,
+                'assignment_id' => $assignment ? $assignment->id : null,
             ];
 
             return $this->successResponse($data, 'Lesson details retrieved successfully.');

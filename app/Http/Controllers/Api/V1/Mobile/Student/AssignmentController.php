@@ -78,12 +78,20 @@ class AssignmentController extends Controller
 
             $submission = $assignment->submissions->first();
 
+            $content = $assignment->content;
+            if (is_string($content) && !empty($content)) {
+                $decoded = json_decode($content, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $content = $decoded;
+                }
+            }
+
             $data = [
                 'id' => $assignment->id,
                 'title' => $assignment->title,
                 'description' => $assignment->description,
                 'type' => $assignment->type,
-                'content' => $assignment->content, // Questions for quiz, or instructions
+                'content' => $content, // Questions for quiz, or instructions
                 'due_date' => $assignment->due_date,
                 'max_points' => $assignment->max_points,
                 'submission' => $submission ? [
@@ -141,7 +149,8 @@ class AssignmentController extends Controller
             $status = 'submitted';
             
             if ($assignment->type === 'quiz' && $request->filled('answers')) {
-                $questions = $assignment->content['questions'] ?? [];
+                $content = $assignment->content;
+                $questions = (is_array($content) && isset($content['questions'])) ? $content['questions'] : [];
                 $totalQuestions = count($questions);
                 $correctCount = 0;
                 

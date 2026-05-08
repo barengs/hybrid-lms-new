@@ -9,6 +9,8 @@
 | 2026-05-06 | API Mobile: Learning Content (Lesson, Quiz, Submission) | Selesai |
 | 2026-05-08 | Penambahan fitur Simulasi Pembayaran pada Checkout API | Selesai |
 | 2026-05-08 | Perbaikan Mobile API: Penambahan `assignment_id` pada detail Lesson | Selesai |
+| 2026-05-08 | Peningkatan Robustness: Null check pada konten kuis di Assignment API | Selesai |
+| 2026-05-08 | Sinkronisasi API: Penyelarasan Web & Mobile API untuk data Kuis/Assignment | Selesai |
 
 ## 2. Implementation Plans
 
@@ -35,3 +37,6 @@
     - [x] Update `CheckoutController@processCheckout` untuk mendukung parameter `payment_simulation`
     - [x] Penambahan logic aktivasi enrollment instan dan increment `total_enrollments` saat pembayaran sukses/disimulasikan
     - [x] Update `CourseController@showLesson` untuk menyertakan `assignment_id`
+    - [x] Update `AssignmentController@submit` untuk menangani konten kuis yang null/kosong
+    - [x] Sinkronisasi `LearningController` (Web) agar menyertakan `assignment_id` untuk kebutuhan Mobile
+    - [x] Implementasi auto-decoding JSON string pada `content` di semua API Kuis/Lesson

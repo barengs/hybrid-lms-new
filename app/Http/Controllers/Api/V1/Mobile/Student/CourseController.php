@@ -40,11 +40,17 @@ class CourseController extends Controller
 
             $completedLessons = $enrollment ? ($enrollment->completed_lessons ?? []) : [];
 
-            $sections = $course->sections->map(function ($section) use ($completedLessons) {
+            $sections = $course->sections->map(function ($section) use ($completedLessons, $enrollment) {
                 return [
                     'id' => $section->id,
                     'title' => $section->title,
-                    'lessons' => $section->lessons->map(function ($lesson) use ($completedLessons) {
+                    'lessons' => $section->lessons->map(function ($lesson) use ($completedLessons, $enrollment) {
+                        $assignment = \App\Models\Assignment::where('lesson_id', $lesson->id)
+                            ->when($enrollment && $enrollment->batch_id, function($q) use ($enrollment) {
+                                $q->where('batch_id', $enrollment->batch_id);
+                            })
+                            ->first();
+                            
                         return [
                             'id' => $lesson->id,
                             'title' => $lesson->title,
@@ -52,6 +58,7 @@ class CourseController extends Controller
                             'duration' => $lesson->duration,
                             'is_completed' => in_array($lesson->id, $completedLessons),
                             'is_locked' => false,
+                            'assignment_id' => $assignment ? $assignment->id : null,
                         ];
                     })
                 ];
@@ -123,6 +130,14 @@ class CourseController extends Controller
                     $q->where('batch_id', $enrollment->batch_id);
                 })
                 ->first();
+
+            $content = $lesson->content;
+            if (is_string($content) && !empty($content)) {
+                $decoded = json_decode($content, true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $content = $decoded;
+                }
+            }
 
             $data = [
                 'id' => $lesson->id,

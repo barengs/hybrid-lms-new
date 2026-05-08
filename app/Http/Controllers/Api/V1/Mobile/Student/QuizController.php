@@ -26,6 +26,11 @@ class QuizController extends Controller
                 ->where('is_published', true)
                 ->findOrFail($id);
 
+            $lastResult = \App\Models\QuizResult::where('quiz_id', $quiz->id)
+                ->where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
             // Re-format to match mobile expectations if needed
             $data = [
                 'id' => $quiz->id,
@@ -47,7 +52,14 @@ class QuizController extends Controller
                             ];
                         })
                     ];
-                })
+                }),
+                'results' => $lastResult ? [
+                    'score' => $lastResult->score,
+                    'correct_count' => $lastResult->correct_answers,
+                    'total_questions' => $lastResult->total_questions,
+                    'passed' => $lastResult->passed,
+                    'completed_at' => $lastResult->completed_at,
+                ] : null
             ];
 
             return $this->successResponse($data, 'Detail kuis berhasil dimuat.');
@@ -127,6 +139,18 @@ class QuizController extends Controller
                     }
                 }
             }
+            
+            // Save to quiz_results
+            \App\Models\QuizResult::create([
+                'quiz_id' => $quiz->id,
+                'user_id' => $user->id,
+                'score' => $score,
+                'correct_answers' => $correctCount,
+                'total_questions' => $questions->count(),
+                'answers' => $request->answers,
+                'passed' => $passed,
+                'completed_at' => now(),
+            ]);
             
             return $this->successResponse([
                 'score' => $score,

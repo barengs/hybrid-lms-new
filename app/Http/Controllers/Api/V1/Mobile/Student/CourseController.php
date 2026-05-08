@@ -184,7 +184,11 @@ class CourseController extends Controller
                                 }),
                                 'correctOptionId' => $q->options->where('is_correct', true)->first()?->id
                             ];
-                        })
+                        }),
+                        'last_result' => \App\Models\QuizResult::where('quiz_id', $relatedQuiz->id)
+                            ->where('user_id', $user->id)
+                            ->orderBy('created_at', 'desc')
+                            ->first()
                     ];
                     $lesson->content = json_encode($legacyFormat);
                 }

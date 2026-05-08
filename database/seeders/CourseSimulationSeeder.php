@@ -426,10 +426,23 @@ class CourseSimulationSeeder extends Seeder
                 ]
             ];
 
+            // Create a lesson placeholder for the quiz
+            $quizLesson = Lesson::updateOrCreate(
+                ['section_id' => $section->id, 'sort_order' => 2],
+                [
+                    'title' => "Module $i Quiz",
+                    'type' => 'quiz',
+                    'content' => null,
+                    'duration' => 900,
+                    'is_published' => true,
+                ]
+            );
+
             // New Relational Quiz
             $quiz = Quiz::updateOrCreate(
                 ['section_id' => $section->id, 'title' => "Module $i Quiz"],
                 [
+                    'lesson_id' => $quizLesson->id,
                     'description' => "Test your knowledge on " . $section->title,
                     'time_limit' => 15,
                     'passing_score' => 70,
@@ -452,24 +465,10 @@ class CourseSimulationSeeder extends Seeder
                 }
             }
 
-            /* 
-            // Still create a lesson placeholder if you want it to appear in legacy parts, 
-            // but the new syllabus logic will prefer the quiz table.
-            Lesson::updateOrCreate(
-                ['section_id' => $section->id, 'sort_order' => 2],
-                [
-                    'title' => "Module $i Quiz",
-                    'type' => 'quiz',
-                    'content' => null, // Empty content for new quizzes
-                    'duration' => 900,
-                    'is_published' => true,
-                ]
-            );
-            */
 
             // Update assignment record for this quiz in the batch if needed
             Assignment::updateOrCreate(
-                ['batch_id' => $batchId, 'lesson_id' => Lesson::where('section_id', $section->id)->where('sort_order', 2)->first()->id],
+                ['batch_id' => $batchId, 'lesson_id' => $quizLesson->id],
                 [
                     'title' => "Module $i Quiz",
                     'description' => 'Complete the quiz to test your understanding.',

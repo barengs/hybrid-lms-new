@@ -23,13 +23,13 @@ class ClassPeopleController extends Controller
      */
     public function index($id)
     {
-        $batch = Batch::with(['course.instructor.profile', 'enrollments.user.profile'])
+        $batch = Batch::with(['instructor.profile', 'enrollments.user.profile'])
             ->findOrFail($id);
 
         // TODO: Authorization check
 
         $instructors = [
-            $batch->course->instructor
+            $batch->instructor
         ];
 
         $students = $batch->enrollments->map(function ($enrollment) {

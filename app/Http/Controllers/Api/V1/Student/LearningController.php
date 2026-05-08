@@ -155,6 +155,7 @@ class LearningController extends Controller
                 'next_lesson_id' => $nextLessonId,
                 'prev_lesson_id' => $prevLessonId,
                 'assignment_id' => $assignment ? $assignment->id : null,
+                'assignment_type' => $assignment ? $assignment->type : null,
             ];
 
             return $this->successResponse($data, 'Lesson details retrieved successfully.');

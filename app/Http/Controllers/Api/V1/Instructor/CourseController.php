@@ -130,8 +130,9 @@ class CourseController extends Controller
         return response()->json([
             'data' => $course->load([
                 'category:id,name,slug',
-                'sections' => fn($q) => $q->withCount('lessons'),
-                'sections.lessons',
+                'sections' => fn($q) => $q->withCount(['lessons', 'quizzes']),
+                'sections.lessons' => fn($q) => $q->with('quiz'),
+                'sections.quizzes',
             ]),
         ]);
     }

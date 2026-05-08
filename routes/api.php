@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Instructor\AssignmentController;
 use App\Http\Controllers\Api\V1\Instructor\BatchController;
 use App\Http\Controllers\Api\V1\Instructor\CourseController;
 use App\Http\Controllers\Api\V1\Instructor\LessonController;
+use App\Http\Controllers\Api\V1\Instructor\QuizController;
 use App\Http\Controllers\Api\V1\Instructor\SectionController;
 use App\Http\Controllers\Api\V1\Instructor\SubmissionController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
@@ -204,6 +205,7 @@ Route::prefix('v1')->group(function () {
         Route::post('submissions/{submission}/grade', [SubmissionController::class, 'grade']);
         Route::post('submissions/{submission}/ai-grade', [SubmissionController::class, 'aiGrade']);
         Route::get('students', [\App\Http\Controllers\Api\V1\Instructor\StudentController::class, 'index']);
+        Route::apiResource('quizzes', QuizController::class);
         Route::get('earnings', [InstructorEarningsController::class, 'index']);
         Route::get('payouts', [InstructorPayoutController::class, 'index']);
         Route::post('payouts', [InstructorPayoutController::class, 'store']);

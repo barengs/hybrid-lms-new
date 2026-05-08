@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         // Seed roles and permissions first
         $this->call([
+            CategorySeeder::class,
             RolePermissionSeeder::class,
             MenuSeeder::class,
             CourseSimulationSeeder::class, // New dedicated seeder

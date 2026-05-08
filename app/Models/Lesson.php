@@ -67,6 +67,14 @@ class Lesson extends Model
     }
 
     /**
+     * Get the quiz associated with this lesson.
+     */
+    public function quiz()
+    {
+        return $this->hasOne(Quiz::class);
+    }
+
+    /**
      * Get all discussions associated with this lesson.
      */
     public function discussions(): HasMany

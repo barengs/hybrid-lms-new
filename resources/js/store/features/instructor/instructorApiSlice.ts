@@ -69,7 +69,7 @@ export interface InstructorCourse {
 }
 
 export interface RawInstructorCourse {
-  id: number;
+  id: string | number;
   instructor_id: string;
   category_id: string | null;
   title: string;
@@ -94,13 +94,13 @@ export interface RawInstructorCourse {
   total_lessons: string;
   total_enrollments: string;
   average_rating: string;
-  total_reviews: string;
+  total_reviews: string | number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  sections_count: string;
-  lessons_count: string;
-  revenue: string | null;
+  sections_count: string | number;
+  lessons_count: string | number;
+  revenue: string | number | null;
   category: any;
 }
 
@@ -112,6 +112,7 @@ export interface CourseSection {
   is_active: boolean;
   is_free: boolean;
   lessons: CourseLesson[];
+  quizzes: Quiz[];
 }
 
 export interface CourseLesson {
@@ -126,6 +127,32 @@ export interface CourseLesson {
   is_preview: boolean;
   sort_order: number;
   is_active: boolean;
+}
+
+export interface QuizOption {
+  id?: number;
+  option_text: string;
+  is_correct: boolean;
+}
+
+export interface QuizQuestion {
+  id?: number;
+  question_text: string;
+  points: number;
+  type?: string;
+  options: QuizOption[];
+}
+
+export interface Quiz {
+  id: number;
+  section_id: string;
+  title: string;
+  description: string | null;
+  time_limit: number;
+  passing_score: number;
+  is_published: boolean;
+  questions?: QuizQuestion[];
+  questions_count?: number;
 }
 
 export interface InstructorCourseDetail extends RawInstructorCourse {
@@ -364,11 +391,24 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
     }),
     getInstructorCourse: builder.query<InstructorCourseDetail, string>({
       query: (id) => `/instructor/courses/${id}`,
-      transformResponse: (response: InstructorCourseDetailResponse) => response.data,
+      transformResponse: (response: InstructorCourseDetailResponse) => {
+        const course = response.data;
+        return {
+          ...course,
+          id: String(course.id),
+          thumbnail: course.thumbnail ? `${import.meta.env.VITE_URL_API_IMAGE}/${course.thumbnail}` : '',
+          preview_video: course.preview_video ? `${import.meta.env.VITE_URL_API_IMAGE}/${course.preview_video}` : null,
+          total_enrollments: String(course.total_enrollments || 0),
+          average_rating: String(course.average_rating || 0),
+          total_reviews: String(course.total_reviews || 0),
+          lessons_count: String(course.lessons_count || 0),
+          sections_count: String(course.sections_count || 0),
+        };
+      },
       providesTags: (_result, _error, id) => [{ type: 'InstructorCourses', id }],
     }),
     getCategories: builder.query<Category[], void>({
-      query: () => '/admin/categories',
+      query: () => '/categories',
       transformResponse: (response: CategoriesResponse) => response.data,
     }),
     createCourse: builder.mutation<void, FormData>({
@@ -407,6 +447,38 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['Submissions'],
     }),
+    createQuiz: builder.mutation<any, any>({
+      query: (payload) => ({
+        url: '/instructor/quizzes',
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { courseId }) => [
+        { type: 'InstructorCourses', id: courseId },
+        { type: 'InstructorQuizzes' },
+      ],
+    }),
+    updateQuiz: builder.mutation<any, { id: string | number; courseId: string | number; [key: string]: any }>({
+      query: ({ id, ...payload }) => ({
+        url: `/instructor/quizzes/${id}`,
+        method: 'PUT',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { courseId, id }) => [
+        { type: 'InstructorCourses', id: courseId },
+        { type: 'InstructorQuizzes', id },
+      ],
+    }),
+    deleteQuiz: builder.mutation<{ success: boolean }, { id: string | number; courseId: string | number }>({
+      query: ({ id }) => ({
+        url: `/instructor/quizzes/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { courseId, id }) => [
+        { type: 'InstructorCourses', id: courseId },
+        { type: 'InstructorQuizzes', id },
+      ],
+    }),
     getInstructorEarnings: builder.query<EarningsData, void>({
       query: () => '/instructor/earnings',
       transformResponse: (response: { data: EarningsData }) => response.data,
@@ -425,6 +497,126 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['Payouts', 'Earnings'],
     }),
+
+    // --- Curriculum Management ---
+    // Sections
+    createSection: builder.mutation<CourseSection, { courseId: string; title: string; description?: string }>({
+      query: ({ courseId, ...body }) => ({
+        url: `/instructor/courses/${courseId}/sections`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+    updateSection: builder.mutation<CourseSection, { courseId: string; sectionId: string; title?: string; description?: string }>({
+      query: ({ courseId, sectionId, ...body }) => ({
+        url: `/instructor/courses/${courseId}/sections/${sectionId}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+    deleteSection: builder.mutation<void, { courseId: string; sectionId: string }>({
+      query: ({ courseId, sectionId }) => ({
+        url: `/instructor/courses/${courseId}/sections/${sectionId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+    reorderSections: builder.mutation<void, { courseId: string; sections: { id: number; sort_order: number }[] }>({
+      query: ({ courseId, ...body }) => ({
+        url: `/instructor/courses/${courseId}/sections/reorder`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+
+    // Lessons
+    getLessonData: builder.query<CourseLesson, { courseId: string; lessonId: string }>({
+      query: ({ courseId, lessonId }) => `/instructor/courses/${courseId}/lessons/${lessonId}`,
+      transformResponse: (response: { data: CourseLesson }) => response.data,
+    }),
+    createLesson: builder.mutation<CourseLesson, { courseId: string; sectionId: string; title: string; type: string; content?: string; video_url?: string; duration?: number }>({
+      query: ({ courseId, sectionId, ...body }) => ({
+        url: `/instructor/courses/${courseId}/sections/${sectionId}/lessons`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+    updateLesson: builder.mutation<CourseLesson, { courseId: string; sectionId: string; lessonId: string; title?: string; type?: string; content?: string; video_url?: string; duration?: number }>({
+      query: ({ courseId, sectionId, lessonId, ...body }) => ({
+        url: `/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+    deleteLesson: builder.mutation<void, { courseId: string; sectionId: string; lessonId: string }>({
+      query: ({ courseId, sectionId, lessonId }) => ({
+        url: `/instructor/courses/${courseId}/sections/${sectionId}/lessons/${lessonId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+    reorderLessons: builder.mutation<void, { courseId: string; sectionId: string; lessons: { id: number; sort_order: number }[] }>({
+      query: ({ courseId, sectionId, ...body }) => ({
+        url: `/instructor/courses/${courseId}/sections/${sectionId}/lessons/reorder`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { courseId }) => [{ type: 'InstructorCourses', id: courseId }],
+    }),
+
+    // Quizzes (v2)
+    getInstructorQuizzes: builder.query<Quiz[], void>({
+      query: () => '/instructor/quizzes',
+      transformResponse: (response: { data: Quiz[] }) => response.data,
+      providesTags: ['InstructorQuizzes'],
+    }),
+    getInstructorQuiz: builder.query<Quiz, string>({
+      query: (id) => `/instructor/quizzes/${id}`,
+      transformResponse: (response: { data: Quiz }) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'InstructorQuizzes', id }],
+    }),
+    createInstructorQuiz: builder.mutation<Quiz, Partial<Quiz>>({
+      query: (body) => ({
+        url: '/instructor/quizzes',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['InstructorQuizzes', 'InstructorCourses'],
+    }),
+    updateInstructorQuiz: builder.mutation<Quiz, { id: string } & Partial<Quiz>>({
+      query: ({ id, ...body }) => ({
+        url: `/instructor/quizzes/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'InstructorQuizzes', id }, 'InstructorCourses'],
+    }),
+    deleteInstructorQuiz: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/instructor/quizzes/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['InstructorQuizzes', 'InstructorCourses'],
+    }),
+    submitCourseReview: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/instructor/courses/${id}/submit-review`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['InstructorCourses'],
+    }),
+    deleteCourse: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/instructor/courses/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['InstructorCourses'],
+    }),
   }),
 });
 
@@ -441,4 +633,23 @@ export const {
   useGetInstructorEarningsQuery,
   useGetInstructorPayoutsQuery,
   useRequestPayoutMutation,
+  useCreateSectionMutation,
+  useUpdateSectionMutation,
+  useDeleteSectionMutation,
+  useReorderSectionsMutation,
+  useGetLessonDataQuery,
+  useCreateLessonMutation,
+  useUpdateLessonMutation,
+  useDeleteLessonMutation,
+  useReorderLessonsMutation,
+  useGetInstructorQuizzesQuery,
+  useGetInstructorQuizQuery,
+  useCreateInstructorQuizMutation,
+  useUpdateInstructorQuizMutation,
+  useDeleteInstructorQuizMutation,
+  useCreateQuizMutation,
+  useUpdateQuizMutation,
+  useDeleteQuizMutation,
+  useSubmitCourseReviewMutation,
+  useDeleteCourseMutation,
 } = instructorApiSlice;

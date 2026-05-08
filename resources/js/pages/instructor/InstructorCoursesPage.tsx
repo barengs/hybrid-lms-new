@@ -25,7 +25,12 @@ import { DashboardLayout } from '@/components/layouts';
 import { Card, Button, Badge, Input, Dropdown, Modal } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import { useGetInstructorCoursesQuery, type InstructorCourse } from '@/store/features/instructor/instructorApiSlice';
+import { 
+  useGetInstructorCoursesQuery, 
+  useDeleteCourseMutation,
+  type InstructorCourse 
+} from '@/store/features/instructor/instructorApiSlice';
+import { toast } from 'react-hot-toast';
 
 type CourseStatus = 'draft' | 'pending' | 'published' | 'rejected';
 
@@ -37,6 +42,7 @@ export function InstructorCoursesPage() {
   const [sortBy, setSortBy] = useState<'newest' | 'students' | 'revenue'>('newest');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<InstructorCourse | null>(null);
+  const [deleteCourse, { isLoading: isDeleting }] = useDeleteCourseMutation();
 
   const { data: courses = [], isLoading, error } = useGetInstructorCoursesQuery();
 
@@ -139,11 +145,16 @@ export function InstructorCoursesPage() {
     });
   };
 
-  const handleDeleteCourse = () => {
+  const handleDeleteCourse = async () => {
     if (selectedCourse) {
-      console.log('Deleting course:', selectedCourse.id);
-      setShowDeleteModal(false);
-      setSelectedCourse(null);
+      try {
+        await deleteCourse(String(selectedCourse.id)).unwrap();
+        toast.success(language === 'id' ? 'Kursus berhasil dihapus' : 'Course deleted successfully');
+        setShowDeleteModal(false);
+        setSelectedCourse(null);
+      } catch (err) {
+        toast.error(language === 'id' ? 'Gagal menghapus kursus' : 'Failed to delete course');
+      }
     }
   };
 
@@ -493,10 +504,10 @@ export function InstructorCoursesPage() {
                 : `You are about to delete "${selectedCourse?.title}". This action cannot be undone.`}
             </p>
             <div className="flex justify-center gap-3">
-              <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              <Button variant="outline" onClick={() => setShowDeleteModal(false)} disabled={isDeleting}>
                 {language === 'id' ? 'Batal' : 'Cancel'}
               </Button>
-              <Button variant="danger" onClick={handleDeleteCourse}>
+              <Button variant="danger" onClick={handleDeleteCourse} isLoading={isDeleting}>
                 {language === 'id' ? 'Ya, Hapus' : 'Yes, Delete'}
               </Button>
             </div>

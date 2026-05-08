@@ -5,8 +5,10 @@
 | :--- | :--- | :--- |
 | 2026-05-06 | Pemisahan Controller API khusus untuk Mobile (Pilot: Dashboard & My Learning) | Selesai |
 | 2026-05-06 | API Mobile: Auth & Profile Management | Selesai |
-| 2026-05-06 | API Mobile: Enrollment & Class Code | Menunggu |
-| 2026-05-06 | API Mobile: Learning Content (Lesson, Quiz, Submission) | Menunggu |
+| 2026-05-06 | API Mobile: Enrollment & Class Code | Selesai |
+| 2026-05-06 | API Mobile: Learning Content (Lesson, Quiz, Submission) | Selesai |
+| 2026-05-08 | Penambahan fitur Simulasi Pembayaran pada Checkout API | Selesai |
+| 2026-05-08 | Perbaikan Mobile API: Penambahan `assignment_id` pada detail Lesson | Selesai |
 
 ## 2. Implementation Plans
 
@@ -28,4 +30,8 @@
 - [ ] **Learning & Enrollment (Mobile)**
     - [ ] Membuat `Mobile/Student/CourseController.php` (Detail, Syllabus, Lessons)
     - [ ] Membuat `Mobile/Student/AssignmentController.php` (Quiz & Submission)
-    - [ ] Implementasi Join Class via Class Code di `Mobile/Student/BatchController.php`
+    - [x] Implementasi Join Class via Class Code di `Mobile/Student/BatchController.php`
+- [x] **Checkout & Payment Updates (2026-05-08)**
+    - [x] Update `CheckoutController@processCheckout` untuk mendukung parameter `payment_simulation`
+    - [x] Penambahan logic aktivasi enrollment instan dan increment `total_enrollments` saat pembayaran sukses/disimulasikan
+    - [x] Update `CourseController@showLesson` untuk menyertakan `assignment_id`

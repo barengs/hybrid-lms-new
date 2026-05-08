@@ -56,6 +56,8 @@ class CheckoutController extends Controller
 
         try {
             $isFree = $cart->total <= 0;
+            $simulatePayment = $request->boolean('payment_simulation', false);
+            $isPaid = $isFree || $simulatePayment;
             
             // Create order
             $order = Order::create([
@@ -63,8 +65,9 @@ class CheckoutController extends Controller
                 'subtotal' => $cart->subtotal,
                 'discount' => $cart->discount,
                 'total' => $cart->total,
-                'status' => $isFree ? 'paid' : 'pending',
-                'paid_at' => $isFree ? now() : null,
+                'status' => $isPaid ? 'paid' : 'pending',
+                'paid_at' => $isPaid ? now() : null,
+                'payment_method' => $simulatePayment ? 'simulation' : null,
             ]);
 
             // Create order items
@@ -84,8 +87,13 @@ class CheckoutController extends Controller
                     'user_id' => $request->user()->id,
                     'course_id' => $course->id,
                     'order_item_id' => $orderItem->id,
-                    'enrolled_at' => $isFree ? now() : null,
+                    'enrolled_at' => $isPaid ? now() : null,
                 ]);
+
+                // If paid, increment enrollment count
+                if ($isPaid) {
+                    $course->increment('total_enrollments');
+                }
             }
 
             // Clear cart

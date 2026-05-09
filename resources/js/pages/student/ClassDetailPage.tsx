@@ -36,7 +36,7 @@ export function ClassDetailPage() {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'info' | 'classwork' | 'grades'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'classwork' | 'grades' | 'members'>('info');
   
   // Session Modal State
   const [selectedSession, setSelectedSession] = useState<any>(null);
@@ -255,6 +255,11 @@ export function ClassDetailPage() {
             label: language === 'id' ? 'Nilai' : 'Grades',
             icon: <Award className="w-4 h-4" />,
           },
+          {
+            id: 'members',
+            label: language === 'id' ? 'Anggota' : 'Members',
+            icon: <Users className="w-4 h-4" />,
+          },
         ]}
         activeTab={activeTab}
         onChange={(id) => setActiveTab(id as any)}
@@ -423,6 +428,67 @@ export function ClassDetailPage() {
                   </div>
                 )}
               </div>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'members' && (
+          <div className="space-y-6">
+            {/* Instructors */}
+            <Card>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                {language === 'id' ? 'Instruktur' : 'Instructors'}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Main Instructor */}
+                {classData.instructor && (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                    <Avatar src={classData.instructor.avatar} name={classData.instructor.name} size="md" />
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{classData.instructor.name}</p>
+                      <p className="text-xs text-gray-500">{classData.instructor.email}</p>
+                      <Badge size="sm" variant="secondary" className="mt-1">Main Instructor</Badge>
+                    </div>
+                  </div>
+                )}
+                {/* Additional Instructors if any */}
+                {classData.instructors?.filter((ins: any) => ins.id !== classData.instructor?.id).map((ins: any) => (
+                  <div key={ins.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                    <Avatar src={ins.avatar || ins.profile?.avatar} name={ins.name} size="md" />
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{ins.name}</p>
+                      <p className="text-xs text-gray-500">{ins.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Students */}
+            <Card>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {language === 'id' ? 'Teman Sekelas' : 'Classmates'}
+                </h3>
+                <Badge variant="outline">{classData.students?.length || 0} {language === 'id' ? 'Siswa' : 'Students'}</Badge>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(classData.students || []).map((student: any) => (
+                  <div key={student.id} className="flex items-center gap-3 p-3 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-gray-50 transition-colors">
+                    <Avatar src={student.avatar} name={student.name} size="sm" />
+                    <div className="overflow-hidden">
+                      <p className="font-medium text-gray-900 dark:text-white truncate">{student.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{student.email}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {(!classData.students || classData.students.length === 0) && (
+                <div className="text-center py-8">
+                   <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                   <p className="text-gray-500">{language === 'id' ? 'Belum ada siswa terdaftar' : 'No students enrolled yet'}</p>
+                </div>
+              )}
             </Card>
           </div>
         )}

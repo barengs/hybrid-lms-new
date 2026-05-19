@@ -83,7 +83,9 @@ class CourseCatalogController extends Controller
      */
     public function show(string $slug): JsonResponse
     {
-        $course = Course::published()
+        $user = auth('api')->user();
+
+        $course = Course::query()
             ->with([
                 'instructor:id,name,email,created_at',
                 'instructor.profile:id,user_id,bio,headline,expertise',
@@ -92,6 +94,12 @@ class CourseCatalogController extends Controller
                 'sections.lessons:id,section_id,title,type,duration,is_free,sort_order'
             ])
             ->where('slug', $slug)
+            ->where(function ($query) use ($user) {
+                $query->where('status', 'published');
+                if ($user) {
+                    $query->orWhere('instructor_id', $user->id);
+                }
+            })
             ->firstOrFail();
 
         // Increment view count (using cache for performance)

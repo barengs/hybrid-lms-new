@@ -93,7 +93,12 @@ class CourseCatalogController extends Controller
                 'sections:id,course_id,title,description,sort_order',
                 'sections.lessons:id,section_id,title,type,duration,is_free,sort_order'
             ])
-            ->where('slug', $slug)
+            ->where(function ($query) use ($slug) {
+                $query->where('slug', $slug);
+                if (is_numeric($slug)) {
+                    $query->orWhere('id', $slug);
+                }
+            })
             ->where(function ($query) use ($user) {
                 $query->where('status', 'published');
                 if ($user) {

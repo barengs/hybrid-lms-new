@@ -128,6 +128,7 @@ class DashboardController extends Controller
                 ->map(function($course) {
                     return [
                         'id' => $course->id,
+                        'slug' => $course->slug,
                         'title' => $course->title,
                         'thumbnail' => $course->thumbnail,
                         'total_students' => $course->total_enrollments,

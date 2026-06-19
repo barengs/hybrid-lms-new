@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
@@ -25,7 +25,7 @@ import { useGetCategoriesQuery, type Category } from '@/store/features/category/
 export function CoursesManagementPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
-  
+
   // State for filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -50,18 +50,23 @@ export function CoursesManagementPage() {
   const categories = categoriesData || [];
 
   // Pending courses for the highlight section
-  const { data: allPendingData } = useGetAdminCoursesQuery({ status: 'pending', per_page: 5 });
+  const { data: allPendingData } = useGetAdminCoursesQuery({ status: 'pending_review', per_page: 5 });
   const pendingCourses = allPendingData?.data?.data || [];
 
-  const getStatusBadge = (status: Course['status']) => {
-    const config = {
+  const getStatusBadge = (course: Course) => {
+    let effectiveStatus = course.status as string;
+    if (course.status === 'draft' && course.admin_feedback) {
+      effectiveStatus = 'revision';
+    }
+
+    const config: Record<string, any> = {
       draft: { variant: 'secondary' as const, label: 'Draft', icon: Clock, colorClass: 'text-gray-600 bg-gray-100 dark:bg-gray-800 dark:text-gray-400' },
-      pending: { variant: 'warning' as const, label: language === 'id' ? 'Menunggu Review' : 'Pending Review', icon: Clock, colorClass: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400' },
+      pending_review: { variant: 'warning' as const, label: language === 'id' ? 'Menunggu Review' : 'Pending Review', icon: Clock, colorClass: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400' },
       published: { variant: 'success' as const, label: language === 'id' ? 'Publish' : 'Published', icon: CheckCircle, colorClass: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400' },
       revision: { variant: 'primary' as const, label: language === 'id' ? 'Perlu Revisi' : 'Needs Revision', icon: Filter, colorClass: 'text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400' },
       rejected: { variant: 'danger' as const, label: language === 'id' ? 'Ditolak' : 'Rejected', icon: XCircle, colorClass: 'text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400' },
     };
-    const current = config[status] || config.draft;
+    const current = config[effectiveStatus] || config.draft;
     const { label, icon: Icon, colorClass } = current;
     return (
       <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium", colorClass)}>
@@ -98,7 +103,7 @@ export function CoursesManagementPage() {
                   className="w-20 h-12 object-cover rounded-lg shadow-sm ring-1 ring-gray-200 dark:ring-gray-700"
                 />
                 <div className="absolute -top-2 -right-2">
-                   {course.studentsEnrolled > 100 && <Badge variant="success" size="sm" className="px-1 shadow-sm">Hot</Badge>}
+                  {course.studentsEnrolled > 100 && <Badge variant="success" size="sm" className="px-1 shadow-sm">Hot</Badge>}
                 </div>
               </div>
               <div className="min-w-0">
@@ -151,7 +156,7 @@ export function CoursesManagementPage() {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => getStatusBadge(row.original.status),
+        cell: ({ row }) => getStatusBadge(row.original),
       },
       {
         accessorKey: 'created_at',
@@ -160,7 +165,7 @@ export function CoursesManagementPage() {
           <div className="flex flex-col">
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{getTimeAgo(row.original.created_at)}</span>
             <span className="text-[10px] text-gray-400">
-               {new Date(row.original.created_at).toLocaleDateString()}
+              {new Date(row.original.created_at).toLocaleDateString()}
             </span>
           </div>
         ),
@@ -184,7 +189,32 @@ export function CoursesManagementPage() {
     [language, navigate]
   );
 
-  if (statsLoading || coursesLoading) return <LoadingScreen />;
+  if (statsLoading || coursesLoading) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 lg:p-8 animate-pulse">
+          <div className="mb-8">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 mb-2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96"></div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+            {Array(6).fill(0).map((_, i) => (
+              <Card key={i} className="flex items-center gap-3 h-[74px] bg-gray-50 dark:bg-gray-800">
+                <div className="w-full h-full"></div>
+              </Card>
+            ))}
+          </div>
+          <Card className="p-4 bg-gray-50 dark:bg-gray-800 h-[400px]">
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full mb-4"></div>
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+            <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const statsItems = [
     { label: language === 'id' ? 'Total Kursus' : 'Total Courses', value: stats.total, icon: BookOpen, color: 'blue', gradient: 'from-blue-500/10 to-indigo-500/10', iconColor: 'text-blue-600' },
@@ -197,7 +227,7 @@ export function CoursesManagementPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+      <div>
         {/* Header Section */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -211,10 +241,10 @@ export function CoursesManagementPage() {
         </div>
 
         {/* Stats Grid - Matching Instructor Style */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
           {statsItems.map((item, i) => (
             <Card key={i} className="flex items-center gap-3">
-              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", 
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
                 item.color === 'blue' && "bg-blue-100",
                 item.color === 'amber' && "bg-yellow-100",
                 item.color === 'emerald' && "bg-green-100",
@@ -222,7 +252,7 @@ export function CoursesManagementPage() {
                 item.color === 'rose' && "bg-red-100",
                 item.color === 'sky' && "bg-sky-100",
               )}>
-                <item.icon className={cn("w-5 h-5", 
+                <item.icon className={cn("w-5 h-5",
                   item.color === 'blue' && "text-blue-600",
                   item.color === 'amber' && "text-yellow-600",
                   item.color === 'emerald' && "text-green-600",
@@ -241,7 +271,7 @@ export function CoursesManagementPage() {
 
         {/* Action Call for Pending Reviews - Adjusted for consistency */}
         {pendingCourses.length > 0 && (
-          <Card className="mb-6 bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-900/30">
+          <Card className="mb-4 bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-900/30">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-yellow-800 dark:text-yellow-400">
                 <Clock className="w-5 h-5" />
@@ -261,7 +291,7 @@ export function CoursesManagementPage() {
                       />
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white text-sm line-clamp-1">{course.title}</p>
-                        <p className="text-[10px] text-gray-500">{course.instructor?.name} • {getTimeAgo(course.created_at)}</p>
+                        <p className="text-[10px] text-gray-500">{course.instructor?.name} â€¢ {getTimeAgo(course.created_at)}</p>
                       </div>
                     </div>
                     <Button
@@ -293,7 +323,7 @@ export function CoursesManagementPage() {
                   className="w-full pl-10 pr-4 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                 />
               </div>
-              
+
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <Select
                   value={statusFilter}
@@ -316,12 +346,12 @@ export function CoursesManagementPage() {
                   ]}
                   className="w-full sm:w-40"
                 />
-                
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+
+                <Button
+                  variant="outline"
+                  size="sm"
                   leftIcon={<Download className="w-4 h-4" />}
-                  onClick={() => {}}
+                  onClick={() => { }}
                 >
                   {language === 'id' ? 'Ekspor' : 'Export'}
                 </Button>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -14,7 +14,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Avatar, Modal } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Avatar, Modal , DashboardLoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, cn } from '@/lib/utils';
 import { useGetAdminTransactionDetailQuery } from '@/store/api/transactionManagementApiSlice';
@@ -127,7 +127,7 @@ export function TransactionDetailPage() {
     return events;
   }, [order, language]);
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return <DashboardLoadingScreen />;
   if (error || !order) return (
     <DashboardLayout>
         <div className="text-center py-20">
@@ -146,7 +146,7 @@ export function TransactionDetailPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <Button
@@ -331,7 +331,7 @@ export function TransactionDetailPage() {
                       <div className="flex-1 pb-4">
                         <h4 className="text-sm font-medium text-gray-900 dark:text-white">{event.description}</h4>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {new Date(event.timestamp).toLocaleDateString('id-ID')} •{' '}
+                          {new Date(event.timestamp).toLocaleDateString('id-ID')} â€¢{' '}
                           {new Date(event.timestamp).toLocaleTimeString('id-ID')}
                         </p>
                       </div>
@@ -499,3 +499,4 @@ export function TransactionDetailPage() {
     </DashboardLayout>
   );
 }
+

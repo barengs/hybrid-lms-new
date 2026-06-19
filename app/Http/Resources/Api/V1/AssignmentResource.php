@@ -26,6 +26,8 @@ class AssignmentResource extends JsonResource
             'due_date'                  => $this->due_date,
             'max_points'                => $this->max_points,
             'gradable'                  => $this->gradable,
+            'use_ai_grading'            => (bool)$this->use_ai_grading,
+            'ai_instructions'           => $this->ai_instructions,
             'allow_multiple_submissions' => $this->allow_multiple_submissions,
             'is_published'              => $this->is_published,
             'my_submission'             => new SubmissionResource($this->whenLoaded('mySubmission')),

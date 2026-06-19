@@ -133,6 +133,7 @@ class CourseController extends Controller
                 'sections' => fn($q) => $q->withCount(['lessons', 'quizzes']),
                 'sections.lessons' => fn($q) => $q->with('quiz'),
                 'sections.quizzes',
+                'statusHistories' => fn($q) => $q->with('user')->latest(),
             ]),
         ]);
     }
@@ -373,7 +374,16 @@ class CourseController extends Controller
             ], 422);
         }
 
+        $oldStatus = $course->status;
         $course->update(['status' => 'pending_review']);
+
+        \App\Models\CourseStatusHistory::create([
+            'course_id' => $course->id,
+            'user_id' => $request->user()->id,
+            'old_status' => $oldStatus,
+            'new_status' => 'pending_review',
+            'feedback' => null,
+        ]);
 
         return response()->json([
             'message' => 'Course submitted for review.',

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Submission;
+use App\Models\Assignment;
 use Prism\Prism\Facades\Prism;
 use Prism\Prism\Enums\Provider;
 use Illuminate\Support\Facades\Storage;
@@ -44,17 +45,17 @@ class AiGradingService
             $context .= "Max Points: {$assignment->max_points}\n";
             $type = $assignment->type; // assignment, project, etc.
 
-            $prompt = $this->generatePrompt($context, $fullContent, $type);
+            $prompt = $this->generatePrompt($context, $fullContent, $type, $assignment);
 
             // 3. Get AI Config from Database
             $aiConfig = $this->settingService->getAiConfig();
             
-            $providerEnum = match (strtolower($aiConfig['provider'])) {
-                'gemini' => Provider::Gemini,
-                'openai' => Provider::OpenAI,
-                'anthropic' => Provider::Anthropic,
-                default => Provider::Ollama,
-            };
+            $providerStr = strtolower($aiConfig['provider']);
+            $providerEnum = Provider::tryFrom($providerStr) ?? Provider::Ollama;
+            
+            if (!empty($aiConfig['api_key'])) {
+                config(["prism.providers.{$providerStr}.api_key" => $aiConfig['api_key']]);
+            }
             
             $response = Prism::text()
                 ->using($providerEnum, $aiConfig['model'])
@@ -132,12 +133,16 @@ class AiGradingService
     /**
      * Generate prompt based on content and type.
      */
-    protected function generatePrompt(string $context, string $content, string $type): string
+    protected function generatePrompt(string $context, string $content, string $type, Assignment $assignment = null): string
     {
         $instructions = "Anda adalah asisten pengajar AI yang ahli. Tugas Anda adalah menilai tugas mahasiswa.\n\n";
         $instructions .= "KONTEKS TUGAS:\n{$context}\n\n";
         $instructions .= "KONTEN SUBMISI MAHASISWA:\n{$content}\n\n";
         
+        if (!empty($assignment->ai_instructions)) {
+            $instructions .= "INSTRUKSI KHUSUS DARI INSTRUKTUR:\n{$assignment->ai_instructions}\n\n";
+        }
+
         $instructions .= "INSTRUKSI PENILAIAN UTAMA (SANGAT PENTING):\n";
         $instructions .= "1. VERIFIKASI RELEVANSI: Pertama, periksa apakah submisi mahasiswa sesuai dengan Deskripsi dan Instruksi Tugas di atas. Jika submisi sama sekali tidak relevan, menyimpang dari topik, atau hanya berupa file sembarang/dummy, berikan SKOR 0 dan jelaskan ketidaksesuaian tersebut dalam feedback.\n";
         $instructions .= "2. OBJEKTIVITAS: Jangan memberikan skor tinggi hanya karena dokumen terlihat panjang atau formal jika isinya tidak menjawab tugas yang diberikan.\n";

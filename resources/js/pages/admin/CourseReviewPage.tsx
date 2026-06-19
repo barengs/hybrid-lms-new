@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,7 +16,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Avatar, Modal, LoadingScreen } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Avatar, Modal, LoadingScreen , DashboardLoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, getTimeAgo } from '@/lib/utils';
 import { useGetAdminCourseQuery, useUpdateAdminCourseStatusMutation } from '@/store/api/courseManagementApiSlice';
@@ -95,7 +95,7 @@ export function CourseReviewPage() {
     try {
       await updateStatus({ 
         id: id!, 
-        status: 'revision',
+        status: 'draft',
         admin_feedback: revisionNotes
       }).unwrap();
       toast.success(language === 'id' ? 'Permintaan revisi telah dikirim' : 'Revision request has been sent');
@@ -133,12 +133,12 @@ export function CourseReviewPage() {
 
   const allChecked = Object.values(checklist).every(v => v);
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return <DashboardLoadingScreen />;
   if (!course) return <div className="p-8 text-center">Course not found or access denied.</div>;
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <Link
@@ -159,7 +159,7 @@ export function CourseReviewPage() {
                 <Badge variant="secondary">{course.language}</Badge>
               </div>
             </div>
-            {course.status === 'pending' && (
+            {course.status === 'pending_review' && (
               <div className="flex flex-wrap gap-2 lg:flex-nowrap">
                 <Button
                   variant="outline"
@@ -297,7 +297,7 @@ export function CourseReviewPage() {
                         <ul className="space-y-2">
                           {(course.outcomes || []).map((obj: string, idx: number) => (
                             <li key={idx} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                              <span className="text-green-500 mt-1">•</span>
+                              <span className="text-green-500 mt-1">â€¢</span>
                               <span>{obj}</span>
                             </li>
                           ))}
@@ -341,21 +341,68 @@ export function CourseReviewPage() {
                         <CardContent className="p-0">
                           <div className="divide-y divide-gray-100 dark:divide-gray-800">
                             {(section.lessons || []).map((lesson: any, lIdx: number) => (
-                              <div key={lesson.id} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-colors group">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-8 h-8 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center text-xs font-semibold text-gray-400 group-hover:text-blue-500 group-hover:border-blue-200 transition-colors">
-                                    {lIdx + 1}
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-medium text-gray-900 dark:text-white">{lesson.title}</span>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      {getLessonTypeIcon(lesson.type)}
-                                      <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">{lesson.type}</span>
+                              <div key={lesson.id} className="flex flex-col p-4 hover:bg-gray-50 dark:hover:bg-gray-900/30 transition-colors group">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-4 w-full">
+                                    <div className="w-8 h-8 shrink-0 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center text-xs font-semibold text-gray-400 group-hover:text-blue-500 group-hover:border-blue-200 transition-colors">
+                                      {lIdx + 1}
+                                    </div>
+                                    <div className="flex flex-col flex-1">
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <span className="text-sm font-medium text-gray-900 dark:text-white">{lesson.title}</span>
+                                          <div className="flex items-center gap-2 mt-1">
+                                            {getLessonTypeIcon(lesson.type)}
+                                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold">{lesson.type}</span>
+                                          </div>
+                                        </div>
+                                        <div className="text-xs text-gray-400 font-medium">
+                                          {lesson.duration > 0 ? `${Math.floor(lesson.duration / 60)}m` : '-'}
+                                        </div>
+                                      </div>
+
+                                      {/* Lesson Content / Instructions */}
+                                      {lesson.content && (
+                                        <div className="mt-3 text-xs text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700/50">
+                                          <p className="font-semibold mb-1 text-gray-700 dark:text-gray-200">{language === 'id' ? 'Deskripsi / Petunjuk:' : 'Description / Instructions:'}</p>
+                                          <div className="whitespace-pre-line leading-relaxed">{lesson.content}</div>
+                                        </div>
+                                      )}
+
+                                      {/* Quiz Questions */}
+                                      {lesson.type === 'quiz' && lesson.quiz && (
+                                        <div className="mt-3 text-xs bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                                          <p className="font-semibold mb-2 text-indigo-700 dark:text-indigo-300">
+                                            {language === 'id' ? 'Detail Kuis:' : 'Quiz Details:'}
+                                          </p>
+                                          <p className="mb-3 text-gray-600 dark:text-gray-400 font-medium">
+                                            {lesson.quiz.description} â€¢ {lesson.quiz.questions?.length || 0} Pertanyaan â€¢ {lesson.quiz.time_limit} Menit â€¢ KKM: {lesson.quiz.passing_score}
+                                          </p>
+                                          <ul className="space-y-2">
+                                            {lesson.quiz.questions?.map((q: any, qIdx: number) => (
+                                              <li key={q.id} className="pl-3 py-1 border-l-2 border-indigo-300 dark:border-indigo-700/50 bg-white dark:bg-gray-900/50 rounded-r-md">
+                                                <span className="text-gray-700 dark:text-gray-300 font-medium block mb-1">Q{qIdx + 1}. {q.question_text}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+
+                                      {/* Assignment Details */}
+                                      {lesson.type === 'assignment' && lesson.assignments && lesson.assignments.length > 0 && (
+                                        <div className="mt-3 text-xs bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-100 dark:border-purple-800/30">
+                                          <p className="font-semibold mb-1 text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                                            <BookOpen className="w-3.5 h-3.5" />
+                                            {language === 'id' ? 'Detail Tugas Akhir:' : 'Assignment Details:'}
+                                          </p>
+                                          <p className="font-medium text-gray-800 dark:text-gray-200 mb-2">{lesson.assignments[0].title}</p>
+                                          <div className="whitespace-pre-line text-gray-600 dark:text-gray-400 leading-relaxed bg-white/50 dark:bg-gray-900/50 p-2 rounded-lg">
+                                            {lesson.assignments[0].description}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                </div>
-                                <div className="text-xs text-gray-400 font-medium">
-                                  {lesson.duration || '0'}m
                                 </div>
                               </div>
                             ))}
@@ -395,7 +442,7 @@ export function CourseReviewPage() {
 
           {/* Sidebar Area: Review Context & History */}
           <div className="space-y-6 lg:sticky lg:top-8">
-            {course.status === 'pending' && (
+            {course.status === 'pending_review' && (
               <Card className="border-2 border-blue-100 dark:border-blue-900/30 overflow-hidden shadow-xl shadow-blue-500/5">
                 <CardHeader className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/30">
                   <CardTitle className="text-sm font-bold flex items-center gap-2 text-blue-900 dark:text-blue-400 uppercase tracking-widest">
@@ -454,25 +501,44 @@ export function CourseReviewPage() {
               </CardHeader>
               <CardContent className="p-0">
                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                    <div className="p-4 flex gap-4 bg-gray-50/50 dark:bg-gray-900/20">
-                       <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0 animate-pulse" />
-                       <div className="flex-1">
-                          <p className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">{course.status}</p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">{getTimeAgo(course.updated_at || course.created_at)}</p>
-                          {course.admin_feedback && (
-                            <div className="mt-2 text-[11px] text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700 italic">
-                               "{course.admin_feedback}"
-                            </div>
-                          )}
-                       </div>
-                    </div>
-                    <div className="p-4 flex gap-4 opacity-70">
-                       <div className="w-2 h-2 rounded-full bg-gray-300 mt-2 shrink-0" />
-                       <div className="flex-1">
-                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Submitted</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{new Date(course.created_at).toLocaleString()}</p>
-                       </div>
-                    </div>
+                    {course.statusHistories && course.statusHistories.length > 0 ? (
+                      course.statusHistories.map((history, idx) => (
+                        <div key={history.id} className={`p-4 flex gap-4 ${idx === 0 ? 'bg-gray-50/50 dark:bg-gray-900/20' : 'opacity-70'}`}>
+                           <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${idx === 0 ? 'bg-blue-500 animate-pulse' : 'bg-gray-300'}`} />
+                           <div className="flex-1">
+                              <p className={`text-xs font-bold uppercase tracking-wider ${idx === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>{history.new_status}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">{new Date(history.created_at).toLocaleString()} â€¢ {history.user?.name}</p>
+                              {history.feedback && (
+                                <div className="mt-2 text-[11px] text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700 italic">
+                                   "{history.feedback}"
+                                </div>
+                              )}
+                           </div>
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className="p-4 flex gap-4 bg-gray-50/50 dark:bg-gray-900/20">
+                           <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0 animate-pulse" />
+                           <div className="flex-1">
+                              <p className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">{course.status}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">{getTimeAgo(course.updated_at || course.created_at)}</p>
+                              {course.admin_feedback && (
+                                <div className="mt-2 text-[11px] text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700 italic">
+                                   "{course.admin_feedback}"
+                                </div>
+                              )}
+                           </div>
+                        </div>
+                        <div className="p-4 flex gap-4 opacity-70">
+                           <div className="w-2 h-2 rounded-full bg-gray-300 mt-2 shrink-0" />
+                           <div className="flex-1">
+                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Submitted</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">{new Date(course.created_at).toLocaleString()}</p>
+                           </div>
+                        </div>
+                      </>
+                    )}
                  </div>
               </CardContent>
             </Card>
@@ -555,4 +621,5 @@ export function CourseReviewPage() {
     </DashboardLayout>
   );
 }
+
 

@@ -21,7 +21,17 @@ class AppSettingService
                 return $default;
             }
 
-            return $setting->casted_value;
+            $val = $setting->casted_value;
+            
+            if ($key === 'ai_api_key' && !empty($val)) {
+                try {
+                    $val = \Illuminate\Support\Facades\Crypt::decryptString($val);
+                } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+                    // Fallback jika data sebelumnya belum dienkripsi
+                }
+            }
+            
+            return $val;
         });
     }
 
@@ -30,6 +40,10 @@ class AppSettingService
      */
     public function set(string $key, $value, string $type = 'string', string $group = 'general')
     {
+        if ($key === 'ai_api_key' && !empty($value)) {
+            $value = \Illuminate\Support\Facades\Crypt::encryptString($value);
+        }
+
         $setting = AppSetting::updateOrCreate(
             ['key' => $key],
             [
@@ -53,6 +67,7 @@ class AppSettingService
             'provider' => $this->get('ai_provider', config('prism.default_provider', 'ollama')),
             'model' => $this->get('ai_model', 'llama3'), // Default to llama3 for ollama, or gemini-1.5-flash for gemini
             'temperature' => $this->get('ai_temperature', 0.7),
+            'api_key' => $this->get('ai_api_key', ''),
         ];
     }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   Percent,
   DollarSign,
@@ -12,7 +12,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, Button, Badge, Modal } from '@/components/ui';
+import { Card, Button, Badge, Modal , DashboardLoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, cn } from '@/lib/utils';
 
@@ -145,11 +145,11 @@ export function CommissionSettingsPage() {
     setEditingDelay(payoutDelayDays);
   };
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return <DashboardLoadingScreen />;
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+      <div>
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -404,9 +404,9 @@ export function CommissionSettingsPage() {
                     {language === 'id' ? 'Catatan Penting' : 'Important Notes'}
                   </p>
                   <ul className="space-y-1 text-yellow-800 text-xs">
-                    <li>• {language === 'id' ? 'Perubahan berlaku untuk transaksi baru' : 'Changes apply to new transactions'}</li>
-                    <li>• {language === 'id' ? 'Transaksi lama tidak terpengaruh' : 'Old transactions are not affected'}</li>
-                    <li>• {language === 'id' ? 'Semua perubahan dicatat dalam log' : 'All changes are logged'}</li>
+                    <li>â€¢ {language === 'id' ? 'Perubahan berlaku untuk transaksi baru' : 'Changes apply to new transactions'}</li>
+                    <li>â€¢ {language === 'id' ? 'Transaksi lama tidak terpengaruh' : 'Old transactions are not affected'}</li>
+                    <li>â€¢ {language === 'id' ? 'Semua perubahan dicatat dalam log' : 'All changes are logged'}</li>
                   </ul>
                 </div>
               </div>
@@ -434,16 +434,16 @@ export function CommissionSettingsPage() {
               </p>
               <ul className="space-y-1 text-sm text-blue-800">
                 {editingCommission !== platformCommission && (
-                  <li>• {language === 'id' ? 'Komisi Platform' : 'Platform Commission'}: {platformCommission}% → {editingCommission}%</li>
+                  <li>â€¢ {language === 'id' ? 'Komisi Platform' : 'Platform Commission'}: {platformCommission}% â†’ {editingCommission}%</li>
                 )}
                 {editingMinPayout !== minimumPayout && (
-                  <li>• {language === 'id' ? 'Min. Payout' : 'Min. Payout'}: {formatCurrency(minimumPayout)} → {formatCurrency(editingMinPayout)}</li>
+                  <li>â€¢ {language === 'id' ? 'Min. Payout' : 'Min. Payout'}: {formatCurrency(minimumPayout)} â†’ {formatCurrency(editingMinPayout)}</li>
                 )}
                 {editingTax !== taxWithholding && (
-                  <li>• {language === 'id' ? 'Pajak' : 'Tax'}: {taxWithholding}% → {editingTax}%</li>
+                  <li>â€¢ {language === 'id' ? 'Pajak' : 'Tax'}: {taxWithholding}% â†’ {editingTax}%</li>
                 )}
                 {editingDelay !== payoutDelayDays && (
-                  <li>• {language === 'id' ? 'Penundaan' : 'Delay'}: {payoutDelayDays} → {editingDelay} {language === 'id' ? 'Hari' : 'Days'}</li>
+                  <li>â€¢ {language === 'id' ? 'Penundaan' : 'Delay'}: {payoutDelayDays} â†’ {editingDelay} {language === 'id' ? 'Hari' : 'Days'}</li>
                 )}
               </ul>
             </div>
@@ -492,7 +492,7 @@ export function CommissionSettingsPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm mb-2">
                   <span className="text-red-600">{change.field.includes('Payout') ? formatCurrency(change.oldValue) : change.oldValue + '%'}</span>
-                  <span className="text-gray-400">→</span>
+                  <span className="text-gray-400">â†’</span>
                   <span className="text-green-600">{change.field.includes('Payout') ? formatCurrency(change.newValue) : change.newValue + '%'}</span>
                 </div>
                 <p className="text-sm text-gray-600 italic">{change.reason}</p>
@@ -504,3 +504,4 @@ export function CommissionSettingsPage() {
     </DashboardLayout>
   );
 }
+

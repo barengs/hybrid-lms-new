@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Globe,
   Mail,
@@ -60,6 +60,7 @@ export function AdminSettingsPage() {
 
   // AI Settings
   const [aiProvider, setAiProvider] = useState('ollama');
+  const [aiApiKey, setAiApiKey] = useState('');
   const [aiModel, setAiModel] = useState('llama3');
   const [aiTemperature, setAiTemperature] = useState(0.7);
 
@@ -68,21 +69,86 @@ export function AdminSettingsPage() {
   const [updateSettings, { isLoading: isSaving }] = useUpdateAppSettingsMutation();
 
   // Load data from API
-  useState(() => {
-    if (settingsData?.data?.ai) {
-      const ai = settingsData.data.ai.reduce((acc: any, s: any) => ({ ...acc, [s.key]: s.value }), {});
-      if (ai.ai_provider) setAiProvider(ai.ai_provider);
-      if (ai.ai_model) setAiModel(ai.ai_model);
-      if (ai.ai_temperature) setAiTemperature(ai.ai_temperature);
+  useEffect(() => {
+    if (settingsData?.data) {
+      const data = settingsData.data;
+      
+      if (data.general) {
+        const gen = data.general.reduce((acc: any, s: any) => ({ ...acc, [s.key]: s.value }), {});
+        if (gen.platform_name) setPlatformName(gen.platform_name);
+        if (gen.platform_tagline) setPlatformTagline(gen.platform_tagline);
+        if (gen.default_language) setDefaultLanguage(gen.default_language);
+        if (gen.default_currency) setDefaultCurrency(gen.default_currency);
+        if (gen.timezone) setTimezone(gen.timezone);
+      }
+
+      if (data.email) {
+        const mail = data.email.reduce((acc: any, s: any) => ({ ...acc, [s.key]: s.value }), {});
+        if (mail.smtp_host) setSmtpHost(mail.smtp_host);
+        if (mail.smtp_port) setSmtpPort(mail.smtp_port);
+        if (mail.email_sender_name) setEmailSenderName(mail.email_sender_name);
+        if (mail.email_sender_address) setEmailSenderAddress(mail.email_sender_address);
+      }
+
+      if (data.security) {
+        const sec = data.security.reduce((acc: any, s: any) => ({ ...acc, [s.key]: s.value }), {});
+        if (sec.min_password_length) setMinPasswordLength(Number(sec.min_password_length));
+        if (sec.require_special_chars) setRequireSpecialChars(sec.require_special_chars === '1' || sec.require_special_chars === 'true');
+        if (sec.require_uppercase) setRequireUppercase(sec.require_uppercase === '1' || sec.require_uppercase === 'true');
+        if (sec.session_timeout) setSessionTimeout(Number(sec.session_timeout));
+        if (sec.max_login_attempts) setMaxLoginAttempts(Number(sec.max_login_attempts));
+        if (sec.two_factor_enabled) setTwoFactorEnabled(sec.two_factor_enabled === '1' || sec.two_factor_enabled === 'true');
+      }
+
+      if (data.notifications) {
+        const notif = data.notifications.reduce((acc: any, s: any) => ({ ...acc, [s.key]: s.value }), {});
+        if (notif.notify_new_user !== undefined) setNotifyNewUser(notif.notify_new_user === '1' || notif.notify_new_user === 'true');
+        if (notif.notify_new_course !== undefined) setNotifyNewCourse(notif.notify_new_course === '1' || notif.notify_new_course === 'true');
+        if (notif.notify_purchase !== undefined) setNotifyPurchase(notif.notify_purchase === '1' || notif.notify_purchase === 'true');
+        if (notif.notify_payout_request !== undefined) setNotifyPayoutRequest(notif.notify_payout_request === '1' || notif.notify_payout_request === 'true');
+      }
+
+      if (data.ai) {
+        const ai = data.ai.reduce((acc: any, s: any) => ({ ...acc, [s.key]: s.value }), {});
+        if (ai.ai_provider) setAiProvider(ai.ai_provider);
+        if (ai.ai_api_key) setAiApiKey(ai.ai_api_key);
+        if (ai.ai_model) setAiModel(ai.ai_model);
+        if (ai.ai_temperature) setAiTemperature(Number(ai.ai_temperature));
+      }
     }
-  });
+  }, [settingsData]);
 
   const handleSave = async () => {
     try {
       const payload = [
+        // General
+        { key: 'platform_name', value: platformName, group: 'general' },
+        { key: 'platform_tagline', value: platformTagline, group: 'general' },
+        { key: 'default_language', value: defaultLanguage, group: 'general' },
+        { key: 'default_currency', value: defaultCurrency, group: 'general' },
+        { key: 'timezone', value: timezone, group: 'general' },
+        // Email
+        { key: 'smtp_host', value: smtpHost, group: 'email' },
+        { key: 'smtp_port', value: smtpPort, group: 'email' },
+        { key: 'email_sender_name', value: emailSenderName, group: 'email' },
+        { key: 'email_sender_address', value: emailSenderAddress, group: 'email' },
+        // Security
+        { key: 'min_password_length', value: minPasswordLength.toString(), group: 'security', type: 'integer' },
+        { key: 'require_special_chars', value: requireSpecialChars ? '1' : '0', group: 'security', type: 'boolean' },
+        { key: 'require_uppercase', value: requireUppercase ? '1' : '0', group: 'security', type: 'boolean' },
+        { key: 'session_timeout', value: sessionTimeout.toString(), group: 'security', type: 'integer' },
+        { key: 'max_login_attempts', value: maxLoginAttempts.toString(), group: 'security', type: 'integer' },
+        { key: 'two_factor_enabled', value: twoFactorEnabled ? '1' : '0', group: 'security', type: 'boolean' },
+        // Notifications
+        { key: 'notify_new_user', value: notifyNewUser ? '1' : '0', group: 'notifications', type: 'boolean' },
+        { key: 'notify_new_course', value: notifyNewCourse ? '1' : '0', group: 'notifications', type: 'boolean' },
+        { key: 'notify_purchase', value: notifyPurchase ? '1' : '0', group: 'notifications', type: 'boolean' },
+        { key: 'notify_payout_request', value: notifyPayoutRequest ? '1' : '0', group: 'notifications', type: 'boolean' },
+        // AI
         { key: 'ai_provider', value: aiProvider, group: 'ai' },
+        { key: 'ai_api_key', value: aiApiKey, group: 'ai' },
         { key: 'ai_model', value: aiModel, group: 'ai' },
-        { key: 'ai_temperature', value: aiTemperature.toString(), group: 'ai', type: 'integer' },
+        { key: 'ai_temperature', value: aiTemperature.toString(), group: 'ai', type: 'float' },
       ];
 
       await updateSettings({ settings: payload }).unwrap();
@@ -554,9 +620,30 @@ export function AdminSettingsPage() {
                       onChange={(e) => { setAiProvider(e.target.value); markAsChanged(); }}
                       options={[
                         { value: 'ollama', label: 'Ollama (Local/Self-hosted)' },
-                        { value: 'gemini', label: 'Google Gemini (Cloud API)' },
-                        { value: 'openai', label: 'OpenAI (GPT-4/3.5)' },
+                        { value: 'gemini', label: 'Google Gemini' },
+                        { value: 'openai', label: 'OpenAI (ChatGPT)' },
+                        { value: 'anthropic', label: 'Anthropic (Claude)' },
+                        { value: 'mistral', label: 'Mistral AI' },
+                        { value: 'groq', label: 'Groq' },
+                        { value: 'deepseek', label: 'DeepSeek' },
+                        { value: 'xai', label: 'xAI (Grok)' },
+                        { value: 'voyageai', label: 'Voyage AI' },
+                        { value: 'elevenlabs', label: 'ElevenLabs' },
+                        { value: 'perplexity', label: 'Perplexity' },
+                        { value: 'openrouter', label: 'OpenRouter' },
                       ]}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      API Key
+                    </label>
+                    <Input
+                      type="password"
+                      value={aiApiKey}
+                      onChange={(e) => { setAiApiKey(e.target.value); markAsChanged(); }}
+                      placeholder="Masukkan API Key (kosongkan jika menggunakan Ollama)"
                     />
                   </div>
 
@@ -599,8 +686,8 @@ export function AdminSettingsPage() {
                   <div className="text-sm text-blue-800">
                     <p className="font-semibold mb-1">Tip Konfigurasi</p>
                     <p>
-                      Pastikan API Key untuk provider yang dipilih sudah diset di file <code>.env</code> server. 
-                      Untuk Ollama, pastikan service Ollama berjalan di host yang dapat diakses oleh Laravel.
+                      Anda dapat mengatur API Key langsung dari halaman ini. 
+                      Untuk Ollama, pastikan service Ollama berjalan di host yang dapat diakses oleh Laravel dan biarkan kolom API Key kosong.
                     </p>
                   </div>
                 </div>

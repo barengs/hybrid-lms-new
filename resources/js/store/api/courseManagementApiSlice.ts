@@ -26,7 +26,7 @@ export interface AdminCourse {
   };
   studentsEnrolled: number;
   price: number;
-  status: 'draft' | 'pending' | 'published' | 'revision' | 'rejected';
+  status: 'draft' | 'pending_review' | 'published' | 'rejected';
   submitted_at?: string;
   published_at?: string;
   created_at: string;
@@ -40,6 +40,14 @@ export interface AdminCourse {
   outcomes?: string[];
   admin_feedback?: string;
   sections?: any[];
+  statusHistories?: Array<{
+    id: number;
+    user: { name: string; avatar?: string };
+    old_status: string;
+    new_status: string;
+    feedback?: string;
+    created_at: string;
+  }>;
 }
 
 export const courseManagementApiSlice = apiSlice.injectEndpoints({

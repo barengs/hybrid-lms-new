@@ -102,6 +102,14 @@ export interface RawInstructorCourse {
   lessons_count: string | number;
   revenue: string | number | null;
   category: any;
+  statusHistories?: Array<{
+    id: number;
+    user: { name: string; avatar?: string };
+    old_status: string;
+    new_status: string;
+    feedback?: string;
+    created_at: string;
+  }>;
 }
 
 export interface CourseSection {

@@ -13,7 +13,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, Button, Badge, Avatar, Select } from '@/components/ui';
+import { Card, CardHeader, CardTitle, Button, Badge, Avatar, Select , DashboardLoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, formatNumber, getTimeAgo } from '@/lib/utils';
 
@@ -225,7 +225,7 @@ export function InstructorEarningsPage() {
 
   const recentTransactions = earningsData?.recent_transactions || [];
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return <DashboardLoadingScreen />;
 
   return (
     <DashboardLayout>
@@ -531,3 +531,4 @@ export function InstructorEarningsPage() {
     </DashboardLayout>
   );
 }
+

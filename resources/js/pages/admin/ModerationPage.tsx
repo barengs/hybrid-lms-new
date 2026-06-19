@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   ShieldCheck,
@@ -383,7 +383,7 @@ export function ModerationPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">

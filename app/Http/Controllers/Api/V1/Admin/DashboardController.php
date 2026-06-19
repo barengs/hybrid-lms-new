@@ -32,31 +32,91 @@ class DashboardController extends Controller
         try {
             // 1. User Stats
             $usersCount = User::count();
+            $newUsersThisMonth = User::whereMonth('created_at', now()->month)->count();
             $instructorsCount = User::role('instructor')->count();
             $studentsCount = User::role('student')->count();
             
-            // 2. Revenue Stats
-            $totalRevenue = Order::where('status', 'paid')->sum('total');
-            
-            // 3. Pending Approvals (Placeholder logic for now)
-            $pendingInstructors = User::role('instructor')->whereNull('email_verified_at')->count();
+            // 2. Course Stats
+            $totalCourses = Course::count();
+            $newCoursesThisMonth = Course::whereMonth('created_at', now()->month)->count();
+            $pendingCourseReviews = Course::where('status', 'pending')->count();
 
-            // 4. Recent Orders
-            $recentOrders = Order::with('user:id,name,email')
+            // 3. Revenue Stats
+            $totalRevenue = Order::where('status', 'paid')->sum('total');
+            $revenueThisMonth = Order::where('status', 'paid')->whereMonth('created_at', now()->month)->sum('total');
+            
+            // 4. Pending Approvals
+            $pendingInstructors = User::role('instructor')->whereNull('email_verified_at')->count();
+            $pendingPayouts = \App\Models\InstructorPayout::where('status', 'pending')->count() ?? 0;
+            $totalPayoutAmount = \App\Models\InstructorPayout::where('status', 'pending')->sum('amount') ?? 0;
+
+            // 5. Recent Orders
+            $recentOrders = Order::with(['user:id,name,email', 'items.course:id,title'])
                 ->where('status', 'paid')
                 ->latest()
                 ->take(5)
-                ->get();
+                ->get()
+                ->map(function ($order) {
+                    return [
+                        'id' => $order->id,
+                        'user' => $order->user->name,
+                        'course' => $order->items->first()?->course->title ?? 'Various Courses',
+                        'amount' => $order->total,
+                        'status' => 'completed',
+                        'time' => $order->created_at->diffForHumans()
+                    ];
+                });
+
+            // 6. Top Courses
+            $topCourses = Course::with('instructor:id,name')
+                ->withCount('enrollments')
+                ->orderByDesc('enrollments_count')
+                ->take(3)
+                ->get()
+                ->map(function ($course) {
+                    return [
+                        'id' => $course->id,
+                        'title' => $course->title,
+                        'instructor' => $course->instructor->name ?? 'Unknown',
+                        'enrollments' => $course->enrollments_count,
+                        'revenue' => Order::whereHas('items', function($q) use ($course) {
+                            $q->where('course_id', $course->id);
+                        })->where('status', 'paid')->sum('total')
+                    ];
+                });
+
+            // 7. Pending Verifications Details
+            $pendingVerificationsDetails = User::role('instructor')
+                ->whereNull('email_verified_at')
+                ->latest()
+                ->take(3)
+                ->get()
+                ->map(function ($user) {
+                    return [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'avatar' => $user->profile->avatar ?? null,
+                        'appliedAt' => $user->created_at->format('Y-m-d')
+                    ];
+                });
 
             $data = [
                 'stats' => [
-                    'total_users' => $usersCount,
-                    'total_instructors' => $instructorsCount,
-                    'total_students' => $studentsCount,
-                    'total_revenue' => $totalRevenue,
-                    'pending_instructors' => $pendingInstructors,
+                    'totalUsers' => $usersCount,
+                    'newUsersThisMonth' => $newUsersThisMonth,
+                    'totalCourses' => $totalCourses,
+                    'newCoursesThisMonth' => $newCoursesThisMonth,
+                    'totalRevenue' => $totalRevenue,
+                    'revenueThisMonth' => $revenueThisMonth,
+                    'pendingVerifications' => $pendingInstructors,
+                    'pendingCourseReviews' => $pendingCourseReviews,
+                    'pendingPayouts' => $pendingPayouts,
+                    'totalPayoutAmount' => $totalPayoutAmount,
                 ],
-                'recent_orders' => $recentOrders
+                'recent_transactions' => $recentOrders,
+                'top_courses' => $topCourses,
+                'pending_verifications' => $pendingVerificationsDetails,
             ];
 
             return $this->successResponse(new DashboardResource($data), 'Admin dashboard data retrieved successfully.');

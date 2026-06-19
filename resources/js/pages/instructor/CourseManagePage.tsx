@@ -23,7 +23,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, Button, Badge, Input, Modal } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Input, Modal } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -37,10 +37,7 @@ import {
   useDeleteLessonMutation,
   useCreateQuizMutation,
   useUpdateQuizMutation,
-  useDeleteQuizMutation,
-  useSubmitCourseReviewMutation,
-  type CourseSection,
-  type CourseLesson
+  useSubmitCourseReviewMutation
 } from '@/store/features/instructor/instructorApiSlice';
 import { useEffect } from 'react';
 import { toast } from 'react-hot-toast';
@@ -84,6 +81,14 @@ interface CourseData {
   totalRatings: number;
   objectives: string[];
   prerequisites: string[];
+  statusHistories?: Array<{
+    id: number;
+    user: { name: string; avatar?: string };
+    old_status: string;
+    new_status: string;
+    feedback?: string;
+    created_at: string;
+  }>;
 }
 
 // Mock data removed
@@ -116,7 +121,6 @@ export function CourseManagePage() {
 
   const [createQuiz] = useCreateQuizMutation();
   const [updateQuiz] = useUpdateQuizMutation();
-  const [deleteQuiz] = useDeleteQuizMutation();
   const [submitCourseReview] = useSubmitCourseReviewMutation();
   const [isSaving, setIsSaving] = useState(false);
   const [editingSection, setEditingSection] = useState<{ id: string, title: string } | null>(null);
@@ -241,12 +245,35 @@ export function CourseManagePage() {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-gray-500">
-              {language === 'id' ? 'Memuat data kursus...' : 'Loading course data...'}
-            </p>
+        <div className="max-w-5xl mx-auto pb-24 animate-pulse mt-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+             <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+             <div className="flex gap-2">
+                <div className="h-10 bg-gray-200 rounded w-24"></div>
+                <div className="h-10 bg-gray-200 rounded w-32"></div>
+             </div>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 mb-6 p-4">
+             <div className="flex gap-6 border-b border-gray-100 pb-4">
+                <div className="h-6 bg-gray-200 rounded w-24"></div>
+                <div className="h-6 bg-gray-200 rounded w-28"></div>
+                <div className="h-6 bg-gray-200 rounded w-20"></div>
+                <div className="h-6 bg-gray-200 rounded w-24"></div>
+             </div>
+             <div className="space-y-6 mt-6">
+                <div className="space-y-2">
+                   <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                   <div className="h-10 bg-gray-200 rounded w-full"></div>
+                </div>
+                <div className="space-y-2">
+                   <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                   <div className="h-10 bg-gray-200 rounded w-full"></div>
+                </div>
+                <div className="space-y-2">
+                   <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                   <div className="h-32 bg-gray-200 rounded w-full"></div>
+                </div>
+             </div>
           </div>
         </div>
       </DashboardLayout>
@@ -284,6 +311,7 @@ export function CourseManagePage() {
     price: Number(courseData.price),
     discountPrice: courseData.discount_price ? Number(courseData.discount_price) : undefined,
     status: courseData.status,
+    statusHistories: courseData.statusHistories || [],
     totalStudents: Number(courseData.total_enrollments),
     rating: Number(courseData.average_rating),
     totalRatings: Number(courseData.total_reviews),
@@ -557,16 +585,25 @@ export function CourseManagePage() {
   };
 
   const getStatusBadge = () => {
-    switch (course.status) {
+    let effectiveStatus: string = course.status;
+    if (course.status === 'draft' && course.statusHistories && course.statusHistories.length > 0) {
+       effectiveStatus = 'revision';
+    }
+
+    switch (effectiveStatus) {
       case 'published':
         return <Badge variant="success">{language === 'id' ? 'Dipublikasi' : 'Published'}</Badge>;
       case 'pending':
       case 'pending_review':
         return <Badge variant="warning">{language === 'id' ? 'Menunggu Review' : 'Pending Review'}</Badge>;
+      case 'revision':
+        return <Badge variant="primary">{language === 'id' ? 'Perlu Revisi' : 'Needs Revision'}</Badge>;
       case 'draft':
         return <Badge variant="secondary">Draft</Badge>;
       case 'rejected':
         return <Badge variant="danger">{language === 'id' ? 'Ditolak' : 'Rejected'}</Badge>;
+      default:
+        return <Badge variant="secondary">{course.status}</Badge>;
     }
   };
 
@@ -831,6 +868,36 @@ export function CourseManagePage() {
                   )}
                 </div>
               </Card>
+
+              {/* Status History */}
+              {course.statusHistories && course.statusHistories.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 text-gray-700">
+                       <Clock className="w-4 h-4" />
+                       {language === 'id' ? 'Riwayat Status' : 'Status History'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {course.statusHistories.map((history, idx) => (
+                           <div key={history.id} className={`p-4 flex gap-4 ${idx === 0 ? 'bg-gray-50/50' : 'opacity-70'}`}>
+                              <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${idx === 0 ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                              <div className="flex-1">
+                                 <p className={`text-xs font-bold uppercase tracking-wider ${idx === 0 ? 'text-gray-900' : 'text-gray-500'}`}>{history.new_status}</p>
+                                 <p className="text-[10px] text-gray-500 mt-0.5">{new Date(history.created_at).toLocaleString()}</p>
+                                 {history.feedback && (
+                                   <div className="mt-2 text-[11px] text-gray-600 bg-white p-2 rounded-lg border border-gray-100 italic">
+                                      "{history.feedback}"
+                                   </div>
+                                 )}
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         )}

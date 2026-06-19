@@ -5,12 +5,15 @@ import { store } from './store'
 import './index.css'
 import App from './App.tsx'
 import { ThemeProvider } from './context/ThemeContext'
+import { PlatformProvider } from './context/PlatformContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
       <ThemeProvider>
-        <App />
+        <PlatformProvider>
+          <App />
+        </PlatformProvider>
       </ThemeProvider>
     </Provider>
   </StrictMode>,

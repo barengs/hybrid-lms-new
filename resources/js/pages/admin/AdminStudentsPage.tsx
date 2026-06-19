@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   Users,
-  UserCheck,
-  UserX,
   UserPlus,
   Search,
   MoreVertical,
@@ -14,26 +12,21 @@ import {
   CheckCircle,
   XCircle,
   Mail,
-  Shield,
   Calendar,
   Clock,
   Download,
   Eye,
-  Plus,
   RotateCcw,
   Loader2,
-  MapPin,
-  FileText,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
 import { Card, Button, Badge, Avatar, Select, Modal, DataTable, Textarea, MultiSelect } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
-import { formatNumber, getTimeAgo } from '@/lib/utils';
+import { getTimeAgo } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
 import { Dropdown } from '@/components/ui';
 import {
   useGetUsersQuery,
-  useGetUserStatsQuery,
   useGetRolesQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
@@ -45,11 +38,11 @@ import {
 } from '@/store/features/admin/adminUserApiSlice';
 import toast from 'react-hot-toast';
 
-export function AdminUsersPage() {
+export function AdminStudentsPage() {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [roleFilter] = useState<string>('student');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [selectedUsers, setSelectedUsers] = useState<AdminUser[]>([]);
@@ -76,10 +69,8 @@ export function AdminUsersPage() {
     search: searchQuery,
     role: roleFilter,
     status: statusFilter,
-    exclude_roles: 'student,instructor'
   });
 
-  const { data: stats, isLoading: isLoadingStats } = useGetUserStatsQuery();
   const { data: rolesList } = useGetRolesQuery();
 
   const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
@@ -210,17 +201,7 @@ export function AdminUsersPage() {
     },
   ];
 
-  const getRoleBadge = (role: string) => {
-    const variants: Record<string, any> = {
-      student: 'secondary',
-      instructor: 'primary',
-      admin: 'danger',
-      curriculum: 'warning',
-      marketing: 'success',
-    };
-    const variant = variants[role.toLowerCase()] || 'outline';
-    return <Badge key={role} variant={variant} size="sm" className="capitalize mr-1 mb-1">{role}</Badge>;
-  };
+
 
   const getStatusBadge = (user: AdminUser) => {
     if (user.deleted_at) {
@@ -291,15 +272,7 @@ export function AdminUsersPage() {
           );
         },
       },
-      {
-        accessorKey: 'roles',
-        header: 'Role',
-        cell: ({ row }) => (
-          <div className="flex flex-wrap max-w-[200px]">
-            {row.original.roles.map(r => getRoleBadge(r.name))}
-          </div>
-        ),
-      },
+
       {
         accessorKey: 'status',
         header: 'Status',
@@ -365,99 +338,19 @@ export function AdminUsersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {language === 'id' ? 'Manajemen Pengguna' : 'User Management'}
+              {language === 'id' ? 'Manajemen Siswa' : 'Student Management'}
             </h1>
             <p className="text-gray-600 mt-1">
               {language === 'id'
-                ? 'Kelola semua pengguna platform'
-                : 'Manage all platform users'}
+                ? 'Kelola data seluruh siswa yang mendaftar'
+                : 'Manage all enrolled students'}
             </p>
           </div>
           <Button size="sm" onClick={() => setShowAddModal(true)} leftIcon={<UserPlus className="w-4 h-4" />}>
-            {language === 'id' ? 'Tambah Pengguna' : 'Add User'}
+            {language === 'id' ? 'Tambah Siswa' : 'Add Student'}
           </Button>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-4">
-          {isLoadingStats ? (
-            Array(7).fill(0).map((_, i) => (
-              <Card key={i} className="animate-pulse bg-gray-50 h-20"> </Card>
-            ))
-          ) : (
-            <>
-              <Card className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.total || 0)}</p>
-                  <p className="text-xs text-gray-500">{language === 'id' ? 'Total' : 'Total'}</p>
-                </div>
-              </Card>
-
-              <Card className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.students || 0)}</p>
-                  <p className="text-xs text-gray-500">{language === 'id' ? 'Siswa' : 'Students'}</p>
-                </div>
-              </Card>
-
-              <Card className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.instructors || 0)}</p>
-                  <p className="text-xs text-gray-500">{language === 'id' ? 'Instruktur' : 'Instructors'}</p>
-                </div>
-              </Card>
-
-              <Card className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.admins || 0)}</p>
-                  <p className="text-xs text-gray-500">Admin</p>
-                </div>
-              </Card>
-
-              <Card className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <UserCheck className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.active || 0)}</p>
-                  <p className="text-xs text-gray-500">{language === 'id' ? 'Aktif' : 'Active'}</p>
-                </div>
-              </Card>
-
-              <Card className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <UserX className="w-5 h-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.suspended || 0)}</p>
-                  <p className="text-xs text-gray-500">{language === 'id' ? 'Suspend' : 'Suspended'}</p>
-                </div>
-              </Card>
-
-              <Card className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-                  <UserPlus className="w-5 h-5 text-cyan-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{formatNumber(stats?.newThisMonth || 0)}</p>
-                  <p className="text-xs text-gray-500">{language === 'id' ? 'Baru' : 'New'}</p>
-                </div>
-              </Card>
-            </>
-          )}
-        </div>
 
         {/* Bulk Actions */}
         {selectedUsers.length > 0 && (
@@ -474,8 +367,8 @@ export function AdminUsersPage() {
                   {language === 'id' ? 'Suspend' : 'Suspend'}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleBulkOperation('restore')} disabled={isBulkLoading} className="bg-white">
-                  <RotateCcw className="w-3.5 h-3.5 mr-1 text-green-600" />
-                  {language === 'id' ? 'Pulihkan' : 'Restore'}
+                   <RotateCcw className="w-3.5 h-3.5 mr-1 text-green-600" />
+                   {language === 'id' ? 'Pulihkan' : 'Restore'}
                 </Button>
                 <Button size="sm" variant="danger" onClick={() => handleBulkOperation('delete')} disabled={isBulkLoading}>
                   {language === 'id' ? 'Hapus' : 'Delete'}
@@ -501,15 +394,7 @@ export function AdminUsersPage() {
                 />
               </div>
               <div className="flex flex-col sm:flex-row gap-3 sm:flex-shrink-0">
-                <Select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  options={[
-                    { value: 'all', label: language === 'id' ? 'Semua Role' : 'All Roles' },
-                    ...(rolesList?.map(r => ({ value: r.name, label: r.name.charAt(0).toUpperCase() + r.name.slice(1) })) || []),
-                  ]}
-                  className="w-full sm:w-40"
-                />
+
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}

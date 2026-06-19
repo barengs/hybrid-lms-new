@@ -12,7 +12,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, Button, Badge, Input, Select, Modal } from '@/components/ui';
+import { Card, CardHeader, CardTitle, Button, Badge, Input, Select, Modal , DashboardLoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, getTimeAgo } from '@/lib/utils';
 
@@ -150,7 +150,7 @@ export function InstructorPayoutsPage() {
     }
   };
 
-  if (isLoadingPayouts || isLoadingEarnings) return <LoadingScreen />;
+  if (isLoadingPayouts || isLoadingEarnings) return <DashboardLoadingScreen />;
 
   const getStatusBadge = (status: Payout['status']) => {
     const config = {
@@ -445,3 +445,4 @@ export function InstructorPayoutsPage() {
     </DashboardLayout>
   );
 }
+

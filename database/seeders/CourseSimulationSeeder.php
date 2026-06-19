@@ -122,6 +122,37 @@ class CourseSimulationSeeder extends Seeder
                 'instructor_id' => $instructor1->id,
                 'thumbnail' => 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?q=80&w=800&auto=format&fit=crop',
             ],
+            [
+                'title' => 'Vue.js untuk Pemula (Draft)',
+                'price' => 50.00,
+                'category_id' => $categoryModels[0]->id,
+                'instructor_id' => $instructor1->id,
+                'status' => 'draft',
+                'published_at' => null,
+                'thumbnail' => 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop',
+            ],
+            [
+                'title' => 'Mastering Next.js 14 (Menunggu Review)',
+                'subtitle' => 'Pelajari App Router, Server Actions, dan optimasi performa di Next.js 14.',
+                'description' => 'Kursus ini dirancang khusus untuk membawa kemampuan React Anda ke level production. Anda akan belajar arsitektur App Router, SSR vs SSG, Server Components, dan Server Actions yang menjadi core Next.js 14. Di akhir kursus, Anda akan mendeploy aplikasi nyata berskala enterprise yang SEO-friendly.',
+                'price' => 200.00,
+                'category_id' => $categoryModels[0]->id,
+                'instructor_id' => $instructor1->id,
+                'status' => 'pending_review',
+                'published_at' => null,
+                'thumbnail' => 'https://images.unsplash.com/photo-1555099962-4199c345e5dd?q=80&w=800&auto=format&fit=crop',
+                'requirements' => [
+                    'Paham dasar-dasar React.js (Hooks, Props, State)',
+                    'Familiar dengan HTML, CSS, dan JavaScript modern (ES6+)',
+                    'Memiliki koneksi internet stabil dan code editor (VS Code)'
+                ],
+                'outcomes' => [
+                    'Mampu membangun aplikasi web fullstack menggunakan Next.js 14',
+                    'Memahami perbedaan Server dan Client Components',
+                    'Bisa mengimplementasikan Server Actions untuk mutasi data',
+                    'Mengerti cara melakukan optimasi SEO dan Core Web Vitals'
+                ]
+            ],
         ];
 
         // Create Self-paced Batch (Unified Learning Path for all public courses)
@@ -142,13 +173,13 @@ class CourseSimulationSeeder extends Seeder
         foreach ($coursesData as $cData) {
             $course = Course::updateOrCreate(
                 ['slug' => Str::slug($cData['title'])],
-                array_merge($cData, [
+                array_merge([
                     'subtitle' => 'Learn from scratch with expert guidance.',
                     'description' => 'Comprehensive course designed to take you from beginner to advanced level.',
                     'status' => 'published',
                     'type' => 'self_paced',
                     'published_at' => now(),
-                ])
+                ], $cData)
             );
             $createdCourses[] = $course;
 
@@ -392,21 +423,26 @@ class CourseSimulationSeeder extends Seeder
 
     private function seedCourseContent($course, $batchId)
     {
-        $isReact = str_contains($course->title, 'React');
+        $isNext = str_contains($course->title, 'Next.js');
+        $isReact = str_contains($course->title, 'React') || $isNext;
         
         for ($i = 1; $i <= 2; $i++) {
+            $sectionTitle = "Module $i: " . ($i == 1 ? ($isNext ? 'App Router & Server Components' : ($isReact ? 'React Fundamentals' : 'Getting Started')) : ($isNext ? 'Data Fetching & Server Actions' : 'Advanced Concepts'));
+
             $section = Section::updateOrCreate(
                 ['course_id' => $course->id, 'sort_order' => $i],
-                ['title' => "Module $i: " . ($i == 1 ? ($isReact ? 'React Fundamentals' : 'Getting Started') : 'Advanced Concepts')]
+                ['title' => $sectionTitle]
             );
 
             // Lesson 1: Video
             Lesson::updateOrCreate(
                 ['section_id' => $section->id, 'sort_order' => 1],
                 [
-                    'title' => "Introduction to " . ($isReact ? 'JSX' : 'Topic'),
+                    'title' => $isNext ? ($i == 1 ? 'Pengenalan Server Components' : 'Server Actions in Depth') : "Introduction to " . ($isReact ? 'JSX' : 'Topic'),
                     'type' => 'video',
-                    'content' => 'In this lesson, we cover the basic syntax and structure.',
+                    'content' => $isNext 
+                        ? "Dalam video ini kita membahas secara mendalam tentang " . ($i == 1 ? "bagaimana arsitektur Server Components bekerja di background." : "cara menggunakan Server Actions untuk mengelola state di server tanpa route handler terpisah.")
+                        : 'In this lesson, we cover the basic syntax and structure.',
                     'duration' => 600,
                     'is_published' => true,
                 ]
@@ -416,10 +452,10 @@ class CourseSimulationSeeder extends Seeder
             $quizData = [
                 'questions' => [
                     [
-                        'text' => $isReact ? 'What is the purpose of useState?' : 'What is the first step in this process?',
+                        'text' => $isNext ? 'Manakah yang merupakan keuntungan dari Server Components?' : ($isReact ? 'What is the purpose of useState?' : 'What is the first step in this process?'),
                         'options' => [
-                            ['id' => 'a', 'text' => $isReact ? 'To manage local component state' : 'Step A'],
-                            ['id' => 'b', 'text' => $isReact ? 'To perform API calls' : 'Step B'],
+                            ['id' => 'a', 'text' => $isNext ? 'Mengurangi bundle size JavaScript yang dikirim ke client' : ($isReact ? 'To manage local component state' : 'Step A')],
+                            ['id' => 'b', 'text' => $isNext ? 'Memungkinkan akses langsung ke window API' : ($isReact ? 'To perform API calls' : 'Step B')],
                         ],
                         'correctOptionId' => 'a',
                     ],
@@ -480,12 +516,15 @@ class CourseSimulationSeeder extends Seeder
         }
 
         // Add a final regular assignment to simulate AI grading
+        $isNext = str_contains($course->title, 'Next.js');
         $assignmentLesson = Lesson::updateOrCreate(
             ['section_id' => $section->id, 'sort_order' => 3],
             [
                 'title' => "Tugas Akhir: " . $course->title,
                 'type' => 'assignment',
-                'content' => 'Tugas ini bertujuan untuk menguji pemahaman akhir Anda. Silakan kumpulkan file laporan yang relevan.',
+                'content' => $isNext 
+                    ? 'Buat sebuah aplikasi blog sederhana menggunakan Next.js App Router. Aplikasi ini harus menggunakan Server Components untuk mengambil daftar artikel dari JSONPlaceholder API, dan menggunakan Server Actions untuk form komentar sederhana.'
+                    : 'Tugas ini bertujuan untuk menguji pemahaman akhir Anda. Silakan kumpulkan file laporan yang relevan.',
                 'duration' => 0,
                 'is_published' => true,
             ]
@@ -495,7 +534,9 @@ class CourseSimulationSeeder extends Seeder
             ['batch_id' => $batchId, 'lesson_id' => $assignmentLesson->id],
             [
                 'title' => 'Final Submission: ' . $course->title,
-                'description' => 'Tugas Akhir untuk ' . $course->title . '. Pastikan file yang Anda unggah sangat relevan dengan topik kursus ini.',
+                'description' => $isNext 
+                    ? "Tugas Akhir untuk {$course->title}. Pastikan kode yang Anda buat memenuhi standar clean code, serta manfaatkan fitur-fitur utama Next.js 14 dengan tepat (App Router, Server Actions, Server Components). Upload repositori GitHub Anda."
+                    : 'Tugas Akhir untuk ' . $course->title . '. Pastikan file yang Anda unggah sangat relevan dengan topik kursus ini.',
                 'type' => 'assignment',
                 'max_points' => 100,
                 'is_published' => true,

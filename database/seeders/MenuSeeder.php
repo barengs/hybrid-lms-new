@@ -308,6 +308,24 @@ class MenuSeeder extends Seeder
                 'delete' => 'manage users',
             ],
             'role_group' => $group,
+            'order' => 2
+        ]);
+
+        Menu::create([
+            'parent_id' => $management->id,
+            'key' => 'admin_students',
+            'label_id' => 'Siswa',
+            'label_en' => 'Students',
+            'route' => '/admin/students',
+            'icon' => 'Users',
+            'permission_name' => 'manage users',
+            'permissions' => [
+                'read' => 'manage users',
+                'create' => 'manage users',
+                'update' => 'manage users',
+                'delete' => 'manage users',
+            ],
+            'role_group' => $group,
             'order' => 1
         ]);
 

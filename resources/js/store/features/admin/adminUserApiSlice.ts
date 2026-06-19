@@ -32,6 +32,7 @@ export interface GetUsersParams {
   search?: string;
   role?: string;
   status?: string;
+  exclude_roles?: string;
 }
 
 export interface AdminRole {

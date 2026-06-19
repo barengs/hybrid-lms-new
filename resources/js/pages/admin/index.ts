@@ -1,5 +1,6 @@
 export { AdminDashboard } from './AdminDashboard';
 export { AdminUsersPage } from './AdminUsersPage';
+export { AdminStudentsPage } from './AdminStudentsPage';
 export { UserDetailPage } from './UserDetailPage';
 export { InstructorsManagementPage } from './InstructorsManagementPage';
 export { InstructorDetailPage } from './InstructorDetailPage';

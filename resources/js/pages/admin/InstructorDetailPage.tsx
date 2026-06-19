@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -21,7 +21,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Avatar, Modal } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Avatar, Modal , DashboardLoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatNumber, formatCurrency, getTimeAgo } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
@@ -48,7 +48,7 @@ export function InstructorDetailPage() {
 
   const instructor = instructorData?.data;
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return <DashboardLoadingScreen />;
   
   if (isError || !instructor) {
     return (
@@ -124,7 +124,7 @@ export function InstructorDetailPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <Link
@@ -536,3 +536,4 @@ export function InstructorDetailPage() {
     </DashboardLayout>
   );
 }
+

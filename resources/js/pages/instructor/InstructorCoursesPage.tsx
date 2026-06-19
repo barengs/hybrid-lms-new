@@ -46,20 +46,7 @@ export function InstructorCoursesPage() {
 
   const { data: courses = [], isLoading, error } = useGetInstructorCoursesQuery();
 
-  if (isLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-gray-500">
-              {language === 'id' ? 'Memuat kursus...' : 'Loading courses...'}
-            </p>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+
 
   if (error) {
      return (
@@ -237,50 +224,60 @@ export function InstructorCoursesPage() {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <BookOpen className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalCourses}</p>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Total Kursus' : 'Total Courses'}</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Users className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalStudents)}</p>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Total Siswa' : 'Total Students'}</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <DollarSign className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Total Pendapatan' : 'Total Revenue'}</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.monthlyRevenue)}</p>
-                <p className="text-xs text-gray-500">{language === 'id' ? 'Bulan Ini' : 'This Month'}</p>
-              </div>
-            </div>
-          </Card>
+          {isLoading ? (
+            Array(4).fill(0).map((_, i) => (
+              <Card key={i} className="p-4 h-[76px] animate-pulse bg-gray-50">
+                <div className="w-full h-full"></div>
+              </Card>
+            ))
+          ) : (
+            <>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <BookOpen className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalCourses}</p>
+                    <p className="text-xs text-gray-500">{language === 'id' ? 'Total Kursus' : 'Total Courses'}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Users className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalStudents)}</p>
+                    <p className="text-xs text-gray-500">{language === 'id' ? 'Total Siswa' : 'Total Students'}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+                    <p className="text-xs text-gray-500">{language === 'id' ? 'Total Pendapatan' : 'Total Revenue'}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.monthlyRevenue)}</p>
+                    <p className="text-xs text-gray-500">{language === 'id' ? 'Bulan Ini' : 'This Month'}</p>
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Status Tabs */}
@@ -351,7 +348,20 @@ export function InstructorCoursesPage() {
         </Card>
 
         {/* Courses List */}
-        {filteredCourses.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array(6).fill(0).map((_, i) => (
+              <Card key={i} className="h-64 animate-pulse bg-gray-50 border border-gray-100" padding="none">
+                <div className="w-full h-32 bg-gray-200"></div>
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-full mt-4"></div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : filteredCourses.length === 0 ? (
           <Card className="text-center py-12">
             <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">

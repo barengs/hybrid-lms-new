@@ -563,6 +563,17 @@ export function InstructorGradingPage() {
                           <CheckCircle className="w-4 h-4 text-purple-600" />
                           <span className="text-sm font-bold text-purple-900">{language === 'id' ? 'Saran AI' : 'AI Suggestion'}</span>
                           <Badge variant="outline" className="bg-white ml-auto">{selectedSubmission.ai_score} / {selectedSubmission.assignment.max_points}</Badge>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-purple-600 border-purple-200 hover:bg-purple-100 ml-2"
+                            onClick={() => {
+                              setManualPoints(selectedSubmission.ai_score ?? '');
+                              setManualFeedback(selectedSubmission.ai_feedback ?? '');
+                            }}
+                          >
+                            {language === 'id' ? 'Gunakan Saran AI' : 'Use AI Suggestion'}
+                          </Button>
                         </div>
                         <p className="text-sm text-purple-800 italic">{selectedSubmission.ai_feedback}</p>
                       </div>

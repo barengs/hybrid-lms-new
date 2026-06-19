@@ -74,6 +74,14 @@ class Course extends Model
     }
 
     /**
+     * Get the status histories for this course.
+     */
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(CourseStatusHistory::class);
+    }
+
+    /**
      * Get all sections of this course.
      */
     public function sections(): HasMany

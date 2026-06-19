@@ -31,107 +31,10 @@ import {
   useGetInstructorStatsQuery,
   useUpdateInstructorStatusMutation,
   useDeleteInstructorMutation,
-  type Instructor as InstructorType
+  type Instructor
 } from '@/store/api/instructorManagementApiSlice';
 
-// Instructor interface
-interface Instructor {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  status: 'active' | 'suspended' | 'pending';
-  isVerified: boolean;
-  createdAt: string;
-  lastLogin?: string;
-  stats: {
-    coursesCreated: number;
-    totalStudents: number;
-    totalRevenue: number;
-    rating: number;
-  };
-}
 
-// Mock instructors data
-const mockInstructors: Instructor[] = [
-  {
-    id: 'inst-1',
-    name: 'Siti Nurhaliza',
-    email: 'siti.nur@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Siti',
-    status: 'active',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 90).toISOString(),
-    lastLogin: new Date(Date.now() - 7200000).toISOString(),
-    stats: {
-      coursesCreated: 12,
-      totalStudents: 1542,
-      totalRevenue: 45000000,
-      rating: 4.8,
-    },
-  },
-  {
-    id: 'inst-2',
-    name: 'Dewi Lestari',
-    email: 'dewi.lestari@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dewi',
-    status: 'active',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 120).toISOString(),
-    lastLogin: new Date(Date.now() - 86400000).toISOString(),
-    stats: {
-      coursesCreated: 8,
-      totalStudents: 980,
-      totalRevenue: 28000000,
-      rating: 4.6,
-    },
-  },
-  {
-    id: 'inst-3',
-    name: 'Rudi Hermawan',
-    email: 'rudi.h@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rudi',
-    status: 'pending',
-    isVerified: false,
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    stats: {
-      coursesCreated: 0,
-      totalStudents: 0,
-      totalRevenue: 0,
-      rating: 0,
-    },
-  },
-  {
-    id: 'inst-4',
-    name: 'Ani Wijaya',
-    email: 'ani.wijaya@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ani',
-    status: 'pending',
-    isVerified: false,
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    stats: {
-      coursesCreated: 0,
-      totalStudents: 0,
-      totalRevenue: 0,
-      rating: 0,
-    },
-  },
-  {
-    id: 'inst-5',
-    name: 'Budi Santoso',
-    email: 'budi.s@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=BudiS',
-    status: 'suspended',
-    isVerified: true,
-    createdAt: new Date(Date.now() - 86400000 * 180).toISOString(),
-    stats: {
-      coursesCreated: 5,
-      totalStudents: 320,
-      totalRevenue: 12000000,
-      rating: 3.9,
-    },
-  },
-];
 
 export function InstructorsManagementPage() {
   const { language } = useLanguage();
@@ -156,22 +59,22 @@ export function InstructorsManagementPage() {
   const [updateStatus] = useUpdateInstructorStatusMutation();
   const [deleteInstructor] = useDeleteInstructorMutation();
 
-  const [selectedInstructors, setSelectedInstructors] = useState<InstructorType[]>([]);
+  const [selectedInstructors, setSelectedInstructors] = useState<Instructor[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [processingInstructor, setProcessingInstructor] = useState<InstructorType | null>(null);
+  const [processingInstructor, setProcessingInstructor] = useState<Instructor | null>(null);
 
   // Derived stats
   const stats = statsData?.data || { total: 0, active: 0, pending: 0, suspended: 0 };
-  const instructors = instructorsData?.data?.data || [];
+  const instructors: Instructor[] = instructorsData?.data?.data || [];
 
   // Pending instructors (from list)
-  const pendingInstructors = instructors.filter((i: InstructorType) => i.status === 'pending');
+  const pendingInstructors: Instructor[] = instructors.filter((i: Instructor) => i.status === 'pending');
 
 
   // Handlers
-  const handleApprove = (instructor: InstructorType) => {
+  const handleApprove = (instructor: Instructor) => {
     setProcessingInstructor(instructor);
     setShowApproveModal(true);
   };
@@ -188,7 +91,7 @@ export function InstructorsManagementPage() {
     }
   };
 
-  const handleReject = (instructor: InstructorType) => {
+  const handleReject = (instructor: Instructor) => {
     setProcessingInstructor(instructor);
     setShowRejectModal(true);
   };
@@ -215,7 +118,7 @@ export function InstructorsManagementPage() {
     }
   };
 
-  const handleDelete = (instructor: InstructorType) => {
+  const handleDelete = (instructor: Instructor) => {
     setProcessingInstructor(instructor);
     setShowDeleteModal(true);
   };
@@ -232,7 +135,7 @@ export function InstructorsManagementPage() {
     }
   };
 
-  const getStatusBadge = (status: InstructorType['status']) => {
+  const getStatusBadge = (status: Instructor['status']) => {
     const config = {
       active: { variant: 'success' as const, label: language === 'id' ? 'Aktif' : 'Active', icon: CheckCircle },
       pending: { variant: 'warning' as const, label: language === 'id' ? 'Menunggu' : 'Pending', icon: Clock },
@@ -295,7 +198,7 @@ export function InstructorsManagementPage() {
   };
 
   // Column definitions
-  const columns = useMemo<ColumnDef<InstructorType>[]>(
+  const columns = useMemo<ColumnDef<Instructor>[]>(
     () => [
       {
         id: 'select',
@@ -366,7 +269,7 @@ export function InstructorsManagementPage() {
         cell: ({ row }) => getStatusBadge(row.original.status),
       },
       {
-        accessorKey: 'createdAt',
+        accessorKey: 'created_at',
         header: language === 'id' ? 'Terdaftar' : 'Registered',
         cell: ({ row }) => {
           const date = row.original.created_at;
@@ -402,7 +305,7 @@ export function InstructorsManagementPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -637,3 +540,4 @@ export function InstructorsManagementPage() {
     </DashboardLayout>
   );
 }
+

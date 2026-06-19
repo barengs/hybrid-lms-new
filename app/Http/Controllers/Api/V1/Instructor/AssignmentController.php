@@ -99,6 +99,8 @@ class AssignmentController extends Controller
                 'allow_multiple_submissions' => ['boolean'],
                 'is_published' => ['boolean'],
                 'is_required' => ['boolean'],
+                'use_ai_grading' => ['boolean'],
+                'ai_instructions' => ['nullable', 'string'],
                 'batch_topic_id' => ['nullable', 'exists:batch_topics,id'],
             ]);
 
@@ -208,6 +210,8 @@ class AssignmentController extends Controller
                 'allow_multiple_submissions' => ['boolean'],
                 'is_published' => ['boolean'],
                 'is_required' => ['boolean'],
+                'use_ai_grading' => ['boolean'],
+                'ai_instructions' => ['nullable', 'string'],
                 'batch_topic_id' => ['nullable', 'exists:batch_topics,id'],
             ]);
 

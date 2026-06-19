@@ -16,7 +16,7 @@ import { StudentDashboard, MyCoursesPage, MyClassesPage, ClassDetailPage, Discus
 import { InstructorDashboard, InstructorCoursesPage, CourseManagePage, InstructorStudentsPage, InstructorClassesPage, ClassManagePage, InstructorGradingPage, AssignmentGradingPage, ExamGradingPage, ClassGradingPage, InstructorEarningsPage, InstructorPayoutsPage, InstructorCreateCoursePage } from '@/pages/instructor';
 
 // Admin Pages
-import { AdminDashboard, AdminUsersPage, UserDetailPage, InstructorsManagementPage, InstructorDetailPage, CoursesManagementPage, CourseReviewPage, CategoriesManagementPage, TransactionsPage, TransactionDetailPage, AdminPayoutsPage, CommissionSettingsPage, AdminSettingsPage, ModerationPage, RoleManagementPage } from '@/pages/admin';
+import { AdminDashboard, AdminUsersPage, AdminStudentsPage, UserDetailPage, InstructorsManagementPage, InstructorDetailPage, CoursesManagementPage, CourseReviewPage, CategoriesManagementPage, TransactionsPage, TransactionDetailPage, AdminPayoutsPage, CommissionSettingsPage, AdminSettingsPage, ModerationPage, RoleManagementPage } from '@/pages/admin';
 
 // Gamification Pages
 import { LeaderboardPage, BadgesPage } from '@/pages/gamification';
@@ -343,6 +343,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminUsersPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/students',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminStudentsPage />
           </ProtectedRoute>
         ),
       },

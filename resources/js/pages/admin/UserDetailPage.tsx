@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -161,7 +161,7 @@ export function UserDetailPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <Link

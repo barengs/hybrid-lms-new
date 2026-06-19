@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
@@ -17,7 +17,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, Button, Badge, Avatar, Select, DataTable, Modal } from '@/components/ui';
+import { Card, Button, Badge, Avatar, Select, DataTable, Modal , DashboardLoadingScreen } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, getTimeAgo, formatNumber, cn } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
@@ -295,11 +295,11 @@ export function AdminPayoutsPage() {
     [language]
   );
 
-  if (statsLoading || payoutsLoading) return <LoadingScreen />;
+  if (statsLoading || payoutsLoading) return <DashboardLoadingScreen />;
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+      <div>
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -655,3 +655,4 @@ export function AdminPayoutsPage() {
     </DashboardLayout>
   );
 }
+

@@ -23,7 +23,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
         ref={ref}
         onClick={onClick}
         className={cn(
-          'bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700',
+          'bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700',
           paddingStyles[padding],
           hover && 'hover:shadow-md transition-shadow duration-200 cursor-pointer',
           onClick && 'cursor-pointer',

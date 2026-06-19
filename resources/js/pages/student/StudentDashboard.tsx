@@ -12,7 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, CardHeader, CardTitle, Badge, Progress, Button } from '@/components/ui';
+import { Card, CardHeader, CardTitle, Badge, Progress, Button, DashboardLoadingScreen } from '@/components/ui';
 import { formatNumber, formatDate } from '@/lib/utils';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -43,15 +43,7 @@ export function StudentDashboard() {
     return timeB - timeA;
   });
 
-  if (isDashboardLoading || isLearningLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (isDashboardLoading || isLearningLoading) return <DashboardLoadingScreen />;
 
   const stats = dashboardData?.stats || {
     active_enrollments: 0,
@@ -281,7 +273,7 @@ export function StudentDashboard() {
                       <p className="text-[11px] text-gray-500 mb-2">{course.instructor?.name || 'Instructor'}</p>
                       <div className="flex items-center justify-between mt-auto">
                         <span className="text-xs font-bold text-blue-600">
-                          {course.discount_price ? `Rp${formatNumber(course.discount_price)}` : (course.price == 0 ? 'Gratis' : `Rp${formatNumber(course.price)}`)}
+                          {course.discountPrice ? `Rp${formatNumber(course.discountPrice)}` : (course.price == 0 ? 'Gratis' : `Rp${formatNumber(course.price)}`)}
                         </span>
                         <Button 
                           variant="ghost" 

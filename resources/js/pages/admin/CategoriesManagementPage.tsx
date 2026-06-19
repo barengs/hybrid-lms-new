@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+﻿import { useMemo, useState, useEffect } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   FolderOpen,
@@ -18,7 +18,7 @@ import { Card, Button, Badge, Modal, DataTable, Input, EmojiSelector } from '@/c
 import { useLanguage } from '@/context/LanguageContext';
 import { formatNumber } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
-import { Dropdown } from '@/components/ui';
+import { Dropdown, DashboardLoadingScreen } from '@/components/ui';
 import {
   useGetCategoriesQuery,
   useCreateCategoryMutation,
@@ -202,7 +202,7 @@ export function CategoriesManagementPage() {
           const category = row.original;
           return (
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{category.icon || '📁'}</span>
+              <span className="text-2xl">{category.icon || 'ðŸ“'}</span>
               <div>
                 <p className="font-medium text-gray-900 text-sm">{category.name}</p>
                 <p className="text-xs text-gray-500">{category.slug}</p>
@@ -269,15 +269,7 @@ export function CategoriesManagementPage() {
     [language, categories]
   );
   
-  if (isLoading) {
-    return (
-        <DashboardLayout>
-            <div className="flex items-center justify-center h-[50vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-        </DashboardLayout>
-    );
-  }
+  if (isLoading) return <DashboardLoadingScreen />;
 
   if (queryError) {
       return (
@@ -297,7 +289,7 @@ export function CategoriesManagementPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
@@ -360,7 +352,7 @@ export function CategoriesManagementPage() {
           </Card>
 
           <Card className="flex items-center gap-3">
-            <span className="text-2xl">{stats.topCategory?.icon || '🏆'}</span>
+            <span className="text-2xl">{stats.topCategory?.icon || 'ðŸ†'}</span>
             <div>
               <p className="text-sm font-bold text-gray-900 truncate max-w-[120px]">{stats.topCategory?.name || '-'}</p>
               <p className="text-xs text-gray-500">{language === 'id' ? 'Terpopuler' : 'Most Popular'}</p>

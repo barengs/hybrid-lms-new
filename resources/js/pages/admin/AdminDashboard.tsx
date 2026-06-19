@@ -16,42 +16,36 @@ import { DashboardLayout } from '@/components/layouts';
 import { Card, CardHeader, CardTitle, Badge, Button, Avatar } from '@/components/ui';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
+import { useGetAdminDashboardQuery } from '@/store/features/admin/adminDashboardApiSlice';
+import { DashboardLoadingScreen } from '@/components/ui';
+
 export function AdminDashboard() {
-  // Mock platform stats
-  const stats = {
-    totalUsers: 52340,
-    newUsersThisMonth: 1250,
-    totalCourses: 542,
-    newCoursesThisMonth: 28,
-    totalRevenue: 2450000000,
-    revenueThisMonth: 185000000,
-    pendingVerifications: 8,
-    pendingCourseReviews: 5,
-    pendingPayouts: 12,
-    totalPayoutAmount: 45000000,
+  const { data, isLoading } = useGetAdminDashboardQuery();
+
+  if (isLoading) return <DashboardLoadingScreen />;
+
+  // Real platform stats from API
+  const stats = data?.data?.stats || {
+    totalUsers: 0,
+    newUsersThisMonth: 0,
+    totalCourses: 0,
+    newCoursesThisMonth: 0,
+    totalRevenue: 0,
+    revenueThisMonth: 0,
+    pendingVerifications: 0,
+    pendingCourseReviews: 0,
+    pendingPayouts: 0,
+    totalPayoutAmount: 0,
   };
 
-  // Mock recent transactions
-  const recentTransactions = [
-    { id: '1', user: 'Ahmad Rizki', course: 'React Masterclass', amount: 299000, status: 'completed', time: '2 jam lalu' },
-    { id: '2', user: 'Siti Nurhaliza', course: 'Full Stack Development', amount: 499000, status: 'completed', time: '3 jam lalu' },
-    { id: '3', user: 'Budi Hartono', course: 'Python Data Science', amount: 349000, status: 'pending', time: '4 jam lalu' },
-    { id: '4', user: 'Dewi Sartika', course: 'UI/UX Design', amount: 249000, status: 'completed', time: '5 jam lalu' },
-  ];
+  // Real recent transactions from API
+  const recentTransactions: any[] = data?.data?.recent_transactions || [];
 
-  // Mock pending instructor verifications
-  const pendingVerifications = [
-    { id: '1', name: 'John Doe', email: 'john@example.com', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John', appliedAt: '2024-06-10' },
-    { id: '2', name: 'Jane Smith', email: 'jane@example.com', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jane', appliedAt: '2024-06-11' },
-    { id: '3', name: 'Mike Johnson', email: 'mike@example.com', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike', appliedAt: '2024-06-12' },
-  ];
+  // Real pending instructor verifications from API
+  const pendingVerifications: any[] = data?.data?.pending_verifications || [];
 
-  // Mock top courses
-  const topCourses = [
-    { id: '1', title: 'React Masterclass', instructor: 'Budi Pengajar', enrollments: 5420, revenue: 1625000000 },
-    { id: '2', title: 'Python Data Science', instructor: 'Andi Developer', enrollments: 4200, revenue: 1466000000 },
-    { id: '3', title: 'Full Stack Development', instructor: 'Budi Pengajar', enrollments: 3800, revenue: 1895000000 },
-  ];
+  // Real top courses from API
+  const topCourses: any[] = data?.data?.top_courses || [];
 
   return (
     <DashboardLayout>
@@ -62,112 +56,122 @@ export function AdminDashboard() {
       </div>
 
       {/* Alert Cards */}
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
-        {stats.pendingVerifications > 0 && (
-          <Link to="/admin/verify-instructors">
-            <Card className="flex items-center justify-between bg-yellow-50 border-yellow-200 hover:bg-yellow-100 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
-                  <UserPlus className="w-5 h-5 text-white" />
+      {(stats.pendingVerifications > 0 || stats.pendingCourseReviews > 0 || stats.pendingPayouts > 0) && (
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+          {stats.pendingVerifications > 0 && (
+            <Link to="/admin/verify-instructors">
+              <Card className="flex items-center justify-between bg-yellow-50 border-yellow-200 hover:bg-yellow-100 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
+                    <UserPlus className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-yellow-900">{stats.pendingVerifications} instruktur menunggu verifikasi</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-yellow-900">{stats.pendingVerifications} instruktur menunggu verifikasi</p>
+                <ArrowUpRight className="w-5 h-5 text-yellow-600" />
+              </Card>
+            </Link>
+          )}
+          {stats.pendingCourseReviews > 0 && (
+            <Link to="/admin/courses?status=pending">
+              <Card className="flex items-center justify-between bg-blue-50 border-blue-200 hover:bg-blue-100 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <BookOpen className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-blue-900">{stats.pendingCourseReviews} kursus perlu ditinjau</p>
+                  </div>
                 </div>
-              </div>
-              <ArrowUpRight className="w-5 h-5 text-yellow-600" />
-            </Card>
-          </Link>
-        )}
-        {stats.pendingCourseReviews > 0 && (
-          <Link to="/admin/courses?status=pending">
-            <Card className="flex items-center justify-between bg-blue-50 border-blue-200 hover:bg-blue-100 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 text-white" />
+                <ArrowUpRight className="w-5 h-5 text-blue-600" />
+              </Card>
+            </Link>
+          )}
+          {stats.pendingPayouts > 0 && (
+            <Link to="/admin/payouts">
+              <Card className="flex items-center justify-between bg-green-50 border-green-200 hover:bg-green-100 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-900">{stats.pendingPayouts} pembayaran menunggu</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-blue-900">{stats.pendingCourseReviews} kursus perlu ditinjau</p>
-                </div>
-              </div>
-              <ArrowUpRight className="w-5 h-5 text-blue-600" />
-            </Card>
-          </Link>
-        )}
-        {stats.pendingPayouts > 0 && (
-          <Link to="/admin/payouts">
-            <Card className="flex items-center justify-between bg-green-50 border-green-200 hover:bg-green-100 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-green-900">{stats.pendingPayouts} pembayaran menunggu</p>
-                </div>
-              </div>
-              <ArrowUpRight className="w-5 h-5 text-green-600" />
-            </Card>
-          </Link>
-        )}
-      </div>
+                <ArrowUpRight className="w-5 h-5 text-green-600" />
+              </Card>
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Total Pengguna</span>
-            <Users className="w-5 h-5 text-gray-400" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalUsers)}</p>
-          <div className="flex items-center gap-1 mt-1 text-sm">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span className="text-green-600">+{formatNumber(stats.newUsersThisMonth)}</span>
-            <span className="text-gray-400">bulan ini</span>
-          </div>
-        </Card>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <Link to="/admin/users">
+          <Card className="hover:border-blue-300 transition-colors cursor-pointer h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">Total Pengguna</span>
+              <Users className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalUsers)}</p>
+            <div className="flex items-center gap-1 mt-1 text-sm">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-green-600">+{formatNumber(stats.newUsersThisMonth)}</span>
+              <span className="text-gray-400">bulan ini</span>
+            </div>
+          </Card>
+        </Link>
 
-        <Card>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Total Kursus</span>
-            <BookOpen className="w-5 h-5 text-gray-400" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.totalCourses}</p>
-          <div className="flex items-center gap-1 mt-1 text-sm">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span className="text-green-600">+{stats.newCoursesThisMonth}</span>
-            <span className="text-gray-400">bulan ini</span>
-          </div>
-        </Card>
+        <Link to="/admin/courses">
+          <Card className="hover:border-blue-300 transition-colors cursor-pointer h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">Total Kursus</span>
+              <BookOpen className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{stats.totalCourses}</p>
+            <div className="flex items-center gap-1 mt-1 text-sm">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-green-600">+{stats.newCoursesThisMonth}</span>
+              <span className="text-gray-400">bulan ini</span>
+            </div>
+          </Card>
+        </Link>
 
-        <Card>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Pendapatan Total</span>
-            <DollarSign className="w-5 h-5 text-gray-400" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
-          <div className="flex items-center gap-1 mt-1 text-sm">
-            <TrendingUp className="w-4 h-4 text-green-500" />
-            <span className="text-green-600">+15%</span>
-            <span className="text-gray-400">vs bulan lalu</span>
-          </div>
-        </Card>
+        <Link to="/admin/transactions">
+          <Card className="hover:border-blue-300 transition-colors cursor-pointer h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">Pendapatan Total</span>
+              <DollarSign className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+            <div className="flex items-center gap-1 mt-1 text-sm">
+              <TrendingUp className="w-4 h-4 text-green-500" />
+              <span className="text-green-600">+15%</span>
+              <span className="text-gray-400">vs bulan lalu</span>
+            </div>
+          </Card>
+        </Link>
 
-        <Card>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Pendapatan Bulan Ini</span>
-            <ShoppingCart className="w-5 h-5 text-gray-400" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.revenueThisMonth)}</p>
-          <div className="flex items-center gap-1 mt-1 text-sm">
-            <TrendingDown className="w-4 h-4 text-red-500" />
-            <span className="text-red-600">-5%</span>
-            <span className="text-gray-400">vs bulan lalu</span>
-          </div>
-        </Card>
+        <Link to="/admin/transactions">
+          <Card className="hover:border-blue-300 transition-colors cursor-pointer h-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-500">Pendapatan Bulan Ini</span>
+              <ShoppingCart className="w-5 h-5 text-gray-400" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.revenueThisMonth)}</p>
+            <div className="flex items-center gap-1 mt-1 text-sm">
+              <TrendingDown className="w-4 h-4 text-red-500" />
+              <span className="text-red-600">-5%</span>
+              <span className="text-gray-400">vs bulan lalu</span>
+            </div>
+          </Card>
+        </Link>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           {/* Recent Transactions */}
           <Card>
             <CardHeader className="flex items-center justify-between">
@@ -241,7 +245,7 @@ export function AdminDashboard() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Pending Verifications */}
           <Card>
             <CardHeader className="flex items-center justify-between">

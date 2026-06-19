@@ -93,6 +93,8 @@ Route::prefix('v1')->group(function () {
     | Web/General Routes (Existing)
     |--------------------------------------------------------------------------
     */
+    Route::get('/public/settings', [\App\Http\Controllers\Api\V1\PublicSettingController::class, 'index']);
+
     Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
@@ -161,6 +163,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('permission:manage settings')->group(function () {
             Route::get('settings', [AdminSettingController::class, 'index']);
             Route::post('settings/bulk', [AdminSettingController::class, 'updateBulk']);
+            Route::post('settings/upload-media', [AdminSettingController::class, 'uploadMedia']);
         });
 
         Route::middleware('permission:manage commission')->group(function () {

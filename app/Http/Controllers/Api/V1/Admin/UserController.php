@@ -37,6 +37,13 @@ class UserController extends Controller
             $query->role($request->role);
         }
 
+        if ($request->has('exclude_roles')) {
+            $excludeRoles = explode(',', $request->exclude_roles);
+            $query->whereDoesntHave('roles', function ($q) use ($excludeRoles) {
+                $q->whereIn('name', $excludeRoles);
+            });
+        }
+
         // Status filter
         if ($request->has('status') && $request->status !== 'all') {
             if ($request->status === 'active') {

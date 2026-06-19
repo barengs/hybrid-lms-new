@@ -164,6 +164,8 @@ export function ClassManagePage() {
   const [assignmentDueDate, setAssignmentDueDate] = useState('');
   const [assignmentTopicId, setAssignmentTopicId] = useState('');
   const [assignmentType, setAssignmentType] = useState<'assignment' | 'quiz'>('assignment');
+  const [assignmentUseAIGrading, setAssignmentUseAIGrading] = useState(false);
+  const [assignmentAIInstructions, setAssignmentAIInstructions] = useState('');
 
   // Topic form
   const [topicTitle, setTopicTitle] = useState('');
@@ -336,7 +338,9 @@ export function ClassManagePage() {
         batch_topic_id: assignmentTopicId || null,
         type: assignmentType,
         is_published: true,
-        gradable: true
+        gradable: true,
+        use_ai_grading: assignmentUseAIGrading,
+        ai_instructions: assignmentAIInstructions
       };
 
       if (editingAssignment) {
@@ -359,6 +363,8 @@ export function ClassManagePage() {
     setAssignmentDueDate('');
     setAssignmentTopicId('');
     setAssignmentType('assignment');
+    setAssignmentUseAIGrading(false);
+    setAssignmentAIInstructions('');
   };
 
 
@@ -796,6 +802,8 @@ export function ClassManagePage() {
                                            setAssignmentDueDate(assignment.due_date ? new Date(assignment.due_date).toISOString().slice(0, 16) : '');
                                            setAssignmentTopicId(assignment.batch_topic_id || '');
                                            setAssignmentType(assignment.type || 'assignment');
+                                           setAssignmentUseAIGrading(assignment.use_ai_grading || false);
+                                           setAssignmentAIInstructions(assignment.ai_instructions || '');
                                            setShowAssignmentModal(true);
                                          }}>
                                            <Edit3 className="w-4 h-4" />
@@ -1571,6 +1579,37 @@ export function ClassManagePage() {
               rows={5}
             />
           </div>
+
+          {assignmentType !== 'quiz' && (
+            <div className="space-y-4 border-t border-gray-200 pt-4 mt-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="use-ai-grading"
+                  checked={assignmentUseAIGrading}
+                  onChange={(e) => setAssignmentUseAIGrading(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="use-ai-grading" className="text-sm font-medium text-gray-700">
+                  {language === 'id' ? 'Gunakan AI untuk Menilai' : 'Use AI for Grading'}
+                </label>
+              </div>
+
+              {assignmentUseAIGrading && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {language === 'id' ? 'Instruksi Khusus Penilaian AI' : 'AI Grading Instructions'}
+                  </label>
+                  <Textarea
+                    value={assignmentAIInstructions}
+                    onChange={(e) => setAssignmentAIInstructions(e.target.value)}
+                    placeholder={language === 'id' ? 'Contoh: Kurangi poin jika tidak ada referensi...' : 'e.g., Deduct points if no references are provided...'}
+                    rows={3}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
             <Button variant="outline" onClick={() => {

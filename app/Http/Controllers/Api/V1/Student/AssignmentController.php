@@ -277,8 +277,8 @@ class AssignmentController extends Controller
             if ($submission) {
                 $submission->update([
                     'files' => $files, 
-                    'content' => $request->content ?? $submission->content,
-                    'answers' => $request->answers ?? $submission->answers,
+                    'content' => $request->input('content') ?? $submission->content,
+                    'answers' => $request->input('answers') ?? $submission->answers,
                     'submitted_at' => now(),
                     'status' => $status,
                     'points_awarded' => $pointsAwarded ?? $submission->points_awarded,
@@ -290,8 +290,8 @@ class AssignmentController extends Controller
                     'assignment_id' => $assignment->id,
                     'user_id' => $user->id,
                     'files' => $files,
-                    'content' => $request->content,
-                    'answers' => $request->answers,
+                    'content' => $request->input('content'),
+                    'answers' => $request->input('answers'),
                     'submitted_at' => now(),
                     'status' => $status,
                     'points_awarded' => $pointsAwarded,
@@ -301,7 +301,7 @@ class AssignmentController extends Controller
             }
 
             // 5. Dispatch AI Grading Job for non-quiz assignments (quiz already auto-graded)
-            $needsAiGrading = $assignment->gradable && $assignment->type !== 'quiz';
+            $needsAiGrading = $assignment->gradable && $assignment->type !== 'quiz' && $assignment->use_ai_grading;
             if ($needsAiGrading) {
                 GradeSubmission::dispatch($submission)->onQueue('default');
                 $submission->update(['ai_status' => 'processing']);

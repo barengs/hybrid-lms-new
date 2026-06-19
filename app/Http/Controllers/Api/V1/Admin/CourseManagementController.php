@@ -31,7 +31,11 @@ class CourseManagementController extends Controller
 
         // Status filter
         if ($request->has('status') && $request->status !== 'all') {
-            $query->where('status', $request->status);
+            if ($request->status === 'revision') {
+                $query->where('status', 'draft')->whereNotNull('admin_feedback');
+            } else {
+                $query->where('status', $request->status);
+            }
         }
 
         // Category filter
@@ -54,9 +58,9 @@ class CourseManagementController extends Controller
     {
         $stats = [
             'total' => Course::count(),
-            'pending' => Course::where('status', 'pending')->count(),
+            'pending' => Course::where('status', 'pending_review')->count(),
             'published' => Course::where('status', 'published')->count(),
-            'revision' => Course::where('status', 'revision')->count(),
+            'revision' => Course::where('status', 'draft')->whereNotNull('admin_feedback')->count(),
             'rejected' => Course::where('status', 'rejected')->count(),
             'totalStudents' => Course::sum('total_enrollments'),
         ];
@@ -77,8 +81,16 @@ class CourseManagementController extends Controller
             'category', 
             'sections', 
             'sections.lessons',
-            'sections.lessons.attachments'
+            'sections.lessons.attachments',
+            'sections.lessons.quiz',
+            'sections.lessons.quiz.questions',
+            'sections.lessons.assignments'
         ]);
+
+        // Append histories so frontend can show them
+        $course->load(['statusHistories' => function($q) {
+            $q->with('user')->latest();
+        }]);
 
         return response()->json([
             'success' => true,
@@ -92,7 +104,7 @@ class CourseManagementController extends Controller
     public function updateStatus(Request $request, Course $course): JsonResponse
     {
         $request->validate([
-            'status' => 'required|in:published,revision,rejected,pending',
+            'status' => 'required|in:published,draft,rejected,pending_review',
             'admin_feedback' => 'nullable|string'
         ]);
 
@@ -108,6 +120,14 @@ class CourseManagementController extends Controller
         }
 
         $course->save();
+
+        \App\Models\CourseStatusHistory::create([
+            'course_id' => $course->id,
+            'user_id' => $request->user()->id,
+            'old_status' => $oldStatus,
+            'new_status' => $course->status,
+            'feedback' => $request->admin_feedback,
+        ]);
 
         return response()->json([
             'success' => true,

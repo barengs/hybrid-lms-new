@@ -24,6 +24,7 @@ class StudentController extends Controller
         // 3. AND the enrollment must be active/completed (for valid students)
         
         $enrollments = Enrollment::with(['user.profile', 'course', 'batch'])
+            ->whereHas('user')
             ->where(function ($query) use ($user) {
                 // Group 1: Independent Courses
                 $query->whereHas('course', function ($q) use ($user) {

@@ -244,7 +244,19 @@ class CourseController extends Controller
                 ->where('course_id', $course->id)
                 ->first();
 
+            $isInstructor = $course->instructor_id === $user->id;
+            $isBatchInstructor = \App\Models\Batch::whereHas('courses', function($q) use ($course) {
+                $q->where('courses.id', $course->id);
+            })->where(function($q) use ($user) {
+                $q->where('instructor_id', $user->id)
+                  ->orWhereHas('instructors', fn($iq) => $iq->where('users.id', $user->id));
+            })->exists();
+
             if (!$enrollment) {
+                if ($isInstructor || $isBatchInstructor || $user->hasRole('admin')) {
+                    // Instruktur/Admin tidak perlu track progress, langsung return success
+                    return $this->successResponse(['progress' => 100], 'Materi selesai (Instructor preview).');
+                }
                 return $this->errorResponse('Anda belum terdaftar.', 403);
             }
 

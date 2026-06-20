@@ -65,7 +65,11 @@ class BatchResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'thumbnail' => $this->thumbnail ?? ($firstCourse ? $firstCourse->thumbnail : null),
+            'thumbnail' => $this->thumbnail 
+                ? (filter_var($this->thumbnail, FILTER_VALIDATE_URL) ? $this->thumbnail : asset('storage/' . $this->thumbnail)) 
+                : ($firstCourse && $firstCourse->thumbnail 
+                    ? (filter_var($firstCourse->thumbnail, FILTER_VALIDATE_URL) ? $firstCourse->thumbnail : asset('storage/' . $firstCourse->thumbnail)) 
+                    : null),
             'course_title' => $firstCourse ? $firstCourse->title : null,
             'class_code' => $this->class_code,
             'status' => $this->status,

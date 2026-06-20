@@ -65,7 +65,12 @@ class ClassController extends Controller
         if ($user->isInstructor()) {
             // Instructor view - with statistics and enhanced data
             $baseQuery = Batch::classroom()
-                ->where('instructor_id', $user->id);
+                ->where(function($query) use ($user) {
+                    $query->where('instructor_id', $user->id)
+                          ->orWhereHas('instructors', function($q) use ($user) {
+                              $q->where('users.id', $user->id);
+                          });
+                });
 
             // Calculate global statistics (before pagination)
             $statistics = [
@@ -77,8 +82,12 @@ class ClassController extends Controller
                 'average_grade' => round(
                     DB::table('grades')
                         ->join('batches', 'grades.batch_id', '=', 'batches.id')
-                        ->where('batches.instructor_id', $user->id)
+                        ->leftJoin('batch_instructor', 'batches.id', '=', 'batch_instructor.batch_id')
                         ->where('batches.type', 'classroom')
+                        ->where(function($query) use ($user) {
+                            $query->where('batches.instructor_id', $user->id)
+                                  ->orWhere('batch_instructor.instructor_id', $user->id);
+                        })
                         ->avg('grades.overall_score') ?? 0,
                     1
                 ),
@@ -94,6 +103,8 @@ class ClassController extends Controller
             // Get paginated classes with all required relationships
             $classes = $baseQuery
                 ->with([
+                    'instructor.profile',
+                    'instructors.profile',
                     'courses' => function ($query) {
                         $query->select('courses.id', 'courses.title', 'courses.slug', 'courses.thumbnail');
                     },
@@ -307,7 +318,8 @@ class ClassController extends Controller
             ->with([
                 'courses.instructor', 
                 'courses.sections.lessons', 
-                'instructor', 
+                'instructor.profile', 
+                'instructors.profile',
                 'sessions.comments.user.profile',
                 'sessions.comments.replies.user.profile',
                 'additionalMaterials',
@@ -353,7 +365,7 @@ class ClassController extends Controller
     {
         $batch = Batch::query()->findOrFail($id);
         
-        if ($request->user()->id !== $batch->instructor_id) {
+        if (!$batch->hasInstructorAccess($request->user())) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -420,7 +432,7 @@ class ClassController extends Controller
         $batch = Batch::findOrFail($classId);
 
         // Verify instructor owns the class
-        if ($batch->instructor_id !== $user->id) {
+        if (!$batch->hasInstructorAccess($user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -441,7 +453,7 @@ class ClassController extends Controller
         ]);
 
         return $this->successResponse(
-            new ClassroomResource($batch->load(['courses', 'instructor'])), // Reload to get updated courses
+            new ClassroomResource($batch->load(['courses', 'instructor.profile', 'instructors.profile'])), // Reload to get updated courses
             'Course added to class successfully'
         );
     }
@@ -465,7 +477,7 @@ class ClassController extends Controller
         $batch = Batch::findOrFail($classId);
 
         // Verify instructor owns the class
-        if ($batch->instructor_id !== $user->id) {
+        if (!$batch->hasInstructorAccess($user)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -473,7 +485,7 @@ class ClassController extends Controller
         $batch->courses()->detach($courseId);
 
         return $this->successResponse(
-            new ClassroomResource($batch->load(['courses', 'instructor'])),
+            new ClassroomResource($batch->load(['courses', 'instructor.profile', 'instructors.profile'])),
             'Course removed from class successfully'
         );
     }

@@ -31,7 +31,10 @@ class StudentController extends Controller
                 })
                 // Group 2: Classroom / Batches
                 ->orWhereHas('batch', function ($q) use ($user) {
-                    $q->where('instructor_id', $user->id);
+                    $q->where('instructor_id', $user->id)
+                      ->orWhereHas('instructors', function ($inner) use ($user) {
+                          $inner->where('instructor_id', $user->id);
+                      });
                 });
             })
             ->get();

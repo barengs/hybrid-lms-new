@@ -228,6 +228,22 @@ class Batch extends Model
     }
 
     /**
+     * Check if a user is an instructor or co-instructor of this batch.
+     */
+    public function hasInstructorAccess(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($this->instructor_id === $user->id) {
+            return true;
+        }
+
+        return $this->instructors()->where('users.id', $user->id)->exists();
+    }
+
+    /**
      * Generate a unique class code.
      */
     public static function generateClassCode(): string

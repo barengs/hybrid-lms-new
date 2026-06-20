@@ -14,3 +14,4 @@ export { CommissionSettingsPage } from './CommissionSettingsPage';
 export { AdminSettingsPage } from './AdminSettingsPage';
 export { ModerationPage } from './ModerationPage';
 export { RoleManagementPage } from './RoleManagementPage';
+export { OnboardingQuestionsPage } from './OnboardingQuestionsPage';

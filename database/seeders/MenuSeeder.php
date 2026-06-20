@@ -464,6 +464,18 @@ class MenuSeeder extends Seeder
 
         Menu::create([
             'parent_id' => $platform->id,
+            'key' => 'admin_onboarding',
+            'label_id' => 'Pertanyaan Onboarding',
+            'label_en' => 'Onboarding Questions',
+            'route' => '/admin/onboarding-questions',
+            'icon' => 'ClipboardList',
+            'permission_name' => 'manage settings',
+            'role_group' => $group,
+            'order' => 2
+        ]);
+
+        Menu::create([
+            'parent_id' => $platform->id,
             'key' => 'admin_roles',
             'label_id' => 'Manajemen Role',
             'label_en' => 'Role Management',
@@ -477,7 +489,7 @@ class MenuSeeder extends Seeder
                 'delete' => 'manage roles',
             ],
             'role_group' => $group,
-            'order' => 2
+            'order' => 3
         ]);
 
         Menu::create([
@@ -495,7 +507,7 @@ class MenuSeeder extends Seeder
                 'approve' => 'moderate content',
             ],
             'role_group' => $group,
-            'order' => 3
+            'order' => 4
         ]);
     }
 }

@@ -19,7 +19,9 @@ class CourseResource extends JsonResource
             'title' => $this->title,
             'slug' => $this->slug,
             'description' => $this->description,
-            'thumbnail' => $this->thumbnail, // Ensure this accessor/attribute exists
+            'thumbnail' => $this->thumbnail 
+                ? (filter_var($this->thumbnail, FILTER_VALIDATE_URL) ? $this->thumbnail : asset('storage/' . $this->thumbnail)) 
+                : null,
             'price' => $this->price,
             'level' => $this->level,
             'instructor' => new UserResource($this->whenLoaded('instructor')),

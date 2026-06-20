@@ -16,7 +16,7 @@ import { StudentDashboard, MyCoursesPage, MyClassesPage, ClassDetailPage, Discus
 import { InstructorDashboard, InstructorCoursesPage, CourseManagePage, InstructorStudentsPage, InstructorClassesPage, ClassManagePage, InstructorGradingPage, AssignmentGradingPage, ExamGradingPage, ClassGradingPage, InstructorEarningsPage, InstructorPayoutsPage, InstructorCreateCoursePage } from '@/pages/instructor';
 
 // Admin Pages
-import { AdminDashboard, AdminUsersPage, AdminStudentsPage, UserDetailPage, InstructorsManagementPage, InstructorDetailPage, CoursesManagementPage, CourseReviewPage, CategoriesManagementPage, TransactionsPage, TransactionDetailPage, AdminPayoutsPage, CommissionSettingsPage, AdminSettingsPage, ModerationPage, RoleManagementPage } from '@/pages/admin';
+import { AdminDashboard, AdminUsersPage, AdminStudentsPage, UserDetailPage, InstructorsManagementPage, InstructorDetailPage, CoursesManagementPage, CourseReviewPage, CategoriesManagementPage, TransactionsPage, TransactionDetailPage, AdminPayoutsPage, CommissionSettingsPage, AdminSettingsPage, ModerationPage, RoleManagementPage, OnboardingQuestionsPage } from '@/pages/admin';
 
 // Gamification Pages
 import { LeaderboardPage, BadgesPage } from '@/pages/gamification';
@@ -455,6 +455,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['admin']}>
             <RoleManagementPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/admin/onboarding-questions',
+        element: (
+          <ProtectedRoute allowedRoles={['admin']}>
+            <OnboardingQuestionsPage />
           </ProtectedRoute>
         ),
       },

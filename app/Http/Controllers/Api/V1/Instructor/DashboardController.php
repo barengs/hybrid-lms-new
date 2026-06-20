@@ -109,12 +109,14 @@ class DashboardController extends Controller
             $averageRating = Course::where('instructor_id', $user->id)->avg('average_rating') ?? 0;
 
             // 2. Action Items (To Do)
-            $pendingGrading = Submission::whereHas('assignment.batch.courses', function($q) use ($user) {
-                $q->where('instructor_id', $user->id);
+            $pendingGrading = Submission::whereHas('assignment.batch', function($q) use ($user) {
+                $q->where('instructor_id', $user->id)
+                  ->orWhereHas('instructors', fn($iq) => $iq->where('users.id', $user->id));
             })->where('status', 'submitted')->count();
 
-            $unansweredQuestions = \App\Models\Discussion::whereHas('batch.courses', function($q) use ($user) {
-                $q->where('instructor_id', $user->id);
+            $unansweredQuestions = \App\Models\Discussion::whereHas('batch', function($q) use ($user) {
+                $q->where('instructor_id', $user->id)
+                  ->orWhereHas('instructors', fn($iq) => $iq->where('users.id', $user->id));
             })->whereNull('parent_id') // Threads
               ->whereDoesntHave('replies', function($q) use ($user) {
                   $q->where('user_id', $user->id); // Not replied by instructor
@@ -149,7 +151,8 @@ class DashboardController extends Controller
                     'created_at' => $e->created_at,
                 ]);
 
-            $recentSubmissions = Submission::whereHas('assignment.batch.courses', fn($q) => $q->where('instructor_id', $user->id))
+            $recentSubmissions = Submission::whereHas('assignment.batch', fn($q) => $q->where('instructor_id', $user->id)
+                    ->orWhereHas('instructors', fn($iq) => $iq->where('users.id', $user->id)))
                 ->with(['user.profile', 'assignment'])
                 ->latest()
                 ->take(5)

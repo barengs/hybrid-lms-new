@@ -164,6 +164,10 @@ Route::prefix('v1')->group(function () {
             Route::get('settings', [AdminSettingController::class, 'index']);
             Route::post('settings/bulk', [AdminSettingController::class, 'updateBulk']);
             Route::post('settings/upload-media', [AdminSettingController::class, 'uploadMedia']);
+
+            Route::apiResource('onboarding-questions', \App\Http\Controllers\Api\V1\Admin\OnboardingQuestionController::class);
+            Route::post('onboarding-questions/reorder', [\App\Http\Controllers\Api\V1\Admin\OnboardingQuestionController::class, 'reorder']);
+            Route::post('onboarding-questions/{id}/toggle-active', [\App\Http\Controllers\Api\V1\Admin\OnboardingQuestionController::class, 'toggleActive']);
         });
 
         Route::middleware('permission:manage commission')->group(function () {
@@ -264,6 +268,7 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('classes')->middleware(['auth:api'])->group(function () {
+        Route::get('/instructors/search', [App\Http\Controllers\Api\V1\Classroom\ClassPeopleController::class, 'searchInstructors']);
         Route::get('/', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'index']);
         Route::post('/', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'store']);
         Route::get('/{id}', [App\Http\Controllers\Api\V1\Classroom\ClassController::class, 'show']);
@@ -277,6 +282,8 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('/{id}/topics', \App\Http\Controllers\Api\V1\Instructor\BatchTopicController::class)->except(['create', 'edit'])->parameters(['topics' => 'topic']);
         Route::apiResource('/{id}/sessions', \App\Http\Controllers\Api\V1\Instructor\BatchSessionController::class)->except(['create', 'edit'])->parameters(['sessions' => 'session']);
         Route::get('/{id}/people', [App\Http\Controllers\Api\V1\Classroom\ClassPeopleController::class, 'index']);
+        Route::post('/{id}/instructors', [App\Http\Controllers\Api\V1\Classroom\ClassPeopleController::class, 'addInstructor']);
+        Route::delete('/{id}/instructors/{instructorId}', [App\Http\Controllers\Api\V1\Classroom\ClassPeopleController::class, 'removeInstructor']);
     });
 
     Route::prefix('public')->group(function () {

@@ -37,4 +37,4 @@ export { MultiSelect } from './MultiSelect';
 export type { MultiSelectOption } from './MultiSelect';
 export { Skeleton } from './Skeleton';
 export { PageSkeleton } from './PageSkeleton';
-export { DashboardLoadingScreen } from './DashboardLoadingScreen';
+export { DashboardLoadingScreen } from './DashboardLoadingScreen';export * from './IconSelector';

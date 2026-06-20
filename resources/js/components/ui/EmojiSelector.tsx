@@ -47,8 +47,8 @@ export function EmojiSelector({ value, onChange }: EmojiSelectorProps) {
       </div>
       
       {isOpen && (
-        <div className="absolute z-50 mt-2">
-          <EmojiPicker onEmojiClick={onEmojiClick} />
+        <div className="mt-2 relative z-50">
+          <EmojiPicker onEmojiClick={onEmojiClick} width="100%" />
         </div>
       )}
     </div>

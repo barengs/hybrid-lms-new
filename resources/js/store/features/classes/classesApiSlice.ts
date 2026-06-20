@@ -129,6 +129,7 @@ export interface ClassItem {
   class_code: string;
   type: string;
   instructor?: ClassInstructor;
+  instructors?: ClassInstructor[];
   courses: ClassCourse[];
   assignments?: ClassAssignment[];
   sessions?: ClassSession[];
@@ -326,6 +327,24 @@ export const classesApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['Class'],
     }),
+    addCoInstructor: builder.mutation<void, { classId: string | number; email: string }>({
+      query: ({ classId, email }) => ({
+        url: `classes/${classId}/instructors`,
+        method: 'POST',
+        body: { email },
+      }),
+      invalidatesTags: (_result, _error, { classId }) => ['Class', { type: 'Class', id: classId }],
+    }),
+    removeCoInstructor: builder.mutation<void, { classId: string | number; instructorId: string | number }>({
+      query: ({ classId, instructorId }) => ({
+        url: `classes/${classId}/instructors/${instructorId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { classId }) => ['Class', { type: 'Class', id: classId }],
+    }),
+    searchInstructors: builder.query<ClassInstructor[], string>({
+      query: (search) => `classes/instructors/search?q=${search}`,
+    }),
   }),
 });
 
@@ -345,5 +364,8 @@ export const {
   useDeleteTopicMutation,
   useCreateAssignmentMutation,
   useUpdateAssignmentMutation,
-  useDeleteAssignmentMutation
+  useDeleteAssignmentMutation,
+  useAddCoInstructorMutation,
+  useRemoveCoInstructorMutation,
+  useSearchInstructorsQuery
 } = classesApiSlice;

@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   FolderOpen,
@@ -14,11 +14,12 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
-import { Card, Button, Badge, Modal, DataTable, Input, EmojiSelector } from '@/components/ui';
+import { Card, Button, Badge, Modal, DataTable, Input, IconSelector } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { formatNumber } from '@/lib/utils';
 import type { DropdownItem } from '@/components/ui';
 import { Dropdown, DashboardLoadingScreen } from '@/components/ui';
+import * as LucideIcons from 'lucide-react';
 import {
   useGetCategoriesQuery,
   useCreateCategoryMutation,
@@ -200,9 +201,12 @@ export function CategoriesManagementPage() {
         header: language === 'id' ? 'Kategori' : 'Category',
         cell: ({ row }) => {
           const category = row.original;
+          const CategoryIcon = category.icon ? (LucideIcons as any)[category.icon] : null;
           return (
             <div className="flex items-center gap-3">
-              <span className="text-2xl">{category.icon || 'ðŸ“'}</span>
+              <span className="text-xl text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                {CategoryIcon ? <CategoryIcon className="w-5 h-5" /> : <FolderOpen className="w-5 h-5" />}
+              </span>
               <div>
                 <p className="font-medium text-gray-900 text-sm">{category.name}</p>
                 <p className="text-xs text-gray-500">{category.slug}</p>
@@ -352,7 +356,15 @@ export function CategoriesManagementPage() {
           </Card>
 
           <Card className="flex items-center gap-3">
-            <span className="text-2xl">{stats.topCategory?.icon || 'ðŸ†'}</span>
+            <span className="text-xl text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100">
+              {stats.topCategory?.icon && (LucideIcons as any)[stats.topCategory.icon] ? 
+                (() => {
+                  const TopIcon = (LucideIcons as any)[stats.topCategory.icon];
+                  return <TopIcon className="w-5 h-5" />;
+                })() 
+                : <BookOpen className="w-5 h-5" />
+              }
+            </span>
             <div>
               <p className="text-sm font-bold text-gray-900 truncate max-w-[120px]">{stats.topCategory?.name || '-'}</p>
               <p className="text-xs text-gray-500">{language === 'id' ? 'Terpopuler' : 'Most Popular'}</p>
@@ -391,7 +403,7 @@ export function CategoriesManagementPage() {
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           title={language === 'id' ? 'Tambah Kategori' : 'Add Category'}
-          size="md"
+          size="lg"
         >
           <div className="space-y-4">
             <div>
@@ -428,14 +440,12 @@ export function CategoriesManagementPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Icon (Emoji)
+                {language === 'id' ? 'Icon (Lucide)' : 'Icon (Lucide)'}
               </label>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Icon (Emoji)
-              </label>
-              <EmojiSelector
+              <IconSelector
                 value={formData.icon}
                 onChange={(val) => setFormData({ ...formData, icon: val })}
+                language={language}
               />
             </div>
             <div>
@@ -469,7 +479,7 @@ export function CategoriesManagementPage() {
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           title={language === 'id' ? 'Edit Kategori' : 'Edit Category'}
-          size="md"
+          size="lg"
         >
           <div className="space-y-4">
             <div>
@@ -503,11 +513,12 @@ export function CategoriesManagementPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Icon (Emoji)
+                {language === 'id' ? 'Icon (Lucide)' : 'Icon (Lucide)'}
               </label>
-              <EmojiSelector
+              <IconSelector
                 value={formData.icon}
                 onChange={(val) => setFormData({ ...formData, icon: val })}
+                language={language}
               />
             </div>
             <div>

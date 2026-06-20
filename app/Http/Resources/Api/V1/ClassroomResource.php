@@ -4,6 +4,7 @@ namespace App\Http\Resources\Api\V1;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class ClassroomResource extends JsonResource
 {
@@ -18,7 +19,9 @@ class ClassroomResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug,
-            'thumbnail' => $this->thumbnail ? Storage::disk('public')->url($this->thumbnail) : null,
+            'thumbnail' => $this->thumbnail 
+                ? (filter_var($this->thumbnail, FILTER_VALIDATE_URL) ? $this->thumbnail : asset('storage/' . $this->thumbnail)) 
+                : null,
             'description' => $this->description,
             'class_code' => $this->class_code,
             'status' => $this->status === 'open' ? 'active' : $this->status,
@@ -30,6 +33,16 @@ class ClassroomResource extends JsonResource
                     'email' => $this->instructor->email,
                     'avatar' => $this->instructor->profile->avatar ?? null, 
                 ];
+            }),
+            'instructors' => $this->whenLoaded('instructors', function() {
+                return $this->instructors->map(function($instructor) {
+                    return [
+                        'id' => $instructor->id,
+                        'name' => $instructor->name,
+                        'email' => $instructor->email,
+                        'avatar' => $instructor->profile->avatar ?? null,
+                    ];
+                });
             }),
             'courses' => $this->whenLoaded('courses', function() {
                 return $this->courses->map(function($course) {

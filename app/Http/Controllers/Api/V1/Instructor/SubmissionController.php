@@ -34,7 +34,12 @@ class SubmissionController extends Controller
             $user = $request->user();
 
             $submissions = Submission::whereHas('assignment', function ($query) use ($user) {
-                    $query->whereHas('batch.courses', function ($inner) use ($user) {
+                    $query->whereHas('batch', function($q) use ($user) {
+                        $q->where('instructor_id', $user->id)
+                          ->orWhereHas('instructors', function ($inner) use ($user) {
+                              $inner->where('instructor_id', $user->id);
+                          });
+                    })->orWhereHas('batch.courses', function ($inner) use ($user) {
                         $inner->where('instructor_id', $user->id);
                     })->orWhereHas('lesson.section.course', function ($inner) use ($user) {
                         $inner->where('instructor_id', $user->id);
@@ -93,7 +98,20 @@ class SubmissionController extends Controller
                 'instructor_feedback' => ['nullable', 'string'],
             ]);
 
-            $submission = Submission::findOrFail($id);
+            $submission = Submission::whereHas('assignment', function ($query) use ($request) {
+                    $user = $request->user();
+                    $query->whereHas('batch', function($q) use ($user) {
+                        $q->where('instructor_id', $user->id)
+                          ->orWhereHas('instructors', function ($inner) use ($user) {
+                              $inner->where('instructor_id', $user->id);
+                          });
+                    })->orWhereHas('batch.courses', function ($inner) use ($user) {
+                        $inner->where('instructor_id', $user->id);
+                    })->orWhereHas('lesson.section.course', function ($inner) use ($user) {
+                        $inner->where('instructor_id', $user->id);
+                    });
+                })
+                ->findOrFail($id);
 
             $submission->update([
                 'points_awarded' => $validated['points_awarded'],
@@ -113,10 +131,23 @@ class SubmissionController extends Controller
     /**
      * Pemicu Penilaian AI
      */
-    public function aiGrade(string $id): JsonResponse
+    public function aiGrade(Request $request, string $id): JsonResponse
     {
         try {
-            $submission = Submission::findOrFail($id);
+            $submission = Submission::whereHas('assignment', function ($query) use ($request) {
+                    $user = $request->user();
+                    $query->whereHas('batch', function($q) use ($user) {
+                        $q->where('instructor_id', $user->id)
+                          ->orWhereHas('instructors', function ($inner) use ($user) {
+                              $inner->where('instructor_id', $user->id);
+                          });
+                    })->orWhereHas('batch.courses', function ($inner) use ($user) {
+                        $inner->where('instructor_id', $user->id);
+                    })->orWhereHas('lesson.section.course', function ($inner) use ($user) {
+                        $inner->where('instructor_id', $user->id);
+                    });
+                })
+                ->findOrFail($id);
             
             $submission->update(['ai_status' => 'processing']);
             

@@ -30,7 +30,9 @@ import {
   ArrowLeft,
   ArrowRight,
   FolderPlus,
-  Layout
+  Layout,
+  UserPlus,
+  Search
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
 import { Card, CardHeader, CardTitle, Button, Badge, Input, Dropdown, Modal, Avatar, Textarea } from '@/components/ui';
@@ -85,8 +87,12 @@ import {
   useDeleteTopicMutation,
   useCreateAssignmentMutation,
   useUpdateAssignmentMutation,
-  useDeleteAssignmentMutation
+  useDeleteAssignmentMutation,
+  useAddCoInstructorMutation,
+  useRemoveCoInstructorMutation,
+  useSearchInstructorsQuery
 } from '@/store/features/classes/classesApiSlice';
+import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 
@@ -107,6 +113,9 @@ export function ClassManagePage() {
   const [createAssignment] = useCreateAssignmentMutation();
   const [updateAssignment] = useUpdateAssignmentMutation();
   const [deleteAssignment] = useDeleteAssignmentMutation();
+  const [addCoInstructor, { isLoading: isAddingInstructor }] = useAddCoInstructorMutation();
+  const [removeCoInstructor] = useRemoveCoInstructorMutation();
+  const { user: authUser } = useAuth();
   
   const classData = classDataResponse?.data;
 
@@ -123,6 +132,11 @@ export function ClassManagePage() {
     totalAssignments: s.assignments_total || 0,
   }));
 
+  const filteredStudents = displayStudents.filter(student =>
+    student.name.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+    student.email.toLowerCase().includes(studentSearchQuery.toLowerCase())
+  );
+
   
   const [activeTab, setActiveTab] = useState<Tab>('content');
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -133,6 +147,51 @@ export function ClassManagePage() {
   const [editingSession, setEditingSession] = useState<any>(null);
   const [editingTopic, setEditingTopic] = useState<any>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  // Co-Instructor States
+  const [showCoInstructorModal, setShowCoInstructorModal] = useState(false);
+  const [coInstructorSearchQuery, setCoInstructorSearchQuery] = useState('');
+  const [selectedInstructor, setSelectedInstructor] = useState<any>(null);
+  const [coInstructorError, setCoInstructorError] = useState('');
+
+  const { data: searchedInstructors, isLoading: isSearchingInstructors } = useSearchInstructorsQuery(
+    coInstructorSearchQuery,
+    { skip: coInstructorSearchQuery.length < 2 }
+  );
+
+  // People/Students Selection & Filtering
+  const [selectedStudents, setSelectedStudents] = useState<(string | number)[]>([]);
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+
+  const handleAddCoInstructor = async () => {
+    if (!classId) return;
+    if (!selectedInstructor) {
+      setCoInstructorError(language === 'id' ? 'Silakan pilih instruktur terlebih dahulu.' : 'Please select an instructor first.');
+      return;
+    }
+    try {
+      setCoInstructorError('');
+      await addCoInstructor({ classId, email: selectedInstructor.email }).unwrap();
+      setShowCoInstructorModal(false);
+      setCoInstructorSearchQuery('');
+      setSelectedInstructor(null);
+    } catch (err: any) {
+      console.error(err);
+      setCoInstructorError(err.data?.message || (language === 'id' ? 'Gagal menambahkan instruktur.' : 'Failed to add instructor.'));
+    }
+  };
+
+  const handleRemoveCoInstructor = async (instructorId: string | number) => {
+    if (!classId) return;
+    if (confirm(language === 'id' ? 'Apakah Anda yakin ingin menghapus instruktur pendamping ini?' : 'Are you sure you want to remove this co-instructor?')) {
+      try {
+        await removeCoInstructor({ classId, instructorId }).unwrap();
+      } catch (err: any) {
+        console.error(err);
+        alert(err.data?.message || (language === 'id' ? 'Gagal menghapus instruktur.' : 'Failed to remove instructor.'));
+      }
+    }
+  };
 
   // Form states
   const [className, setClassName] = useState('');
@@ -549,7 +608,7 @@ export function ClassManagePage() {
             >
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                {language === 'id' ? 'Siswa' : 'Students'}
+                {language === 'id' ? 'Anggota' : 'People'}
                 <Badge variant="secondary" size="sm">{classData?.students_count || 0}</Badge>
               </div>
             </button>
@@ -676,26 +735,26 @@ export function ClassManagePage() {
                 </Card>
               ) : (
                  <div className="space-y-6">
-                   {classData.classwork_topics.map((topic: any) => (
-                      <div key={topic.id} className="bg-white rounded-xl border p-5">
-                        <div className="flex justify-between items-center border-b pb-3 mb-4">
-                           <h4 className="text-xl font-bold text-gray-900">{topic.title}</h4>
-                           <Dropdown
-                             trigger={
-                               <button className="p-2 hover:bg-gray-100 rounded-lg">
-                                 <MoreVertical className="w-5 h-5 text-gray-500" />
-                               </button>
-                             }
-                             items={[
-                               { label: language === 'id' ? 'Edit Topik' : 'Edit Topic', icon: <Edit3 className="w-4 h-4" />, onClick: () => handleEditTopic(topic) },
-                               { label: language === 'id' ? 'Hapus Topik' : 'Delete Topic', icon: <Trash2 className="w-4 h-4" />, onClick: () => handleDeleteTopic(topic) }
-                             ]}
-                             align="right"
-                           />
-                        </div>
+                    {classData.classwork_topics.map((topic: any) => (
+                       <div key={topic.id} className="bg-white rounded-md border border-gray-200/60 p-5">
+                         <div className="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
+                            <h4 className="text-xl font-bold text-gray-900">{topic.title}</h4>
+                            <Dropdown
+                              trigger={
+                                <button className="p-2 hover:bg-gray-100 rounded-lg">
+                                  <MoreVertical className="w-5 h-5 text-gray-500" />
+                                </button>
+                              }
+                              items={[
+                                { label: language === 'id' ? 'Edit Topik' : 'Edit Topic', icon: <Edit3 className="w-4 h-4" />, onClick: () => handleEditTopic(topic) },
+                                { label: language === 'id' ? 'Hapus Topik' : 'Delete Topic', icon: <Trash2 className="w-4 h-4" />, onClick: () => handleDeleteTopic(topic) }
+                              ]}
+                              align="right"
+                            />
+                         </div>
 
-                        {(!topic.sessions || topic.sessions.length === 0) && (!topic.assignments || topic.assignments.length === 0) ? (
-                           <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed rounded-lg">
+                         {(!topic.sessions || topic.sessions.length === 0) && (!topic.assignments || topic.assignments.length === 0) ? (
+                            <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-100 rounded-md">
                               {language === 'id' ? 'Topik ini masih kosong.' : 'This topic is empty.'}
                            </div>
                         ) : (
@@ -829,128 +888,284 @@ export function ClassManagePage() {
         )}
 
         {activeTab === 'students' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                {language === 'id' ? 'Daftar Siswa' : 'Student List'}
-              </h2>
-              <div className="flex gap-2">
-                <Input
-                  placeholder={language === 'id' ? 'Cari siswa...' : 'Search students...'}
-                  className="w-64"
-                />
-                <Button leftIcon={<Download className="w-4 h-4" />} variant="outline">
-                  {language === 'id' ? 'Ekspor' : 'Export'}
-                </Button>
+          <div className="max-w-3xl mx-auto space-y-10 py-4">
+            {/* Instructors Section */}
+            <div>
+              <div className="flex justify-between items-center mb-2 border-b-2 border-blue-600 pb-3">
+                <h3 className="text-3xl font-light text-blue-600">
+                  {language === 'id' ? 'Pengajar' : 'Teachers'}
+                </h3>
+                {authUser?.id === classData.instructor?.id && (
+                  <button 
+                    onClick={() => setShowCoInstructorModal(true)}
+                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                    title={language === 'id' ? 'Undang Pengajar' : 'Invite Teacher'}
+                  >
+                    <UserPlus className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {/* Main Instructor */}
+                {classData.instructor && (
+                  <div className="flex items-center justify-between py-3 px-2 hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <Avatar src={classData.instructor.avatar} name={classData.instructor.name} size="md" />
+                      <div>
+                        <span className="font-medium text-gray-900">{classData.instructor.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({classData.instructor.email})</span>
+                        <span className="ml-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-800 border border-blue-100">
+                          {language === 'id' ? 'Pengajar Utama' : 'Main Teacher'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Co-Instructors */}
+                {(classData.instructors || [])
+                  .filter((ins: any) => ins.id !== classData.instructor?.id)
+                  .map((ins: any) => (
+                    <div key={ins.id} className="flex items-center justify-between py-3 px-2 hover:bg-gray-50/50 transition-colors group">
+                      <div className="flex items-center gap-4">
+                        <Avatar src={ins.avatar} name={ins.name} size="md" />
+                        <div>
+                          <span className="font-medium text-gray-900">{ins.name}</span>
+                          <span className="text-sm text-gray-500 ml-2">({ins.email})</span>
+                        </div>
+                      </div>
+                      
+                      {authUser?.id === classData.instructor?.id && (
+                        <Dropdown 
+                          trigger={
+                            <button className="p-1.5 hover:bg-gray-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                              <MoreVertical className="w-4 h-4 text-gray-500" />
+                            </button>
+                          }
+                          items={[
+                            {
+                              label: language === 'id' ? 'Keluarkan' : 'Remove',
+                              icon: <Trash2 className="w-4 h-4 text-red-500" />,
+                              onClick: () => handleRemoveCoInstructor(ins.id)
+                            }
+                          ]}
+                          align="right"
+                        />
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
 
-            {displayStudents.length === 0 ? (
-              <Card className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {language === 'id' ? 'Belum Ada Siswa' : 'No Students Yet'}
-                </h3>
-                <p className="text-gray-500">
-                  {language === 'id'
-                    ? 'Belum ada siswa yang bergabung di kelas ini.'
-                    : 'No students have joined this class yet.'}
-                </p>
-              </Card>
-            ) : (
-              <Card>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-4 px-4 font-medium text-gray-600">
-                          {language === 'id' ? 'Siswa' : 'Student'}
-                        </th>
-                        <th className="text-left py-4 px-4 font-medium text-gray-600">
-                          {language === 'id' ? 'Bergabung' : 'Joined'}
-                        </th>
-                        <th className="text-left py-4 px-4 font-medium text-gray-600">
-                          {language === 'id' ? 'Progress' : 'Progress'}
-                        </th>
-                        <th className="text-left py-4 px-4 font-medium text-gray-600">
-                          {language === 'id' ? 'Tugas' : 'Assignments'}
-                        </th>
-                        <th className="text-left py-4 px-4 font-medium text-gray-600">
-                          {language === 'id' ? 'Nilai' : 'Grade'}
-                        </th>
-                        <th className="text-right py-4 px-4 font-medium text-gray-600">
-                          {language === 'id' ? 'Aksi' : 'Actions'}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayStudents.map((student) => (
-                        <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar src={student.avatar} name={student.name} size="md" />
-                              <div>
-                                <p className="font-medium text-gray-900">{student.name}</p>
-                                <p className="text-sm text-gray-500">{student.email}</p>
-                              </div>
+            {/* Students Section */}
+            <div>
+              <div className="flex justify-between items-center mb-2 border-b-2 border-blue-600 pb-3">
+                <div className="flex items-baseline gap-4">
+                  <h3 className="text-3xl font-light text-blue-600">
+                    {language === 'id' ? 'Siswa' : 'Students'}
+                  </h3>
+                  <span className="text-sm text-gray-500 font-medium">
+                    {displayStudents.length} {language === 'id' ? 'siswa' : 'students'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions & Filters Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-3 px-2 border-b border-gray-200 bg-gray-50/50 rounded-t-lg">
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    checked={displayStudents.length > 0 && selectedStudents.length === displayStudents.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStudents(displayStudents.map(s => s.id));
+                      } else {
+                        setSelectedStudents([]);
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  
+                  <Dropdown
+                    trigger={
+                      <button 
+                        disabled={selectedStudents.length === 0}
+                        className={`px-3 py-1.5 rounded text-sm font-medium border flex items-center gap-1.5 transition-colors ${
+                          selectedStudents.length > 0
+                            ? 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                            : 'bg-gray-100 text-gray-400 border-transparent cursor-not-allowed'
+                        }`}
+                      >
+                        {language === 'id' ? 'Tindakan' : 'Actions'}
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    }
+                    items={[
+                      {
+                        label: language === 'id' ? 'Kirim Pesan' : 'Send Message',
+                        icon: <MessageSquare className="w-4 h-4" />,
+                        onClick: () => {
+                          alert(language === 'id' 
+                            ? `Mengirim pesan ke ${selectedStudents.length} siswa` 
+                            : `Sending message to ${selectedStudents.length} students`
+                          );
+                          console.log('Bulk Message to:', selectedStudents);
+                        }
+                      }
+                    ]}
+                  />
+
+                  {selectedStudents.length > 0 && (
+                    <span className="text-sm text-gray-500">
+                      {selectedStudents.length} {language === 'id' ? 'terpilih' : 'selected'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder={language === 'id' ? 'Cari siswa...' : 'Search students...'}
+                      value={studentSearchQuery}
+                      onChange={(e) => setStudentSearchQuery(e.target.value)}
+                      className="pl-9 pr-4 py-1.5 w-48 sm:w-60 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+                  <Button 
+                    size="sm"
+                    leftIcon={<Download className="w-4 h-4" />} 
+                    variant="outline"
+                    onClick={() => {
+                      // Export simple csv
+                      const csvContent = "data:text/csv;charset=utf-8," 
+                        + ["Name,Email,Progress,Assignments,Grade"].join(",") + "\n"
+                        + displayStudents.map(s => `"${s.name}","${s.email}",${s.progress}%,${s.assignmentsSubmitted}/${s.totalAssignments},${s.grade || '-'}`).join("\n");
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", encodedUri);
+                      link.setAttribute("download", `class_students_${classId}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                  >
+                    {language === 'id' ? 'Ekspor' : 'Export'}
+                  </Button>
+                </div>
+              </div>
+
+              {filteredStudents.length === 0 ? (
+                <div className="text-center py-12 border border-t-0 border-dashed rounded-b-lg border-gray-200">
+                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {studentSearchQuery 
+                      ? (language === 'id' ? 'Tidak ada hasil' : 'No results found')
+                      : (language === 'id' ? 'Belum Ada Siswa' : 'No Students Yet')
+                    }
+                  </h3>
+                  <p className="text-gray-500">
+                    {studentSearchQuery 
+                      ? (language === 'id' ? 'Coba cari dengan kata kunci lain.' : 'Try searching with another keyword.')
+                      : (language === 'id' ? 'Belum ada siswa yang bergabung di kelas ini.' : 'No students have joined this class yet.')
+                    }
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b-lg overflow-hidden bg-white">
+                  {filteredStudents.map((student) => {
+                    const isSelected = selectedStudents.includes(student.id);
+                    return (
+                      <div 
+                        key={student.id} 
+                        className={`flex items-center justify-between py-3 px-4 hover:bg-gray-50/50 transition-colors group ${
+                          isSelected ? 'bg-blue-50/20' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-4 min-w-0 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedStudents(prev => [...prev, student.id]);
+                              } else {
+                                setSelectedStudents(prev => prev.filter(id => id !== student.id));
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                          />
+                          
+                          <Avatar src={student.avatar} name={student.name} size="md" className="flex-shrink-0" />
+                          
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{student.name}</p>
+                            <p className="text-xs text-gray-500 truncate">{student.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-6 flex-shrink-0 ml-4">
+                          {/* Joined date */}
+                          <div className="text-xs text-gray-400 hidden md:block w-24">
+                            {getTimeAgo(student.enrolledAt)}
+                          </div>
+                          
+                          {/* Progress */}
+                          <div className="hidden sm:flex items-center gap-2 w-28">
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className="bg-blue-600 h-1.5 rounded-full"
+                                style={{ width: `${student.progress}%` }}
+                              />
                             </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="text-sm text-gray-500">
-                              {getTimeAgo(student.enrolledAt)}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-24">
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full"
-                                    style={{ width: `${student.progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <span className="text-sm font-medium">{student.progress}%</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="text-sm">
-                              {student.assignmentsSubmitted}/{student.totalAssignments}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
+                            <span className="text-xs font-semibold text-gray-600">{student.progress}%</span>
+                          </div>
+
+                          {/* Assignments */}
+                          <div className="hidden lg:block text-xs text-gray-500 w-16 text-center">
+                            {student.assignmentsSubmitted}/{student.totalAssignments}
+                          </div>
+
+                          {/* Grade */}
+                          <div className="w-12 text-right">
                             {student.grade !== undefined ? (
-                              <span className={`font-medium ${student.grade >= 85 ? 'text-green-600' :
-                                student.grade >= 70 ? 'text-blue-600' :
-                                  student.grade >= 50 ? 'text-yellow-600' : 'text-red-600'
-                                }`}>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                student.grade >= 85 ? 'bg-green-50 text-green-700 border border-green-100' :
+                                student.grade >= 70 ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                student.grade >= 50 ? 'bg-yellow-50 text-yellow-700 border border-yellow-100' :
+                                'bg-red-50 text-red-700 border border-red-100'
+                              }`}>
                                 {student.grade}%
                               </span>
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-gray-300 text-xs">-</span>
                             )}
-                          </td>
-                          <td className="py-4 px-4 text-right">
+                          </div>
+
+                          {/* Actions Dropdown */}
+                          <div className="w-8 flex justify-end">
                             <Dropdown
                               trigger={
                                 <button
-                                  className="p-2 hover:bg-gray-100 rounded-lg"
+                                  className="p-1 hover:bg-gray-100 rounded-full"
                                   aria-label="Student actions"
                                 >
-                                  <MoreVertical className="w-5 h-5 text-gray-500" />
+                                  <MoreVertical className="w-4 h-4 text-gray-500" />
                                 </button>
                               }
                               items={getStudentActions(student)}
                               align="right"
                             />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </Card>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -1654,6 +1869,132 @@ export function ClassManagePage() {
             </Button>
             <Button onClick={handleSaveTopic} disabled={!topicTitle.trim()}>
               {language === 'id' ? 'Simpan' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Co-Instructor Invitation Modal */}
+      <Modal
+        isOpen={showCoInstructorModal}
+        onClose={() => {
+          setShowCoInstructorModal(false);
+          setCoInstructorSearchQuery('');
+          setSelectedInstructor(null);
+          setCoInstructorError('');
+        }}
+        title={language === 'id' ? 'Undang Instruktur Pendamping' : 'Invite Co-Instructor'}
+      >
+        <div className="space-y-4 min-h-[220px]">
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {language === 'id' ? 'Nama Instruktur' : 'Instructor Name'}
+            </label>
+            <div className="relative">
+              <Input
+                type="text"
+                value={coInstructorSearchQuery}
+                onChange={(e) => {
+                  setCoInstructorSearchQuery(e.target.value);
+                  if (selectedInstructor) {
+                    setSelectedInstructor(null);
+                  }
+                }}
+                placeholder={language === 'id' ? 'Ketik nama atau email instruktur...' : 'Type instructor name or email...'}
+                className="pr-10"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                {isSearchingInstructors ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                ) : (
+                  <Search className="w-4 h-4 text-gray-400" />
+                )}
+              </div>
+            </div>
+
+            {/* Dropdown Suggestions */}
+            {coInstructorSearchQuery.length >= 2 && !selectedInstructor && (
+              <div className="absolute left-0 right-0 mt-1 border border-gray-200 rounded-lg shadow-lg bg-white max-h-48 overflow-y-auto divide-y divide-gray-100 z-50">
+                {isSearchingInstructors && (
+                  <div className="p-3 text-sm text-gray-500 text-center">
+                    {language === 'id' ? 'Mencari...' : 'Searching...'}
+                  </div>
+                )}
+                {!isSearchingInstructors && (!searchedInstructors || searchedInstructors.length === 0) && (
+                  <div className="p-3 text-sm text-gray-500 text-center">
+                    {language === 'id' ? 'Tidak ada instruktur ditemukan.' : 'No instructors found.'}
+                  </div>
+                )}
+                {!isSearchingInstructors && searchedInstructors && searchedInstructors
+                  .filter((ins: any) => {
+                    // Exclude already added main instructor and co-instructors
+                    const isMain = ins.id === classData.instructor?.id;
+                    const isCo = (classData.instructors || []).some((co: any) => co.id === ins.id);
+                    return !isMain && !isCo;
+                  })
+                  .map((ins: any) => (
+                    <button
+                      key={ins.id}
+                      onClick={() => {
+                        setSelectedInstructor(ins);
+                        setCoInstructorSearchQuery('');
+                      }}
+                      type="button"
+                      className="w-full text-left p-2.5 hover:bg-blue-50/40 transition-colors flex items-center gap-3"
+                    >
+                      <Avatar src={ins.avatar} name={ins.name} size="sm" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{ins.name}</p>
+                        <p className="text-xs text-gray-500">{ins.email}</p>
+                      </div>
+                    </button>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* Selected Instructor Display */}
+            {selectedInstructor && (
+              <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar src={selectedInstructor.avatar} name={selectedInstructor.name} size="sm" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{selectedInstructor.name}</p>
+                    <p className="text-xs text-gray-500">{selectedInstructor.email}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedInstructor(null)}
+                  type="button"
+                  className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {coInstructorError && (
+              <p className="text-red-500 text-sm mt-1">{coInstructorError}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowCoInstructorModal(false);
+                setCoInstructorSearchQuery('');
+                setSelectedInstructor(null);
+                setCoInstructorError('');
+              }}
+            >
+              {language === 'id' ? 'Batal' : 'Cancel'}
+            </Button>
+            <Button 
+              onClick={handleAddCoInstructor} 
+              isLoading={isAddingInstructor}
+              disabled={isAddingInstructor || !selectedInstructor}
+            >
+              {language === 'id' ? 'Tambah' : 'Add'}
             </Button>
           </div>
         </div>

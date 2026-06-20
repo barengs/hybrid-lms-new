@@ -147,7 +147,7 @@ class DashboardController extends Controller
                 ->get()
                 ->map(fn($e) => [
                     'type' => 'enrollment',
-                    'message' => $e->user->name . ' enrolled in ' . $e->course->title,
+                    'message' => ($e->user?->name ?? 'Unknown User') . ' enrolled in ' . ($e->course?->title ?? 'Unknown Course'),
                     'created_at' => $e->created_at,
                 ]);
 
@@ -159,7 +159,7 @@ class DashboardController extends Controller
                 ->get()
                 ->map(fn($s) => [
                     'type' => 'submission',
-                    'message' => $s->user->name . ' submitted ' . $s->assignment->title,
+                    'message' => ($s->user?->name ?? 'Unknown User') . ' submitted ' . ($s->assignment?->title ?? 'Unknown Assignment'),
                     'created_at' => $s->created_at,
                 ]);
             
@@ -186,9 +186,9 @@ class DashboardController extends Controller
                 ->get()
                 ->map(fn($e) => [
                     'id' => $e->user_id,
-                    'name' => $e->user->name,
-                    'avatar' => $e->user->profile->avatar ?? null,
-                    'course' => $e->course->title,
+                    'name' => $e->user?->name ?? 'Unknown User',
+                    'avatar' => $e->user?->profile?->avatar ?? null,
+                    'course' => $e->course?->title ?? 'Unknown Course',
                     'progress' => $e->progress_percentage,
                 ]);
 

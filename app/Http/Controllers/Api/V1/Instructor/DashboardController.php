@@ -219,8 +219,8 @@ class DashboardController extends Controller
             return $this->successResponse(new DashboardResource($data), 'Instructor dashboard data retrieved successfully.');
 
         } catch (\Exception $e) {
-            Log::error('Instructor Dashboard Error: ' . $e->getMessage());
-            return $this->errorResponse('Failed to retrieve dashboard data.', 500);
+            Log::error('Instructor Dashboard Error: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
+            return $this->errorResponse('Debug Error: ' . $e->getMessage(), 500);
         }
     }
 }

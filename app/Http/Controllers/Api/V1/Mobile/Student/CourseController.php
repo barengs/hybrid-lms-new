@@ -122,7 +122,15 @@ class CourseController extends Controller
                 ->where('course_id', $course->id)
                 ->first();
 
-            if (!$enrollment) {
+            $isInstructor = $course->instructor_id === $user->id;
+            $isBatchInstructor = \App\Models\Batch::whereHas('courses', function($q) use ($course) {
+                $q->where('courses.id', $course->id);
+            })->where(function($q) use ($user) {
+                $q->where('instructor_id', $user->id)
+                  ->orWhereHas('instructors', fn($iq) => $iq->where('users.id', $user->id));
+            })->exists();
+
+            if (!$enrollment && !$isInstructor && !$isBatchInstructor && !$user->hasRole('admin')) {
                 return $this->errorResponse('Anda belum terdaftar di kursus ini.', 403);
             }
 
@@ -133,7 +141,7 @@ class CourseController extends Controller
                 return $this->errorResponse('Materi tidak ditemukan.', 404);
             }
 
-            $completedLessons = $enrollment->completed_lessons ?? [];
+            $completedLessons = $enrollment ? ($enrollment->completed_lessons ?? []) : [];
 
             // Navigasi
             $allLessons = Lesson::whereHas('section', function($q) use ($course) {
@@ -153,7 +161,7 @@ class CourseController extends Controller
 
             // Fetch assignment ID if it exists for this lesson
             $assignment = \App\Models\Assignment::where('lesson_id', $lesson->id)
-                ->when($enrollment->batch_id, function($q) use ($enrollment) {
+                ->when($enrollment && $enrollment->batch_id, function($q) use ($enrollment) {
                     $q->where('batch_id', $enrollment->batch_id);
                 })
                 ->first();

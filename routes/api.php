@@ -68,11 +68,15 @@ Route::prefix('v1/mobile')->group(function () {
             // Batch/Class Mobile
             Route::post('batches/join', [\App\Http\Controllers\Api\V1\Mobile\Student\BatchController::class, 'join']);
 
-            // Course & Lesson Mobile
-            Route::get('courses/{slug}', [\App\Http\Controllers\Api\V1\Mobile\Student\CourseController::class, 'show']);
+            // Course Reviews
+            Route::get('courses/{course}/reviews', [\App\Http\Controllers\Api\V1\Mobile\Student\ReviewController::class, 'index']);
+            Route::post('courses/{course}/reviews', [\App\Http\Controllers\Api\V1\Mobile\Student\ReviewController::class, 'store']);
             Route::post('courses/{slug}/enroll', [\App\Http\Controllers\Api\V1\Mobile\Student\CourseController::class, 'enroll']);
-            Route::get('courses/{slug}/lessons/{lessonId}', [\App\Http\Controllers\Api\V1\Mobile\Student\CourseController::class, 'showLesson']);
-            Route::post('courses/{slug}/lessons/{lessonId}/complete', [\App\Http\Controllers\Api\V1\Mobile\Student\CourseController::class, 'markComplete']);
+            Route::get('courses/{slug}/lessons/{lesson_id}', [\App\Http\Controllers\Api\V1\Mobile\Student\CourseController::class, 'showLesson']);
+            Route::post('courses/{slug}/lessons/{lesson_id}/complete', [\App\Http\Controllers\Api\V1\Mobile\Student\CourseController::class, 'markComplete']);
+            // Web Student Reviews (reusing the same logic from Mobile Student Review Controller, or directly routing to it)
+            Route::get('courses/{course}/reviews', [\App\Http\Controllers\Api\V1\Mobile\Student\ReviewController::class, 'index']);
+            Route::post('courses/{course}/reviews', [\App\Http\Controllers\Api\V1\Mobile\Student\ReviewController::class, 'store']);
 
             // Assignment & Quiz Mobile
             Route::get('assignments', [\App\Http\Controllers\Api\V1\Mobile\Student\AssignmentController::class, 'index']);

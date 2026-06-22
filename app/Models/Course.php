@@ -114,6 +114,14 @@ class Course extends Model
     }
 
     /**
+     * Get all reviews for this course.
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(CourseReview::class);
+    }
+
+    /**
      * Get all cart items for this course.
      */
     public function cartItems(): HasMany

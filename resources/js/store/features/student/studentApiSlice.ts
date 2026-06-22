@@ -69,6 +69,7 @@ export interface CourseContentData {
   progress: number;
   total_lessons: number;
   completed_lessons: number;
+  can_review?: boolean;
   sections: LearningSection[];
 }
 
@@ -335,6 +336,22 @@ export const studentApiSlice = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['Course', 'Transactions'],
     }),
+    getCourseReviews: builder.query<{ id: number; user_name: string; user_avatar: string | null; rating: number; comment: string | null; created_at: string }[], string>({
+      query: (slug) => `/student/courses/${slug}/reviews`,
+      transformResponse: (response: { data: any[] }) => response.data,
+      providesTags: (_result, _error, slug) => [{ type: 'Course', id: `reviews-${slug}` }],
+    }),
+    submitCourseReview: builder.mutation<{ success: boolean; data: any; message: string }, { slug: string; rating: number; comment?: string }>({
+      query: ({ slug, ...body }) => ({
+        url: `/student/courses/${slug}/reviews`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { slug }) => [
+        { type: 'Course', id: `reviews-${slug}` },
+        { type: 'Course', id: slug }
+      ],
+    }),
   }),
 });
 
@@ -355,4 +372,6 @@ export const {
   useGetQuizDetailQuery,
   useSubmitQuizMutation,
   useProcessCheckoutMutation,
+  useGetCourseReviewsQuery,
+  useSubmitCourseReviewMutation,
 } = studentApiSlice;

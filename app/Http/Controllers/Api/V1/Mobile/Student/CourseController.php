@@ -39,6 +39,23 @@ class CourseController extends Controller
                 ->first();
 
             $completedLessons = $enrollment ? ($enrollment->completed_lessons ?? []) : [];
+            
+            // Check if user has graded submission to allow review
+            $canReview = false;
+            if ($enrollment && $enrollment->progress_percentage >= 100) {
+                $hasGradedSubmission = \App\Models\Submission::where('user_id', $user->id)
+                    ->whereHas('assignment.lesson.section', function ($q) use ($course) {
+                        $q->where('course_id', $course->id);
+                    })
+                    ->whereIn('status', ['graded', 'reviewed'])
+                    ->exists();
+
+                $alreadyReviewed = \App\Models\CourseReview::where('course_id', $course->id)
+                    ->where('user_id', $user->id)
+                    ->exists();
+
+                $canReview = $hasGradedSubmission && !$alreadyReviewed;
+            }
 
             $sections = $course->sections->map(function ($section) use ($completedLessons, $enrollment) {
                 // Get Lessons
@@ -98,6 +115,8 @@ class CourseController extends Controller
                 'thumbnail' => $course->thumbnail,
                 'instructor_name' => $course->instructor->name,
                 'is_enrolled' => $enrollment !== null,
+                'is_completed' => $enrollment ? $enrollment->progress_percentage >= 100 : false,
+                'can_review' => $canReview,
                 'progress' => $enrollment ? $enrollment->progress_percentage : 0,
                 'sections' => $sections
             ];

@@ -15,12 +15,14 @@ import {
   Download,
   MessageSquare,
   AlertCircle,
+  Star,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/layouts';
 import { Card, CardHeader, CardTitle, Button, Badge, Avatar, Progress, Skeleton } from '@/components/ui';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
-import { useGetCourseContentQuery } from '@/store/features/student/studentApiSlice';
+import { useGetCourseContentQuery, useGetCourseReviewsQuery } from '@/store/features/student/studentApiSlice';
+import { ReviewModal } from './components/ReviewModal';
 
 interface LearningLesson {
   id: number;
@@ -45,13 +47,18 @@ export function CourseLearningPage() {
   const [searchParams] = useSearchParams();
   const fromClass = searchParams.get('fromClass');
   const { language } = useLanguage();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [expandedModules, setExpandedModules] = useState<number[]>([]);
 
   const { data: course, isLoading, error } = useGetCourseContentQuery(slug, {
     skip: !slug
   });
+
+  const { data: reviews = [] } = useGetCourseReviewsQuery(slug, {
+    skip: !slug
+  });
+
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   const toggleModule = (moduleId: number) => {
     setExpandedModules((prev) =>
@@ -258,11 +265,21 @@ export function CourseLearningPage() {
               )}
               <Link
                 to={`/discussions?course=${course.id}`}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium border-2 border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium border-2 border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg transition-all mb-2 md:mb-0"
               >
                 <MessageSquare className="w-4 h-4" />
                 {language === 'id' ? 'Forum Diskusi' : 'Discussion Forum'}
               </Link>
+              {course.can_review && (
+                <Button
+                  variant="outline"
+                  leftIcon={<Star className="w-4 h-4" />}
+                  onClick={() => setIsReviewModalOpen(true)}
+                  className="w-full"
+                >
+                  {language === 'id' ? 'Tulis Ulasan' : 'Write Review'}
+                </Button>
+              )}
             </div>
           </div>
         </Card>
@@ -351,6 +368,43 @@ export function CourseLearningPage() {
                 </Card>
               );
             })}
+
+            {/* Reviews Section */}
+            {reviews.length > 0 && (
+              <div className="mt-8 space-y-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {language === 'id' ? 'Ulasan Siswa' : 'Student Reviews'}
+                </h2>
+                <div className="grid gap-4">
+                  {reviews.map((review) => (
+                    <Card key={review.id} className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center gap-3">
+                          <Avatar src={review.user_avatar || undefined} name={review.user_name} size="sm" />
+                          <div>
+                            <p className="font-semibold text-sm">{review.user_name}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(review.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex text-yellow-400">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'text-gray-300'}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-gray-700 text-sm mt-3">{review.comment}</p>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -415,6 +469,12 @@ export function CourseLearningPage() {
           </div>
         </div>
       </div>
+
+      <ReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        courseSlug={course.slug}
+      />
     </DashboardLayout>
   );
 }

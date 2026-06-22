@@ -192,6 +192,10 @@ class AssignmentController extends Controller
                 $status = 'graded';
             }
 
+            // Paksa selalu pakai AI grading tanpa peduli flag use_ai_grading
+            $needsAiGrading = $assignment->gradable && $assignment->type !== 'quiz';
+            $aiStatus = $status === 'graded' ? 'completed' : ($needsAiGrading ? 'processing' : 'not_applicable');
+
             if ($submission) {
                 $submission->update([
                     'files' => $files,
@@ -200,6 +204,7 @@ class AssignmentController extends Controller
                     'submitted_at' => now(),
                     'status' => $status,
                     'points_awarded' => $pointsAwarded ?? $submission->points_awarded,
+                    'ai_status' => $status === 'graded' ? $submission->ai_status : $aiStatus,
                 ]);
             } else {
                 $submission = Submission::create([
@@ -211,13 +216,13 @@ class AssignmentController extends Controller
                     'submitted_at' => now(),
                     'status' => $status,
                     'points_awarded' => $pointsAwarded,
+                    'ai_status' => $aiStatus,
                 ]);
             }
 
             // AI Grading Dispatch
-            if ($assignment->gradable && $assignment->type !== 'quiz' && $assignment->use_ai_grading) {
+            if ($needsAiGrading) {
                 GradeSubmission::dispatch($submission);
-                $submission->update(['ai_status' => 'processing']);
             }
 
             return $this->successResponse([

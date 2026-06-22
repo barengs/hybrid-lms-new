@@ -41,9 +41,9 @@ class CourseSimulationSeeder extends Seeder
 
         // 1. Create/Update Instructors
         $instructor1 = User::updateOrCreate(
-            ['email' => 'instructor@molang.com'],
+            ['email' => 'walid.miftah@gmail.com'],
             [
-                'name' => 'Syed Hasnain',
+                'name' => 'Walid Miftah',
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
             ]
@@ -54,9 +54,9 @@ class CourseSimulationSeeder extends Seeder
         $instructor1->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
         $instructor2 = User::updateOrCreate(
-            ['email' => 'jane@molang.com'],
+            ['email' => 'anwari@gmail.com'],
             [
-                'name' => 'Jane Doe',
+                'name' => 'Anwari',
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
             ]
@@ -347,9 +347,9 @@ class CourseSimulationSeeder extends Seeder
 
         // 6. Create Student and Enrollments
         $studentUser = User::updateOrCreate(
-            ['email' => 'student@molang.com'],
+            ['email' => 'willy.ramaya@gmail.com'],
             [
-                'name' => 'John Student',
+                'name' => 'Willy Ramaya',
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),
             ]
@@ -359,16 +359,40 @@ class CourseSimulationSeeder extends Seeder
         }
         $studentUser->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
-        // Enroll in React Course
+        // Second student: Nindia Prames
+        $studentUser2 = User::updateOrCreate(
+            ['email' => 'nindia.prames@gmail.com'],
+            [
+                'name' => 'Nindia Prames',
+                'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+            ]
+        );
+        if (!$studentUser2->hasRole('student')) {
+            $studentUser2->assignRole('student');
+        }
+        $studentUser2->profile()->updateOrCreate([], ['onboarding_completed' => true]);
+
+        // Enroll Willy in React Course
         Enrollment::updateOrCreate(
             ['user_id' => $studentUser->id, 'course_id' => $createdCourses[0]->id],
             ['enrolled_at' => now()->subDays(10), 'progress_percentage' => 45]
         );
 
-        // Enroll in Classroom
+        // Enroll Willy in Classroom
         Enrollment::updateOrCreate(
             ['user_id' => $studentUser->id, 'batch_id' => $classroom->id],
             ['enrolled_at' => now()->subDays(5), 'progress_percentage' => 20]
+        );
+
+        // Enroll Nindia in React Course + Structured Batch
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser2->id, 'course_id' => $createdCourses[0]->id],
+            ['enrolled_at' => now()->subDays(8), 'progress_percentage' => 60]
+        );
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser2->id, 'batch_id' => $batch->id],
+            ['enrolled_at' => now()->subDays(8), 'progress_percentage' => 30]
         );
 
         // Enroll in new Data Science and ML Courses
@@ -414,6 +438,7 @@ class CourseSimulationSeeder extends Seeder
 
         // 7. SEED SUBMISSIONS (REALISTIC)
         $this->seedStudentSubmissions($studentUser, $classroom, $createdCourses[0]);
+        $this->seedStudentSubmissions($studentUser2, $batch, $createdCourses[0]);
 
         // AI Settings
         $settingService = app(\App\Services\AppSettingService::class);

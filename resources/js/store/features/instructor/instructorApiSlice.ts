@@ -378,7 +378,7 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
           id: String(course.id),
           title: course.title,
           slug: course.slug,
-          thumbnail: course.thumbnail ? `${import.meta.env.VITE_URL_API_IMAGE}/${course.thumbnail}` : '',
+          thumbnail: course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `${import.meta.env.VITE_URL_API_IMAGE}/${course.thumbnail}`) : '',
           status: course.status,
           price: Number(course.price),
           totalStudents: Number(course.total_enrollments),
@@ -404,7 +404,7 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
         return {
           ...course,
           id: String(course.id),
-          thumbnail: course.thumbnail ? `${import.meta.env.VITE_URL_API_IMAGE}/${course.thumbnail}` : '',
+          thumbnail: course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `${import.meta.env.VITE_URL_API_IMAGE}/${course.thumbnail}`) : '',
           preview_video: course.preview_video ? `${import.meta.env.VITE_URL_API_IMAGE}/${course.preview_video}` : null,
           total_enrollments: String(course.total_enrollments || 0),
           average_rating: String(course.average_rating || 0),
@@ -426,6 +426,28 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
         body,
       }),
       invalidatesTags: ['InstructorCourses'],
+    }),
+    updateCourse: builder.mutation<any, { id: string | number; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/instructor/courses/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'InstructorCourses', id },
+        'InstructorCourses',
+      ],
+    }),
+    uploadCourseThumbnail: builder.mutation<any, { id: string | number; body: FormData }>({
+      query: ({ id, body }) => ({
+        url: `/instructor/courses/${id}/thumbnail`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'InstructorCourses', id },
+        'InstructorCourses',
+      ],
     }),
     getInstructorStudents: builder.query<InstructorStudent[], void>({
       query: () => '/instructor/students',
@@ -634,6 +656,8 @@ export const {
   useGetInstructorCourseQuery,
   useGetCategoriesQuery,
   useCreateCourseMutation,
+  useUpdateCourseMutation,
+  useUploadCourseThumbnailMutation,
   useGetInstructorStudentsQuery,
   useGetInstructorSubmissionsQuery,
   useGradeSubmissionMutation,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -37,7 +37,9 @@ import {
   useDeleteLessonMutation,
   useCreateQuizMutation,
   useUpdateQuizMutation,
-  useSubmitCourseReviewMutation
+  useSubmitCourseReviewMutation,
+  useUpdateCourseMutation,
+  useUploadCourseThumbnailMutation,
 } from '@/store/features/instructor/instructorApiSlice';
 import { useEffect } from 'react';
 import { toast } from 'react-hot-toast';
@@ -122,7 +124,33 @@ export function CourseManagePage() {
   const [createQuiz] = useCreateQuizMutation();
   const [updateQuiz] = useUpdateQuizMutation();
   const [submitCourseReview] = useSubmitCourseReviewMutation();
+  const [updateCourse] = useUpdateCourseMutation();
+  const [uploadCourseThumbnail] = useUploadCourseThumbnailMutation();
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+
+  const handleThumbnailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !courseId) return;
+
+    const formData = new FormData();
+    formData.append('thumbnail', file);
+
+    try {
+      setIsUploadingThumbnail(true);
+      await uploadCourseThumbnail({ id: courseId, body: formData }).unwrap();
+      toast.success(language === 'id' ? 'Thumbnail berhasil diperbarui!' : 'Thumbnail updated successfully!');
+    } catch (err: any) {
+      toast.error(err?.data?.message || (language === 'id' ? 'Gagal mengunggah gambar' : 'Failed to upload image'));
+    } finally {
+      setIsUploadingThumbnail(false);
+      if (thumbnailInputRef.current) {
+        thumbnailInputRef.current.value = '';
+      }
+    }
+  };
+
   const [editingSection, setEditingSection] = useState<{ id: string, title: string } | null>(null);
   const [editingLesson, setEditingLesson] = useState<{ id: string, sectionId: string, title: string, type: Lesson['type'] } | null>(null);
   const isInitialized = import.meta.env.DEV ? false : true; // Dummy for placeholder
@@ -380,13 +408,27 @@ export function CourseManagePage() {
     course.modules.reduce((sum, m) => sum + m.lessons.reduce((s, l) => s + l.duration, 0), 0);
 
   const handleSave = async () => {
+    if (!courseId) return;
+
+    // Find category ID based on slug
+    const categoryId = categories.find(cat => cat.slug === formData.category)?.id;
+
+    const payload = {
+      title: formData.title,
+      subtitle: formData.shortDescription,
+      description: formData.description,
+      category_id: categoryId,
+      level: formData.level,
+      price: formData.price,
+      discount_price: formData.discountPrice,
+    };
+
     try {
       setIsSaving(true);
-      // Simulate save delay
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await updateCourse({ id: courseId, body: payload }).unwrap();
       toast.success(language === 'id' ? 'Perubahan kursus berhasil disimpan!' : 'Course changes saved successfully!');
-    } catch (err) {
-      toast.error(language === 'id' ? 'Gagal menyimpan perubahan' : 'Failed to save changes');
+    } catch (err: any) {
+      toast.error(err?.data?.message || (language === 'id' ? 'Gagal menyimpan perubahan' : 'Failed to save changes'));
     } finally {
       setIsSaving(false);
     }
@@ -748,15 +790,38 @@ export function CourseManagePage() {
                       {language === 'id' ? 'Thumbnail Kursus' : 'Course Thumbnail'}
                     </label>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-full h-32 object-cover rounded-lg mb-2"
-                      />
-                      <button className="text-sm text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto">
-                        <Image className="w-4 h-4" />
-                        {language === 'id' ? 'Ganti Gambar' : 'Change Image'}
+                      {course.thumbnail ? (
+                        <img
+                          src={course.thumbnail}
+                          alt={course.title}
+                          className="w-full h-32 object-cover rounded-lg mb-2"
+                        />
+                      ) : (
+                        <div className="w-full h-32 bg-gray-100 flex items-center justify-center rounded-lg mb-2 text-gray-400">
+                          <Image className="w-8 h-8" />
+                        </div>
+                      )}
+                      <button
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        disabled={isUploadingThumbnail}
+                        className="text-sm text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto"
+                      >
+                        {isUploadingThumbnail ? (
+                          <span>{language === 'id' ? 'Mengunggah...' : 'Uploading...'}</span>
+                        ) : (
+                          <>
+                            <Image className="w-4 h-4" />
+                            {language === 'id' ? 'Ganti Gambar' : 'Change Image'}
+                          </>
+                        )}
                       </button>
+                      <input
+                        type="file"
+                        ref={thumbnailInputRef}
+                        onChange={handleThumbnailChange}
+                        accept="image/*"
+                        className="hidden"
+                      />
                     </div>
                   </div>
                   <div>

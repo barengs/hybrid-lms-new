@@ -89,6 +89,57 @@ class OnboardingQuestionSeeder extends Seeder
                 ],
                 'sort_order' => 7,
             ],
+            [
+                'slug' => 'role_type',
+                'question' => 'Peran apa yang paling menggambarkan kondisimu saat ini?',
+                'options' => [
+                    ['value' => 'student', 'label' => 'Pelajar / Mahasiswa', 'icon' => 'BookOpen'],
+                    ['value' => 'professional', 'label' => 'Karyawan / Profesional', 'icon' => 'Briefcase'],
+                    ['value' => 'job_seeker', 'label' => 'Pencari Kerja', 'icon' => 'Search'],
+                    ['value' => 'business_owner', 'label' => 'Pemilik Bisnis', 'icon' => 'Award'],
+                ],
+                'sort_order' => 8,
+            ],
+            [
+                'slug' => 'preferred_device',
+                'question' => 'Perangkat apa yang biasanya kamu gunakan untuk belajar?',
+                'options' => [
+                    ['value' => 'laptop', 'label' => 'Laptop / PC', 'icon' => 'Monitor'],
+                    ['value' => 'smartphone', 'label' => 'HP / Smartphone', 'icon' => 'Smartphone'],
+                    ['value' => 'tablet', 'label' => 'Tablet', 'icon' => 'Tablet'],
+                ],
+                'sort_order' => 9,
+            ],
+            [
+                'slug' => 'learning_pace',
+                'question' => 'Bagaimana ritme belajar yang kamu sukai?',
+                'options' => [
+                    ['value' => 'fast', 'label' => 'Cepat & Padat', 'icon' => 'Zap'],
+                    ['value' => 'moderate', 'label' => 'Sedang & Bertahap', 'icon' => 'TrendingUp'],
+                    ['value' => 'slow', 'label' => 'Santai & Mendalam', 'icon' => 'Clock'],
+                ],
+                'sort_order' => 10,
+            ],
+            [
+                'slug' => 'primary_interest_platform',
+                'question' => 'Platform apa yang ingin kamu kuasai lebih dalam?',
+                'options' => [
+                    ['value' => 'web', 'label' => 'Aplikasi Web', 'icon' => 'Globe'],
+                    ['value' => 'mobile', 'label' => 'Aplikasi Mobile', 'icon' => 'Smartphone'],
+                    ['value' => 'multi', 'label' => 'Multiplatform / Desktop', 'icon' => 'Monitor'],
+                ],
+                'sort_order' => 11,
+            ],
+            [
+                'slug' => 'english_proficiency',
+                'question' => 'Bagaimana tingkat pemahaman bahasa Inggrismu?',
+                'options' => [
+                    ['value' => 'basic', 'label' => 'Dasar / Pemula', 'icon' => 'Smile'],
+                    ['value' => 'intermediate', 'label' => 'Menengah / Cukup Lancar', 'icon' => 'Activity'],
+                    ['value' => 'advanced', 'label' => 'Mahir / Sangat Lancar', 'icon' => 'Award'],
+                ],
+                'sort_order' => 12,
+            ],
         ];
 
         foreach ($questions as $q) {

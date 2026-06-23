@@ -93,20 +93,6 @@ class CourseSimulationSeeder extends Seeder
                 'thumbnail' => 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=800&auto=format&fit=crop',
             ],
             [
-                'title' => 'UI/UX Design Masterclass',
-                'price' => 80.00,
-                'category_id' => $categoryModels[1]->id,
-                'instructor_id' => $instructor1->id,
-                'thumbnail' => 'https://images.unsplash.com/photo-1586717791821-3f44a563eb4c?q=80&w=800&auto=format&fit=crop',
-            ],
-            [
-                'title' => 'Intro to Programming (Free)',
-                'price' => 0.00,
-                'category_id' => $categoryModels[0]->id,
-                'instructor_id' => $instructor1->id,
-                'thumbnail' => 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=800&auto=format&fit=crop',
-            ],
-            [
                 'title' => 'Data Science with Python',
                 'price' => 150.00,
                 'discount_price' => 100.00,
@@ -121,15 +107,6 @@ class CourseSimulationSeeder extends Seeder
                 'category_id' => $categoryModels[0]->id,
                 'instructor_id' => $instructor1->id,
                 'thumbnail' => 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?q=80&w=800&auto=format&fit=crop',
-            ],
-            [
-                'title' => 'Vue.js untuk Pemula (Draft)',
-                'price' => 50.00,
-                'category_id' => $categoryModels[0]->id,
-                'instructor_id' => $instructor1->id,
-                'status' => 'draft',
-                'published_at' => null,
-                'thumbnail' => 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop',
             ],
             [
                 'title' => 'Mastering Next.js 14 (Menunggu Review)',
@@ -155,7 +132,42 @@ class CourseSimulationSeeder extends Seeder
             ],
         ];
 
-        // Create Self-paced Batch (Unified Learning Path for all public courses)
+        // Anwari's courses
+        $coursesDataAnwari = [
+            [
+                'title' => 'UI/UX Design Masterclass',
+                'price' => 80.00,
+                'category_id' => $categoryModels[1]->id,
+                'instructor_id' => $instructor2->id,
+                'thumbnail' => 'https://images.unsplash.com/photo-1586717791821-3f44a563eb4c?q=80&w=800&auto=format&fit=crop',
+            ],
+            [
+                'title' => 'Intro to Programming (Free)',
+                'price' => 0.00,
+                'category_id' => $categoryModels[0]->id,
+                'instructor_id' => $instructor2->id,
+                'thumbnail' => 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=800&auto=format&fit=crop',
+            ],
+            [
+                'title' => 'Vue.js untuk Pemula',
+                'price' => 50.00,
+                'category_id' => $categoryModels[0]->id,
+                'instructor_id' => $instructor2->id,
+                'status' => 'draft',
+                'published_at' => null,
+                'thumbnail' => 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop',
+            ],
+            [
+                'title' => 'Laravel API Development',
+                'price' => 130.00,
+                'discount_price' => 95.00,
+                'category_id' => $categoryModels[0]->id,
+                'instructor_id' => $instructor2->id,
+                'thumbnail' => 'https://images.unsplash.com/photo-1617042375876-a13e36734a04?q=80&w=800&auto=format&fit=crop',
+            ],
+        ];
+
+        // Self-paced batch for Walid
         $selfPacedBatch = Batch::updateOrCreate(
             ['slug' => 'self-paced-learning'],
             [
@@ -165,6 +177,20 @@ class CourseSimulationSeeder extends Seeder
                 'type' => 'structured',
                 'status' => 'open',
                 'start_date' => now()->subMonths(6),
+                'is_public' => true,
+            ]
+        );
+
+        // Self-paced batch for Anwari
+        $selfPacedBatchAnwari = Batch::updateOrCreate(
+            ['slug' => 'self-paced-learning-anwari'],
+            [
+                'instructor_id' => $instructor2->id,
+                'name' => 'Self-Paced Learning (Anwari)',
+                'description' => 'Batch kursus mandiri milik Anwari.',
+                'type' => 'structured',
+                'status' => 'open',
+                'start_date' => now()->subMonths(4),
                 'is_public' => true,
             ]
         );
@@ -190,7 +216,28 @@ class CourseSimulationSeeder extends Seeder
             $this->seedCourseContent($course, $selfPacedBatch->id);
         }
 
-        // 4. Create Structured BATCH (Traditional Learning Session)
+        $createdCoursesAnwari = [];
+        foreach ($coursesDataAnwari as $cData) {
+            $course = Course::updateOrCreate(
+                ['slug' => Str::slug($cData['title'])],
+                array_merge([
+                    'subtitle' => 'Panduan lengkap dari dasar hingga mahir.',
+                    'description' => 'Kursus komprehensif dirancang oleh instruktur berpengalaman.',
+                    'status' => 'published',
+                    'type' => 'self_paced',
+                    'published_at' => now(),
+                ], $cData)
+            );
+            $createdCoursesAnwari[] = $course;
+
+            $selfPacedBatchAnwari->courses()->syncWithoutDetaching([
+                $course->id => ['order' => count($createdCoursesAnwari), 'is_required' => false]
+            ]);
+
+            $this->seedCourseContent($course, $selfPacedBatchAnwari->id);
+        }
+
+        // 4. Structured BATCH - Walid (Flutter)
         $batch = Batch::updateOrCreate(
             ['slug' => Str::slug('Mobile Programming with Flutter')],
             [
@@ -210,12 +257,12 @@ class CourseSimulationSeeder extends Seeder
             ]
         );
 
-        $classroomCourses = [
+        $walidsClassroomCourses = [
             'Dart Language Basics',
             'Flutter UI Components',
         ];
 
-        foreach ($classroomCourses as $index => $title) {
+        foreach ($walidsClassroomCourses as $index => $title) {
             $course = Course::updateOrCreate(
                 ['slug' => Str::slug($title)],
                 [
@@ -237,12 +284,59 @@ class CourseSimulationSeeder extends Seeder
             $this->seedCourseContent($course, $batch->id);
         }
 
-        // 5. Create KELAS (Google Classroom style)
+        // 4b. Structured BATCH - Anwari (Web Design)
+        $batchAnwari = Batch::updateOrCreate(
+            ['slug' => Str::slug('Web Design Intensive Anwari')],
+            [
+                'instructor_id' => $instructor2->id,
+                'name' => 'Batch Web Design Intensif 2024',
+                'class_code' => 'WDS202',
+                'description' => 'Program intensif desain web dan UI/UX selama 30 hari bersama Anwari.',
+                'type' => 'structured',
+                'status' => 'open',
+                'start_date' => now()->addDays(5),
+                'end_date' => now()->addDays(35),
+                'enrollment_start_date' => now()->subDays(5),
+                'enrollment_end_date' => now()->addDays(5),
+                'max_students' => 40,
+                'current_students' => 10,
+                'is_public' => true,
+            ]
+        );
+
+        $anwarisClassroomCourses = [
+            'Figma for UI Design',
+            'CSS Advanced Techniques',
+        ];
+
+        foreach ($anwarisClassroomCourses as $index => $title) {
+            $course = Course::updateOrCreate(
+                ['slug' => Str::slug($title)],
+                [
+                    'instructor_id' => $instructor2->id,
+                    'category_id' => $categoryModels[1]->id,
+                    'title' => $title,
+                    'status' => 'published',
+                    'type' => 'structured',
+                    'published_at' => now(),
+                    'thumbnail' => 'https://images.unsplash.com/photo-1586717791821-3f44a563eb4c?q=80&w=800&auto=format&fit=crop',
+                ]
+            );
+            $createdCoursesAnwari[] = $course;
+
+            $batchAnwari->courses()->syncWithoutDetaching([
+                $course->id => ['order' => $index + 1, 'is_required' => true]
+            ]);
+
+            $this->seedCourseContent($course, $batchAnwari->id);
+        }
+
+        // 5. KELAS (Classroom) - Walid
         $classroom = Batch::updateOrCreate(
             ['slug' => Str::slug('Pemrograman Mobile Classroom')],
             [
-                'instructor_id' => $instructor2->id,
-                'name' => 'Kelas Pemrograman (Mobile Programming)',
+                'instructor_id' => $instructor1->id,
+                'name' => 'Kelas Pemrograman Mobile (Walid)',
                 'class_code' => 'PEM-MOB-01',
                 'description' => 'Ruang belajar kolaboratif ala Google Classroom untuk materi Mobile Programming.',
                 'type' => 'classroom',
@@ -254,7 +348,31 @@ class CourseSimulationSeeder extends Seeder
             ]
         );
 
-        // Topics for Classroom
+        // 5b. KELAS (Classroom) - Anwari
+        $classroomAnwari = Batch::updateOrCreate(
+            ['slug' => Str::slug('UI UX Design Classroom Anwari')],
+            [
+                'instructor_id' => $instructor2->id,
+                'name' => 'Kelas UI/UX Design (Anwari)',
+                'class_code' => 'UIX-DES-01',
+                'description' => 'Ruang belajar interaktif desain UI/UX bersama Anwari.',
+                'type' => 'classroom',
+                'status' => 'open',
+                'start_date' => now(),
+                'end_date' => now()->addYear(),
+                'is_public' => true,
+                'max_students' => 80,
+            ]
+        );
+
+        // Associate courses to classrooms
+        $classroom->courses()->syncWithoutDetaching([
+            $createdCourses[0]->id => ['order' => 1, 'is_required' => true],
+        ]);
+        $classroomAnwari->courses()->syncWithoutDetaching([
+            $createdCoursesAnwari[0]->id => ['order' => 1, 'is_required' => true],
+        ]);
+
         $topicFundamental = $classroom->batchTopics()->updateOrCreate(
             ['title' => 'Dasar & Fundamental'],
             ['sort_order' => 1]
@@ -373,31 +491,47 @@ class CourseSimulationSeeder extends Seeder
         }
         $studentUser2->profile()->updateOrCreate([], ['onboarding_completed' => true]);
 
-        // Enroll Willy in React Course
+        // Enroll Willy: Walid's React Course + Walid's Classroom
         Enrollment::updateOrCreate(
             ['user_id' => $studentUser->id, 'course_id' => $createdCourses[0]->id],
             ['enrolled_at' => now()->subDays(10), 'progress_percentage' => 45]
         );
-
-        // Enroll Willy in Classroom
         Enrollment::updateOrCreate(
             ['user_id' => $studentUser->id, 'batch_id' => $classroom->id],
             ['enrolled_at' => now()->subDays(5), 'progress_percentage' => 20]
         );
-
-        // Enroll Nindia in React Course + Structured Batch
+        // Willy also enrolled: Anwari's UI/UX course + Anwari's classroom
         Enrollment::updateOrCreate(
-            ['user_id' => $studentUser2->id, 'course_id' => $createdCourses[0]->id],
+            ['user_id' => $studentUser->id, 'course_id' => $createdCoursesAnwari[0]->id],
+            ['enrolled_at' => now()->subDays(7), 'progress_percentage' => 35]
+        );
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser->id, 'batch_id' => $classroomAnwari->id],
+            ['enrolled_at' => now()->subDays(6), 'progress_percentage' => 15]
+        );
+
+        // Enroll Nindia: Walid's Data Science + Walid's batch Flutter
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser2->id, 'course_id' => $createdCourses[1]->id],
             ['enrolled_at' => now()->subDays(8), 'progress_percentage' => 60]
         );
         Enrollment::updateOrCreate(
             ['user_id' => $studentUser2->id, 'batch_id' => $batch->id],
             ['enrolled_at' => now()->subDays(8), 'progress_percentage' => 30]
         );
+        // Nindia also enrolled: Anwari's Laravel course + Anwari's batch web design
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser2->id, 'course_id' => $createdCoursesAnwari[3]->id],
+            ['enrolled_at' => now()->subDays(4), 'progress_percentage' => 50]
+        );
+        Enrollment::updateOrCreate(
+            ['user_id' => $studentUser2->id, 'batch_id' => $batchAnwari->id],
+            ['enrolled_at' => now()->subDays(4), 'progress_percentage' => 20]
+        );
 
-        // Enroll in new Data Science and ML Courses
-        $dsCourse = $createdCourses[3];
-        $mlCourse = $createdCourses[4];
+        // Enroll in new Data Science and ML Courses (Willy)
+        $dsCourse = $createdCourses[1];
+        $mlCourse = $createdCourses[2];
         
         $dsEnrollment = Enrollment::updateOrCreate(
             ['user_id' => $studentUser->id, 'course_id' => $dsCourse->id],
@@ -474,18 +608,7 @@ class CourseSimulationSeeder extends Seeder
             );
 
             // Quiz Data Definition
-            $quizData = [
-                'questions' => [
-                    [
-                        'text' => $isNext ? 'Manakah yang merupakan keuntungan dari Server Components?' : ($isReact ? 'What is the purpose of useState?' : 'What is the first step in this process?'),
-                        'options' => [
-                            ['id' => 'a', 'text' => $isNext ? 'Mengurangi bundle size JavaScript yang dikirim ke client' : ($isReact ? 'To manage local component state' : 'Step A')],
-                            ['id' => 'b', 'text' => $isNext ? 'Memungkinkan akses langsung ke window API' : ($isReact ? 'To perform API calls' : 'Step B')],
-                        ],
-                        'correctOptionId' => 'a',
-                    ],
-                ]
-            ];
+            $quizData = $this->getQuizDataForCourse($course->title, $i);
 
             // Create a lesson placeholder for the quiz
             $quizLesson = Lesson::updateOrCreate(
@@ -512,10 +635,10 @@ class CourseSimulationSeeder extends Seeder
                 ]
             );
 
-            foreach ($quizData['questions'] as $qData) {
+            foreach ($quizData['questions'] as $qIndex => $qData) {
                 $question = QuizQuestion::updateOrCreate(
                     ['quiz_id' => $quiz->id, 'question_text' => $qData['text']],
-                    ['points' => 10, 'sort_order' => 1]
+                    ['points' => 10, 'sort_order' => $qIndex + 1]
                 );
 
                 foreach ($qData['options'] as $oData) {
@@ -541,15 +664,14 @@ class CourseSimulationSeeder extends Seeder
         }
 
         // Add a final regular assignment to simulate AI grading
-        $isNext = str_contains($course->title, 'Next.js');
+        $assignmentData = $this->getAssignmentDataForCourse($course->title);
+
         $assignmentLesson = Lesson::updateOrCreate(
             ['section_id' => $section->id, 'sort_order' => 3],
             [
                 'title' => "Tugas Akhir: " . $course->title,
                 'type' => 'assignment',
-                'content' => $isNext 
-                    ? 'Buat sebuah aplikasi blog sederhana menggunakan Next.js App Router. Aplikasi ini harus menggunakan Server Components untuk mengambil daftar artikel dari JSONPlaceholder API, dan menggunakan Server Actions untuk form komentar sederhana.'
-                    : 'Tugas ini bertujuan untuk menguji pemahaman akhir Anda. Silakan kumpulkan file laporan yang relevan.',
+                'content' => $assignmentData['content'],
                 'duration' => 0,
                 'is_published' => true,
             ]
@@ -559,9 +681,7 @@ class CourseSimulationSeeder extends Seeder
             ['batch_id' => $batchId, 'lesson_id' => $assignmentLesson->id],
             [
                 'title' => 'Final Submission: ' . $course->title,
-                'description' => $isNext 
-                    ? "Tugas Akhir untuk {$course->title}. Pastikan kode yang Anda buat memenuhi standar clean code, serta manfaatkan fitur-fitur utama Next.js 14 dengan tepat (App Router, Server Actions, Server Components). Upload repositori GitHub Anda."
-                    : 'Tugas Akhir untuk ' . $course->title . '. Pastikan file yang Anda unggah sangat relevan dengan topik kursus ini.',
+                'description' => $assignmentData['description'],
                 'type' => 'assignment',
                 'max_points' => 100,
                 'is_published' => true,
@@ -605,5 +725,640 @@ class CourseSimulationSeeder extends Seeder
                 ]
             );
         }
+    }
+
+    private function getQuizDataForCourse($title, $moduleIndex)
+    {
+        $titleLower = strtolower($title);
+
+        if (str_contains($titleLower, 'react')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is JSX in React?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'A syntax extension that allows writing HTML-like code inside JavaScript.'],
+                                ['id' => 'b', 'text' => 'A CSS-in-JS styling library.'],
+                                ['id' => 'c', 'text' => 'A state management library.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'Which hook is used to manage local state in a functional component?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'useEffect'],
+                                ['id' => 'b', 'text' => 'useState'],
+                                ['id' => 'c', 'text' => 'useContext'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is the primary purpose of the useEffect hook?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'To perform side effects like fetching data, subscriptions, or manual DOM changes.'],
+                                ['id' => 'b', 'text' => 'To style React components dynamically.'],
+                                ['id' => 'c', 'text' => 'To cache heavy calculations.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'How can you pass data from a parent component down to a child component?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Using standard State.'],
+                                ['id' => 'b', 'text' => 'Using Ref.'],
+                                ['id' => 'c', 'text' => 'Using Props.'],
+                            ],
+                            'correctOptionId' => 'c',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'next.js')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Where do React Server Components execute by default in Next.js 14 App Router?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'On the client-side browser.'],
+                                ['id' => 'b', 'text' => 'On the server.'],
+                                ['id' => 'c', 'text' => 'On both server and client.'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ],
+                        [
+                            'text' => 'Which folder in the project structure acts as the root route directory in Next.js 14 App Router?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'pages/'],
+                                ['id' => 'b', 'text' => 'src/'],
+                                ['id' => 'c', 'text' => 'app/'],
+                            ],
+                            'correctOptionId' => 'c',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is a Server Action in Next.js 14?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'An asynchronous function executed on the server, triggered from the client.'],
+                                ['id' => 'b', 'text' => 'A client-side animation handler.'],
+                                ['id' => 'c', 'text' => 'An API endpoint configuration.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'How can you fetch data dynamically on the server inside a Server Component?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Using the standard useEffect hook.'],
+                                ['id' => 'b', 'text' => 'Using async/await directly inside the component function.'],
+                                ['id' => 'c', 'text' => 'Using next/router.'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'python') || str_contains($titleLower, 'data science')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Which Python library is primarily used for data manipulation and analysis?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'pandas'],
+                                ['id' => 'b', 'text' => 'scikit-learn'],
+                                ['id' => 'c', 'text' => 'matplotlib'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'What structure in pandas is a 2-dimensional labeled data structure with columns?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Series'],
+                                ['id' => 'b', 'text' => 'DataFrame'],
+                                ['id' => 'c', 'text' => 'Panel'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Which library is commonly used for plotting charts and data visualization in Python?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'matplotlib'],
+                                ['id' => 'b', 'text' => 'numpy'],
+                                ['id' => 'c', 'text' => 'sqlite3'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'What does NumPy stand for?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Numerical Python'],
+                                ['id' => 'b', 'text' => 'Number Python'],
+                                ['id' => 'c', 'text' => 'Name Python'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'machine learning')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is supervised learning?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Training a model on unlabeled datasets.'],
+                                ['id' => 'b', 'text' => 'Training a model on labeled datasets.'],
+                                ['id' => 'c', 'text' => 'Leaving a model to learn from environment feedback.'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ],
+                        [
+                            'text' => 'Which algorithm is commonly used for classification tasks?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Linear Regression'],
+                                ['id' => 'b', 'text' => 'K-Means Clustering'],
+                                ['id' => 'c', 'text' => 'Decision Tree'],
+                            ],
+                            'correctOptionId' => 'c',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is overfitting in machine learning?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'When a model performs well on training data but poorly on unseen data.'],
+                                ['id' => 'b', 'text' => 'When a model fails to capture patterns in both training and test data.'],
+                                ['id' => 'c', 'text' => 'When a model has too few features.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'Which metric is commonly used to evaluate regression models?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Accuracy'],
+                                ['id' => 'b', 'text' => 'Mean Squared Error (MSE)'],
+                                ['id' => 'c', 'text' => 'F1-Score'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'ui/ux') || str_contains($titleLower, 'ui ux') || str_contains($titleLower, 'figma') || str_contains($titleLower, 'design')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What does UI stand for in UI/UX Design?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'User Integration'],
+                                ['id' => 'b', 'text' => 'User Interface'],
+                                ['id' => 'c', 'text' => 'Unique Interface'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ],
+                        [
+                            'text' => 'What is the main goal of UX design?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'To make components as colorful as possible.'],
+                                ['id' => 'b', 'text' => 'To speed up web application performance.'],
+                                ['id' => 'c', 'text' => 'To build intuitive, useful, and meaningful user journeys.'],
+                            ],
+                            'correctOptionId' => 'c',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is wireframing in design?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'A low-fidelity visual layout of a page or screen.'],
+                                ['id' => 'b', 'text' => 'Connecting components to databases.'],
+                                ['id' => 'c', 'text' => 'Creating final production-ready graphics.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'What color model is typically used for digital screens?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'CMYK'],
+                                ['id' => 'b', 'text' => 'RGB'],
+                                ['id' => 'c', 'text' => 'Pantone'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'laravel')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Which file is used to define API routes in Laravel?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'routes/web.php'],
+                                ['id' => 'b', 'text' => 'routes/api.php'],
+                                ['id' => 'c', 'text' => 'routes/console.php'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ],
+                        [
+                            'text' => 'Which Artisan command is used to create a new controller?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'php artisan new:controller'],
+                                ['id' => 'b', 'text' => 'php artisan make:controller'],
+                                ['id' => 'c', 'text' => 'php artisan create:controller'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What package is built-in Laravel for light-weight token authentication?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Laravel Passport'],
+                                ['id' => 'b', 'text' => 'Laravel Sanctum'],
+                                ['id' => 'c', 'text' => 'Socialite'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ],
+                        [
+                            'text' => 'What format does a Laravel API Resource convert data to by default?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'XML'],
+                                ['id' => 'b', 'text' => 'JSON'],
+                                ['id' => 'c', 'text' => 'YAML'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'vue.js') || str_contains($titleLower, 'vue')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Which directive is used for two-way data binding in Vue?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'v-bind'],
+                                ['id' => 'b', 'text' => 'v-on'],
+                                ['id' => 'c', 'text' => 'v-model'],
+                            ],
+                            'correctOptionId' => 'c',
+                        ],
+                        [
+                            'text' => 'How do you render a list of items in Vue dynamically?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'v-repeat'],
+                                ['id' => 'b', 'text' => 'v-for'],
+                                ['id' => 'c', 'text' => 'v-list'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is Vue Router used for?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'To handle navigation and routing between pages.'],
+                                ['id' => 'b', 'text' => 'To manage global store state.'],
+                                ['id' => 'c', 'text' => 'To compile template code.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'Which function serves as the entry point for Vue 3 Composition API?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'created'],
+                                ['id' => 'b', 'text' => 'setup'],
+                                ['id' => 'c', 'text' => 'mounted'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'dart')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Which keyword is used to declare a variable whose value cannot be reassigned?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'final'],
+                                ['id' => 'b', 'text' => 'var'],
+                                ['id' => 'c', 'text' => 'dynamic'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'What function is the starting entry point of every Dart program?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'start()'],
+                                ['id' => 'b', 'text' => 'main()'],
+                                ['id' => 'c', 'text' => 'run()'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'How do you define an asynchronous function in Dart?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Using the async keyword before the function body.'],
+                                ['id' => 'b', 'text' => 'Using the thread keyword.'],
+                                ['id' => 'c', 'text' => 'Calling await() inside standard function.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'What is sound null safety in Dart?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Variables cannot be null unless explicitly marked nullable.'],
+                                ['id' => 'b', 'text' => 'Variables cannot be empty.'],
+                                ['id' => 'c', 'text' => 'Null values are automatically converted to empty strings.'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'flutter')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What is the basic structural element of a Flutter UI?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Widget'],
+                                ['id' => 'b', 'text' => 'Activity'],
+                                ['id' => 'c', 'text' => 'Div'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'Which layout widget aligns its children vertically?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Row'],
+                                ['id' => 'b', 'text' => 'Column'],
+                                ['id' => 'c', 'text' => 'Stack'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Which lifecycle method is called first when a StatefulWidget is created?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'build'],
+                                ['id' => 'b', 'text' => 'dispose'],
+                                ['id' => 'c', 'text' => 'initState'],
+                            ],
+                            'correctOptionId' => 'c',
+                        ],
+                        [
+                            'text' => 'Which widget provides a default drawer, app bar, and bottom navigation layout?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Scaffold'],
+                                ['id' => 'b', 'text' => 'Container'],
+                                ['id' => 'c', 'text' => 'Card'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        if (str_contains($titleLower, 'css')) {
+            if ($moduleIndex == 1) {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'What does CSS stand for?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Cascading Style Sheets'],
+                                ['id' => 'b', 'text' => 'Computer Style Sheets'],
+                                ['id' => 'c', 'text' => 'Creative Style Sheets'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'Which CSS property is used to change the text color of an element?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'text-color'],
+                                ['id' => 'b', 'text' => 'fg-color'],
+                                ['id' => 'c', 'text' => 'color'],
+                            ],
+                            'correctOptionId' => 'c',
+                        ]
+                    ]
+                ];
+            } else {
+                return [
+                    'questions' => [
+                        [
+                            'text' => 'Which CSS layout model is best suited for 1-dimensional positioning (row or column)?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Flexbox'],
+                                ['id' => 'b', 'text' => 'Grid'],
+                                ['id' => 'c', 'text' => 'Float'],
+                            ],
+                            'correctOptionId' => 'a',
+                        ],
+                        [
+                            'text' => 'What does the em unit represent in CSS sizing?',
+                            'options' => [
+                                ['id' => 'a', 'text' => 'Sizing relative to the root html font size.'],
+                                ['id' => 'b', 'text' => 'Sizing relative to the element font size or parent font size.'],
+                                ['id' => 'c', 'text' => 'Exact screen pixels.'],
+                            ],
+                            'correctOptionId' => 'b',
+                        ]
+                    ]
+                ];
+            }
+        }
+
+        // Default fallback if no specific course matches
+        if ($moduleIndex == 1) {
+            return [
+                'questions' => [
+                    [
+                        'text' => 'What is a variable in programming?',
+                        'options' => [
+                            ['id' => 'a', 'text' => 'A container for storing data values.'],
+                            ['id' => 'b', 'text' => 'A constant mathematical value.'],
+                            ['id' => 'c', 'text' => 'An HTML tag name.'],
+                        ],
+                        'correctOptionId' => 'a',
+                    ],
+                    [
+                        'text' => 'Which operator is typically used for variable assignment?',
+                        'options' => [
+                            ['id' => 'a', 'text' => '=='],
+                            ['id' => 'b', 'text' => '='],
+                            ['id' => 'c', 'text' => '==='],
+                        ],
+                        'correctOptionId' => 'b',
+                    ]
+                ]
+            ];
+        } else {
+            return [
+                'questions' => [
+                    [
+                        'text' => 'What is a loop used for in programming?',
+                        'options' => [
+                            ['id' => 'a', 'text' => 'To repeat a block of code multiple times.'],
+                            ['id' => 'b', 'text' => 'To declare multiple classes.'],
+                            ['id' => 'c', 'text' => 'To terminate function execution.'],
+                        ],
+                        'correctOptionId' => 'a',
+                    ],
+                    [
+                        'text' => 'What is a function in programming?',
+                        'options' => [
+                            ['id' => 'a', 'text' => 'A reusable block of code that performs a specific action.'],
+                            ['id' => 'b', 'text' => 'A styling class.'],
+                            ['id' => 'c', 'text' => 'An asynchronous event compiler.'],
+                        ],
+                        'correctOptionId' => 'a',
+                    ]
+                ]
+            ];
+        }
+    }
+
+    private function getAssignmentDataForCourse($title)
+    {
+        $titleLower = strtolower($title);
+
+        if (str_contains($titleLower, 'react')) {
+            return [
+                'content' => 'Buatlah sebuah aplikasi Todo List interaktif menggunakan React. Fitur yang wajib ada: 1) Tambah, edit, hapus, dan tandai selesai tugas. 2) Filter tugas berdasarkan status (Semua, Aktif, Selesai). 3) Simpan data tugas di LocalStorage agar tidak hilang saat reload halaman. Pastikan kode bersih, modular menggunakan komponen-komponen terpisah, dan menggunakan React Hooks (useState, useEffect) secara tepat.',
+                'description' => 'Tugas Akhir: Aplikasi Todo List dengan React & Hooks. Kumpulkan link repositori GitHub dan tangkapan layar jalannya aplikasi.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'next.js')) {
+            return [
+                'content' => 'Buat sebuah aplikasi blog sederhana menggunakan Next.js App Router. Aplikasi ini harus menggunakan Server Components untuk mengambil daftar artikel dari JSONPlaceholder API, dan menggunakan Server Actions untuk form komentar sederhana.',
+                'description' => 'Tugas Akhir untuk Next.js 14. Pastikan kode yang Anda buat memenuhi standar clean code, serta manfaatkan fitur-fitur utama Next.js 14 dengan tepat (App Router, Server Actions, Server Components). Upload repositori GitHub Anda.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'python') || str_contains($titleLower, 'data science')) {
+            return [
+                'content' => 'Lakukan analisis eksplorasi data (EDA) pada dataset perumahan (Housing Dataset) menggunakan Python. Langkah yang harus dilakukan: 1) Bersihkan data dari missing values dan duplikat. 2) Lakukan visualisasi korelasi antar fitur menggunakan heatmap Seaborn. 3) Temukan 3 insight bisnis penting terkait faktor yang paling mempengaruhi harga rumah. Tulis laporan analisis Anda menggunakan Jupyter Notebook (.ipynb).',
+                'description' => 'Tugas Akhir: Analisis Eksplorasi Data (EDA) Perumahan menggunakan Pandas, Seaborn, dan Jupyter Notebook.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'machine learning')) {
+            return [
+                'content' => 'Buatlah model klasifikasi menggunakan algoritma Random Forest untuk memprediksi apakah seorang pelanggan akan churn (berhenti berlangganan) atau tidak berdasarkan dataset Customer Churn. Langkah kerja: 1) Preprocessing data (scaling & encoding). 2) Split data menjadi train & test set (80:20). 3) Latih model Random Forest. 4) Evaluasi model menggunakan Confusion Matrix dan Classification Report (Precision, Recall, F1-Score). Tulis penjelasan lengkap dan kode Anda dalam file PDF/Notebook.',
+                'description' => 'Tugas Akhir: Pemodelan Klasifikasi Customer Churn dengan Random Forest.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'ui/ux') || str_contains($titleLower, 'ui ux') || str_contains($titleLower, 'figma') || str_contains($titleLower, 'design')) {
+            return [
+                'content' => 'Desainlah high-fidelity mockup untuk aplikasi mobile bertema \'Food Delivery App\' sebanyak minimal 3 screen (Home, Product Detail, dan Cart). Langkah: 1) Definisikan user persona dan user flow singkat. 2) Terapkan prinsip desain seperti visual hierarchy, grid system, dan kontras warna yang baik. 3) Kumpulkan dalam format PDF presentasi portofolio atau link prototype Figma.',
+                'description' => 'Tugas Akhir: Desain UI/UX High-Fidelity Mockup Food Delivery Mobile App.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'laravel')) {
+            return [
+                'content' => 'Membangun RESTful API untuk sistem \'Manajemen Inventaris Barang\'. Spesifikasi API: 1) Endpoint CRUD untuk resource Barang (Resource & Controller). 2) Validasi input request (misal: nama barang wajib diisi, stok harus angka). 3) Gunakan Laravel API Resource untuk memformat response JSON. 4) Terapkan token authentication menggunakan Laravel Sanctum untuk mengamankan endpoint store, update, dan delete.',
+                'description' => 'Tugas Akhir: Membangun RESTful API Manajemen Inventaris dengan Laravel & Sanctum.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'vue.js') || str_contains($titleLower, 'vue')) {
+            return [
+                'content' => 'Buatlah aplikasi web \'Katalog Buku Pribadi\' menggunakan Vue 3. Fitur yang wajib ada: 1) Menampilkan daftar buku yang disimpan pada array lokal. 2) Form untuk menambahkan buku baru (judul, penulis, tahun terbit). 3) Fitur pencarian buku berdasarkan judul secara realtime menggunakan Computed Properties. 4) Terapkan Vue 3 Composition API dengan <script setup>.',
+                'description' => 'Tugas Akhir: Pembuatan Katalog Buku Pribadi menggunakan Vue 3 & Composition API.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'dart')) {
+            return [
+                'content' => 'Buatlah program Dart bertema \'Sistem Kasir Minimarket\' yang menerapkan konsep OOP (Object-Oriented Programming). Buatlah class Product (properti id, name, price) dan class Cart yang berisi list item belanjaan beserta method untuk menambah barang dan menghitung total harga belanjaan setelah diskon 10%. Gunakan List, Map, dan penanganan null safety secara tepat.',
+                'description' => 'Tugas Akhir: Pembuatan Aplikasi Kasir Minimarket dengan Dart OOP & Null Safety.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'flutter')) {
+            return [
+                'content' => 'Buatlah antarmuka aplikasi (UI mockup) halaman profil pengguna \'User Profile Dashboard\' menggunakan Flutter. Komponen UI yang wajib digunakan: Scaffold, AppBar, CircleAvatar untuk foto profil, Card untuk statistik (followers, posts, following), ListTile untuk menu pengaturan (Ubah Profil, Keamanan, Keluar), dan SingleChildScrollView agar halaman responsif jika layar kecil.',
+                'description' => 'Tugas Akhir: Pembuatan Halaman Dashboard Profil Pengguna dengan Flutter UI Components.',
+            ];
+        }
+
+        if (str_contains($titleLower, 'css')) {
+            return [
+                'content' => 'Buatlah sebuah layout halaman landing page responsif tanpa menggunakan CSS framework (Tailwind/Bootstrap). Halaman wajib menerapkan: 1) CSS Grid untuk layout utama galeri produk. 2) CSS Flexbox untuk header navigasi dan footer. 3) Media Queries untuk breakpoints mobile, tablet, dan desktop. 4) Efek transisi halus (transition/hover animation) pada card produk.',
+                'description' => 'Tugas Akhir: Landing Page Responsif dengan CSS Grid, Flexbox, & Media Queries.',
+            ];
+        }
+
+        // Default fallback
+        return [
+            'content' => 'Silakan buat ringkasan atau laporan implementasi proyek akhir berdasarkan seluruh materi yang telah Anda pelajari pada kursus ini. Laporan harus memuat: 1) Latar belakang masalah. 2) Solusi yang dibangun. 3) Screenshot hasil akhir. Kumpulkan dalam format dokumen PDF.',
+            'description' => 'Tugas Akhir: Laporan Implementasi Proyek Akhir Kursus. Kumpulkan dalam format PDF.',
+        ];
     }
 }

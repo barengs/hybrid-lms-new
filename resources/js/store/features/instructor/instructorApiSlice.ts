@@ -405,7 +405,7 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
           ...course,
           id: String(course.id),
           thumbnail: course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `${import.meta.env.VITE_URL_API_IMAGE}/${course.thumbnail}`) : '',
-          preview_video: course.preview_video ? `${import.meta.env.VITE_URL_API_IMAGE}/${course.preview_video}` : null,
+          preview_video: course.preview_video ? (course.preview_video.startsWith('http') ? course.preview_video : `${import.meta.env.VITE_URL_API_IMAGE}/${course.preview_video}`) : null,
           total_enrollments: String(course.total_enrollments || 0),
           average_rating: String(course.average_rating || 0),
           total_reviews: String(course.total_reviews || 0),

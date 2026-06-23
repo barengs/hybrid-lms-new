@@ -95,6 +95,36 @@ interface CourseData {
 
 // Mock data removed
 
+function getYouTubeEmbedUrl(url: string): string {
+  if (!url) return '';
+  if (url.includes('youtube.com/embed/')) {
+    return url;
+  }
+  
+  if (url.includes('/shorts/')) {
+    const parts = url.split('/shorts/');
+    if (parts.length > 1) {
+      const idPart = parts[1].split(/[?#&]/)[0];
+      if (idPart && idPart.length === 11) {
+        return `https://www.youtube.com/embed/${idPart}`;
+      }
+    }
+  }
+  
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  
+  const videoId = (match && match[2].length === 11) ? match[2] : null;
+  if (videoId) {
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
+  
+  if (url.length === 11) {
+    return `https://www.youtube.com/embed/${url}`;
+  }
+  
+  return '';
+}
 
 export function CourseManagePage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -154,7 +184,7 @@ export function CourseManagePage() {
   const [editingSection, setEditingSection] = useState<{ id: string, title: string } | null>(null);
   const [editingLesson, setEditingLesson] = useState<{ id: string, sectionId: string, title: string, type: Lesson['type'] } | null>(null);
   const isInitialized = import.meta.env.DEV ? false : true; // Dummy for placeholder
-  const initialLoadRef = useState(false); // Using state as a simple trigger
+  const [loadedCourseId, setLoadedCourseId] = useState<string | null>(null);
   const hasInitializedRef = (window as any).hasInitialized || false;
 
   // Mutations
@@ -174,7 +204,7 @@ export function CourseManagePage() {
   const [formData, setFormData] = useState<Partial<CourseData>>({});
 
   useEffect(() => {
-    if (courseData && !initialLoadRef[0]) {
+    if (courseData && loadedCourseId !== courseId) {
       console.log('Initializing form with data:', courseData);
       setFormData({
         title: courseData.title || '',
@@ -184,14 +214,15 @@ export function CourseManagePage() {
         level: courseData.level || 'beginner',
         price: Number(courseData.price || 0),
         discountPrice: courseData.discount_price ? Number(courseData.discount_price) : undefined,
+        introVideo: courseData.preview_video || '',
       });
       
       if (courseData.sections && courseData.sections.length > 0) {
         setExpandedModules(courseData.sections.map(s => String(s.id)));
       }
-      initialLoadRef[1](true);
+      setLoadedCourseId(courseId || null);
     }
-  }, [courseData, initialLoadRef]);
+  }, [courseData, courseId, loadedCourseId]);
 
   // Load quiz data when editing
   useEffect(() => {
@@ -352,7 +383,7 @@ export function CourseManagePage() {
         id: String(lesson.id),
         title: lesson.title,
         type: lesson.type,
-        duration: lesson.duration,
+        duration: Number(lesson.duration || 0),
         isFree: lesson.is_preview || !lesson.is_active,
         quiz: lesson.quiz,
         quizId: lesson.quiz ? String(lesson.quiz.id) : undefined,
@@ -421,6 +452,7 @@ export function CourseManagePage() {
       level: formData.level,
       price: formData.price,
       discount_price: formData.discountPrice,
+      preview_video: formData.introVideo,
     };
 
     try {
@@ -828,14 +860,30 @@ export function CourseManagePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {language === 'id' ? 'Video Perkenalan' : 'Intro Video'}
                     </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center h-full flex flex-col items-center justify-center">
-                      <Video className="w-8 h-8 text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-500 mb-2">
-                        {course.introVideo || (language === 'id' ? 'Belum ada video' : 'No video yet')}
-                      </p>
-                      <button className="text-sm text-blue-600 hover:underline">
-                        {language === 'id' ? 'Upload Video' : 'Upload Video'}
-                      </button>
+                    <div className="space-y-3">
+                      {getYouTubeEmbedUrl(formData.introVideo || '') ? (
+                        <div className="w-full aspect-video rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                          <iframe
+                            src={getYouTubeEmbedUrl(formData.introVideo || '')}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            title="YouTube video player"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-32 bg-gray-50 flex flex-col items-center justify-center rounded-lg text-gray-400 border border-gray-200 border-dashed">
+                          <Video className="w-8 h-8 mb-2" />
+                          <span className="text-xs text-gray-500">
+                            {language === 'id' ? 'Belum ada video / Masukkan Link YouTube' : 'No video / Enter YouTube Link'}
+                          </span>
+                        </div>
+                      )}
+                      <Input
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        value={formData.introVideo || ''}
+                        onChange={(e) => setFormData({ ...formData, introVideo: e.target.value })}
+                      />
                     </div>
                   </div>
                 </div>

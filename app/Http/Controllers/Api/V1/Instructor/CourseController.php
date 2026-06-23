@@ -186,6 +186,7 @@ class CourseController extends Controller
             'outcomes' => ['nullable', 'array'],
             'target_audience' => ['nullable', 'array'],
             'thumbnail' => ['nullable', 'image', 'max:2048'],
+            'preview_video' => ['nullable', 'string', 'max:255'],
         ]);
 
         // Handle Thumbnail Upload

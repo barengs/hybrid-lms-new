@@ -686,7 +686,7 @@ export function ClassManagePage() {
                            size="sm" 
                            variant="outline" 
                            className="w-full" 
-                           onClick={() => navigate(`/instructor/courses/${course.id}`)}
+                           onClick={() => navigate(`/instructor/courses/${course.id}/edit`)}
                            rightIcon={<ArrowRight className="w-4 h-4" />}
                         >
                           {language === 'id' ? 'Kelola Kursus' : 'Manage Course'}

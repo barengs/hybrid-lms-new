@@ -15,6 +15,7 @@ export interface User {
   };
   createdAt: string;
   isVerified: boolean;
+  permissions?: string[];
 }
 
 export interface Student extends User {

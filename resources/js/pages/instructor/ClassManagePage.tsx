@@ -132,10 +132,6 @@ export function ClassManagePage() {
     totalAssignments: s.assignments_total || 0,
   }));
 
-  const filteredStudents = displayStudents.filter(student =>
-    student.name.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-    student.email.toLowerCase().includes(studentSearchQuery.toLowerCase())
-  );
 
   
   const [activeTab, setActiveTab] = useState<Tab>('content');
@@ -162,6 +158,11 @@ export function ClassManagePage() {
   // People/Students Selection & Filtering
   const [selectedStudents, setSelectedStudents] = useState<(string | number)[]>([]);
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
+
+  const filteredStudents = displayStudents.filter(student =>
+    student.name.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+    student.email.toLowerCase().includes(studentSearchQuery.toLowerCase())
+  );
 
   const handleAddCoInstructor = async () => {
     if (!classId) return;

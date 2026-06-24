@@ -1,8 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useMemo, useEffect } from 'react';
-import * as LucideIcons from 'lucide-react';
+import { icons } from 'lucide-react';
 import {
-  LayoutDashboard,
   BookOpen,
   Users,
   Settings,
@@ -11,17 +10,6 @@ import {
   X,
   Bell,
   ChevronDown,
-  BarChart3,
-  FileText,
-  MessageSquare,
-  Award,
-  DollarSign,
-  FolderOpen,
-  UserCheck,
-  ShieldCheck,
-  Layers,
-  CreditCard,
-  ClipboardList,
   PanelLeftClose,
   PanelLeft,
   Sun,
@@ -31,8 +19,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/context';
-import { Avatar, Badge, Dropdown, LanguageSwitcher } from '@/components/ui';
-import type { DropdownItem } from '@/components/ui';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+import { Dropdown } from '@/components/ui/Dropdown';
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
+import type { DropdownItem } from '@/components/ui/Dropdown';
 import { cn, getTimeAgo } from '@/lib/utils';
 import { useGetInstructorDashboardQuery } from '@/store/features/instructor/instructorApiSlice';
 import { useGetMenusQuery } from '@/store/api/menuApiSlice';
@@ -41,7 +32,7 @@ import type { MenuItem } from '@/store/api/menuApiSlice';
 // Icon mapper for dynamic menus
 const SidebarIcon = ({ name, className }: { name: string | null; className?: string }) => {
   if (!name) return <BookOpen className={className} />;
-  const IconComponent = (LucideIcons as any)[name];
+  const IconComponent = (icons as any)[name];
   return IconComponent ? <IconComponent className={className} /> : <BookOpen className={className} />;
 };
 
@@ -76,7 +67,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
 
   // Helper to check permission
-  const can = (permission?: string) => {
+  const can = (permission?: string | null) => {
     if (!permission) return true;
     if (user?.role === 'admin' && !user.permissions) return true; // Fallback for old admin without permissions array
     return user?.permissions?.includes(permission);
@@ -95,20 +86,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   // API for Dynamic Menus
-  const { data: menuResponse, isLoading: menuLoading } = useGetMenusQuery();
+  const { data: menuResponse } = useGetMenusQuery();
 
   const navGroups = useMemo((): NavGroup[] => {
     if (!menuResponse?.data) return [];
 
     return menuResponse.data.map((group: MenuItem) => ({
       title: language === 'id' ? group.label_id : group.label_en,
-      items: (group.children || []).map((item: MenuItem) => ({
+      items: (group.children || [])
+        .filter((item: MenuItem) => can(item.permission_name))
+        .map((item: MenuItem) => ({
         label: language === 'id' ? item.label_id : item.label_en,
         href: item.route || '#',
         permission: item.permission_name || undefined,
         icon: <SidebarIcon name={item.icon} className="w-5 h-5" />,
-        badge: item.key === 'instructor_grading' ? (dashboardData?.actions?.pending_grading || 0) : 
-               item.key === 'instructor_discussions' ? (dashboardData?.actions?.unanswered_questions || 0) : undefined
+        badge: item.key === 'instructor_grading' ? (dashboardData?.actions?.pending_grading || 0) :
+          item.key === 'instructor_discussions' ? (dashboardData?.actions?.unanswered_questions || 0) : undefined
       }))
     }));
   }, [menuResponse, language, dashboardData]);

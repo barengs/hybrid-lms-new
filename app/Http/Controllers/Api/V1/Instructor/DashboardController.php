@@ -84,7 +84,12 @@ class DashboardController extends Controller
 
             // 1. Stats Cards
             $totalCourses = Course::where('instructor_id', $user->id)->count();
-            $totalBatches = Batch::where('instructor_id', $user->id)->count();
+            $totalBatches = Batch::classroom()->where(function($query) use ($user) {
+                $query->where('instructor_id', $user->id)
+                      ->orWhereHas('instructors', function($q) use ($user) {
+                          $q->where('users.id', $user->id);
+                      });
+            })->count();
             
             $totalStudents = \App\Models\Enrollment::whereHas('course', function($q) use ($user) {
                 $q->where('instructor_id', $user->id);

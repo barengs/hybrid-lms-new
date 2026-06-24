@@ -195,7 +195,7 @@ export function CourseManagePage() {
   const [updateLesson] = useUpdateLessonMutation();
   const [deleteLesson] = useDeleteLessonMutation();
 
-  const { data: courseData, isLoading, error } = useGetInstructorCourseQuery(courseId || '', {
+  const { data: courseData, isLoading, isSuccess, error } = useGetInstructorCourseQuery(courseId || '', {
     skip: !courseId,
   });
 
@@ -204,7 +204,7 @@ export function CourseManagePage() {
   const [formData, setFormData] = useState<Partial<CourseData>>({});
 
   useEffect(() => {
-    if (courseData && loadedCourseId !== courseId) {
+    if (isSuccess && courseData && String(courseData.id) === String(courseId) && loadedCourseId !== courseId) {
       console.log('Initializing form with data:', courseData);
       setFormData({
         title: courseData.title || '',
@@ -215,6 +215,7 @@ export function CourseManagePage() {
         price: Number(courseData.price || 0),
         discountPrice: courseData.discount_price ? Number(courseData.discount_price) : undefined,
         introVideo: courseData.preview_video || '',
+        objectives: courseData.outcomes || [],
       });
       
       if (courseData.sections && courseData.sections.length > 0) {
@@ -222,7 +223,7 @@ export function CourseManagePage() {
       }
       setLoadedCourseId(courseId || null);
     }
-  }, [courseData, courseId, loadedCourseId]);
+  }, [isSuccess, courseData, courseId, loadedCourseId]);
 
   // Load quiz data when editing
   useEffect(() => {
@@ -453,6 +454,7 @@ export function CourseManagePage() {
       price: formData.price,
       discount_price: formData.discountPrice,
       preview_video: formData.introVideo,
+      outcomes: formData.objectives,
     };
 
     try {
@@ -720,6 +722,8 @@ export function CourseManagePage() {
           </div>
         </div>
 
+
+
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-6">
           <nav className="flex gap-6 overflow-x-auto">
@@ -752,12 +756,12 @@ export function CourseManagePage() {
                   <Input
                     label={language === 'id' ? 'Judul Kursus' : 'Course Title'}
                     value={formData.title || ''}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                   />
                   <Input
                     label={language === 'id' ? 'Deskripsi Singkat' : 'Short Description'}
                     value={formData.shortDescription || ''}
-                    onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, shortDescription: e.target.value }))}
                   />
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -767,7 +771,7 @@ export function CourseManagePage() {
                       <ReactQuill
                         theme="snow"
                         value={formData.description || ''}
-                        onChange={(val) => setFormData({ ...formData, description: val })}
+                        onChange={(val) => setFormData((prev) => ({ ...prev, description: val }))}
                         className="mb-12 h-64"
                       />
                     </div>
@@ -779,7 +783,7 @@ export function CourseManagePage() {
                       </label>
                       <select
                         value={formData.category || ''}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         disabled={isLoadingCategories}
                       >
@@ -799,7 +803,7 @@ export function CourseManagePage() {
                       </label>
                       <select
                         value={formData.level || 'beginner'}
-                        onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, level: e.target.value }))}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="beginner">{language === 'id' ? 'Pemula' : 'Beginner'}</option>
@@ -882,7 +886,7 @@ export function CourseManagePage() {
                       <Input
                         placeholder="https://www.youtube.com/watch?v=..."
                         value={formData.introVideo || ''}
-                        onChange={(e) => setFormData({ ...formData, introVideo: e.target.value })}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, introVideo: e.target.value }))}
                       />
                     </div>
                   </div>
@@ -895,21 +899,37 @@ export function CourseManagePage() {
                   <CardTitle>{language === 'id' ? 'Tujuan Pembelajaran' : 'Learning Objectives'}</CardTitle>
                 </CardHeader>
                 <div className="space-y-2">
-                  {course.objectives.map((obj, index) => (
+                  {(formData.objectives || []).map((obj, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
                       <input
                         type="text"
                         value={obj}
-                        onChange={() => { }}
+                        onChange={(e) => {
+                          const newObjectives = [...(formData.objectives || [])];
+                          newObjectives[index] = e.target.value;
+                          setFormData(prev => ({ ...prev, objectives: newObjectives }));
+                        }}
                         className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <button className="p-1 text-gray-400 hover:text-red-500">
+                      <button 
+                        onClick={() => {
+                          const newObjectives = [...(formData.objectives || [])];
+                          newObjectives.splice(index, 1);
+                          setFormData(prev => ({ ...prev, objectives: newObjectives }));
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
-                  <button className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                  <button 
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, objectives: [...(prev.objectives || []), ''] }));
+                    }}
+                    className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                  >
                     <Plus className="w-4 h-4" />
                     {language === 'id' ? 'Tambah Tujuan' : 'Add Objective'}
                   </button>
@@ -1246,7 +1266,7 @@ export function CourseManagePage() {
                   <input
                     type="number"
                     value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, price: Number(e.target.value) }))}
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -1261,7 +1281,7 @@ export function CourseManagePage() {
                     type="number"
                     value={formData.discountPrice || ''}
                     onChange={(e) =>
-                      setFormData({ ...formData, discountPrice: e.target.value ? Number(e.target.value) : undefined })
+                      setFormData((prev) => ({ ...prev, discountPrice: e.target.value ? Number(e.target.value) : undefined }))
                     }
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />

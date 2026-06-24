@@ -113,18 +113,29 @@ class CourseCatalogController extends Controller
         cache()->put($cacheKey, $views + 1, 3600); // Cache for 1 hour
 
         $enrollment = null;
+        $isEnrolledViaClass = false;
         $user = auth('api')->user();
+        
         if ($user) {
             $enrollment = \App\Models\Enrollment::where('user_id', $user->id)
                 ->where('course_id', $course->id)
                 ->first();
+
+            // Check if enrolled via a class (batch)
+            if (!$enrollment) {
+                $isEnrolledViaClass = \App\Models\Batch::whereHas('enrollments', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                })->whereHas('courses', function($q) use ($course) {
+                    $q->where('courses.id', $course->id);
+                })->exists();
+            }
         }
 
         return response()->json([
             'data' => $course,
             'meta' => [
                 'view_count' => $views + 1,
-                'is_enrolled' => $enrollment !== null,
+                'is_enrolled' => $enrollment !== null || $isEnrolledViaClass,
                 'enrollment' => $enrollment,
             ],
         ]);

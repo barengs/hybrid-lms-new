@@ -37,12 +37,12 @@ class SubmissionController extends Controller
                     $query->whereHas('batch', function($q) use ($user) {
                         $q->where('instructor_id', $user->id)
                           ->orWhereHas('instructors', function ($inner) use ($user) {
-                              $inner->where('instructor_id', $user->id);
+                              $inner->where('users.id', $user->id);
                           });
                     })->orWhereHas('batch.courses', function ($inner) use ($user) {
-                        $inner->where('instructor_id', $user->id);
+                        $inner->where('courses.instructor_id', $user->id);
                     })->orWhereHas('lesson.section.course', function ($inner) use ($user) {
-                        $inner->where('instructor_id', $user->id);
+                        $inner->where('courses.instructor_id', $user->id);
                     });
                 })
                 ->with(['user.profile', 'assignment.batch.courses', 'assignment.lesson.section.course'])
@@ -103,12 +103,12 @@ class SubmissionController extends Controller
                     $query->whereHas('batch', function($q) use ($user) {
                         $q->where('instructor_id', $user->id)
                           ->orWhereHas('instructors', function ($inner) use ($user) {
-                              $inner->where('instructor_id', $user->id);
+                              $inner->where('users.id', $user->id);
                           });
                     })->orWhereHas('batch.courses', function ($inner) use ($user) {
-                        $inner->where('instructor_id', $user->id);
+                        $inner->where('courses.instructor_id', $user->id);
                     })->orWhereHas('lesson.section.course', function ($inner) use ($user) {
-                        $inner->where('instructor_id', $user->id);
+                        $inner->where('courses.instructor_id', $user->id);
                     });
                 })
                 ->findOrFail($id);
@@ -139,12 +139,12 @@ class SubmissionController extends Controller
                     $query->whereHas('batch', function($q) use ($user) {
                         $q->where('instructor_id', $user->id)
                           ->orWhereHas('instructors', function ($inner) use ($user) {
-                              $inner->where('instructor_id', $user->id);
+                              $inner->where('users.id', $user->id);
                           });
                     })->orWhereHas('batch.courses', function ($inner) use ($user) {
-                        $inner->where('instructor_id', $user->id);
+                        $inner->where('courses.instructor_id', $user->id);
                     })->orWhereHas('lesson.section.course', function ($inner) use ($user) {
-                        $inner->where('instructor_id', $user->id);
+                        $inner->where('courses.instructor_id', $user->id);
                     });
                 })
                 ->findOrFail($id);

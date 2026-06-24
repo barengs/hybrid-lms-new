@@ -14,6 +14,39 @@ class LearningController extends Controller
     use ApiResponse;
 
     /**
+     * Get or implicitly create enrollment if the user is enrolled via a batch (class).
+     */
+    private function getOrImplicitlyCreateEnrollment($user, $course)
+    {
+        $enrollment = Enrollment::where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->first();
+
+        if (!$enrollment) {
+            // Check if user is enrolled in a batch that contains this course
+            $batchWithCourse = \App\Models\Batch::whereHas('enrollments', function($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->whereHas('courses', function($q) use ($course) {
+                $q->where('courses.id', $course->id);
+            })->first();
+
+            if ($batchWithCourse) {
+                // Auto-create implicit course enrollment tied to the batch
+                $enrollment = Enrollment::create([
+                    'user_id' => $user->id,
+                    'course_id' => $course->id,
+                    'batch_id' => $batchWithCourse->id,
+                    'enrolled_at' => now(),
+                    'is_completed' => false,
+                    'progress_percentage' => 0,
+                ]);
+            }
+        }
+
+        return $enrollment;
+    }
+
+    /**
      * Get learning content for a specific course (syllabus and progress).
      */
     public function show(Request $request, string $slug): JsonResponse
@@ -33,9 +66,7 @@ class LearningController extends Controller
                 ])
                 ->firstOrFail();
 
-            $enrollment = Enrollment::where('user_id', $user->id)
-                ->where('course_id', $course->id)
-                ->first();
+            $enrollment = $this->getOrImplicitlyCreateEnrollment($user, $course);
 
             if (!$enrollment) {
                 return $this->errorResponse('You are not enrolled in this course.', 403);
@@ -116,9 +147,7 @@ class LearningController extends Controller
             $user = $request->user();
             $course = Course::where('slug', $slug)->firstOrFail();
             
-            $enrollment = Enrollment::where('user_id', $user->id)
-                ->where('course_id', $course->id)
-                ->first();
+            $enrollment = $this->getOrImplicitlyCreateEnrollment($user, $course);
 
             if (!$enrollment) {
                 return $this->errorResponse('You are not enrolled in this course.', 403);
@@ -232,9 +261,7 @@ class LearningController extends Controller
             $user = $request->user();
             $course = Course::where('slug', $slug)->firstOrFail();
             
-            $enrollment = Enrollment::where('user_id', $user->id)
-                ->where('course_id', $course->id)
-                ->first();
+            $enrollment = $this->getOrImplicitlyCreateEnrollment($user, $course);
 
             if (!$enrollment) {
                 return $this->errorResponse('You are not enrolled in this course.', 403);

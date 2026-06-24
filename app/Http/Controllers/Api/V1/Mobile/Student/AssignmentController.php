@@ -54,6 +54,10 @@ class AssignmentController extends Controller
                         'due_date' => $a->due_date,
                         'status' => $submission ? $submission->status : 'pending',
                         'score' => $submission ? $submission->points_awarded : null,
+                        'my_submission' => $submission ? [
+                            'status' => $submission->status,
+                            'points_awarded' => $submission->points_awarded,
+                        ] : null,
                     ];
                 });
 
@@ -107,7 +111,7 @@ class AssignmentController extends Controller
                 'content' => $content, // Questions for quiz, or instructions
                 'due_date' => $assignment->due_date,
                 'max_points' => $assignment->max_points,
-                'submission' => $submission ? [
+                'my_submission' => $submission ? [
                     'status' => $submission->status,
                     'content' => $submission->content,
                     'answers' => $submission->answers,

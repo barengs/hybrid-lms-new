@@ -13,7 +13,19 @@ import { LoginPage, RegisterPage, ForgotPasswordPage, OnboardingPage } from '@/p
 import { StudentDashboard, MyCoursesPage, MyClassesPage, ClassDetailPage, DiscussionsPage, DiscussionDetailPage } from '@/pages/student';
 
 // Instructor Pages
-import { InstructorDashboard, InstructorCoursesPage, CourseManagePage, InstructorStudentsPage, InstructorClassesPage, ClassManagePage, InstructorGradingPage, AssignmentGradingPage, ExamGradingPage, ClassGradingPage, InstructorEarningsPage, InstructorPayoutsPage, InstructorCreateCoursePage } from '@/pages/instructor';
+import { InstructorDashboard } from '@/pages/instructor/InstructorDashboard';
+import { InstructorCoursesPage } from '@/pages/instructor/InstructorCoursesPage';
+import { CourseManagePage } from '@/pages/instructor/CourseManagePage';
+import { InstructorStudentsPage } from '@/pages/instructor/InstructorStudentsPage';
+import { InstructorClassesPage } from '@/pages/instructor/InstructorClassesPage';
+import { ClassManagePage } from '@/pages/instructor/ClassManagePage';
+import { InstructorGradingPage } from '@/pages/instructor/InstructorGradingPage';
+import { AssignmentGradingPage } from '@/pages/instructor/AssignmentGradingPage';
+import { ExamGradingPage } from '@/pages/instructor/ExamGradingPage';
+import { ClassGradingPage } from '@/pages/instructor/ClassGradingPage';
+import { InstructorEarningsPage } from '@/pages/instructor/InstructorEarningsPage';
+import { InstructorPayoutsPage } from '@/pages/instructor/InstructorPayoutsPage';
+import { InstructorCreateCoursePage } from '@/pages/instructor/InstructorCreateCoursePage';
 
 // Admin Pages
 import { AdminDashboard, AdminUsersPage, AdminStudentsPage, UserDetailPage, InstructorsManagementPage, InstructorDetailPage, CoursesManagementPage, CourseReviewPage, CategoriesManagementPage, TransactionsPage, TransactionDetailPage, AdminPayoutsPage, CommissionSettingsPage, AdminSettingsPage, ModerationPage, RoleManagementPage, OnboardingQuestionsPage } from '@/pages/admin';

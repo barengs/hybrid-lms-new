@@ -305,7 +305,7 @@ export const classesApiSlice = apiSlice.injectEndpoints({
       invalidatesTags: (_result, _error, { classId }) => [{ type: 'Class', id: classId }],
     }),
     createAssignment: builder.mutation<void, { data: any }>({
-      query: (data) => ({
+      query: ({ data }) => ({
         url: 'instructor/assignments',
         method: 'POST',
         body: data,

@@ -50,6 +50,7 @@ export interface LearningLesson {
   is_completed: boolean;
   is_locked: boolean;
   sort_order: number;
+  assignment_id?: number;
 }
 
 export interface LearningSection {

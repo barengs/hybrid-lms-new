@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
@@ -45,6 +45,7 @@ export function AdminStudentsPage() {
   const [roleFilter] = useState<string>('student');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedUsers, setSelectedUsers] = useState<AdminUser[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -66,6 +67,7 @@ export function AdminStudentsPage() {
   // API Hooks
   const { data: usersData, isLoading: isLoadingUsers } = useGetUsersQuery({
     page,
+    per_page: pageSize,
     search: searchQuery,
     role: roleFilter,
     status: statusFilter,
@@ -419,7 +421,15 @@ export function AdminStudentsPage() {
             isLoading={isLoadingUsers}
             enableRowSelection={true}
             enablePagination={true}
-            pageSize={10}
+            manualPagination={true}
+            pageCount={usersData?.last_page || 1}
+            pageIndex={page - 1}
+            pageSize={pageSize}
+            onPageChange={(newPageIndex) => setPage(newPageIndex + 1)}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
             onRowSelectionChange={setSelectedUsers}
           />
         </Card>

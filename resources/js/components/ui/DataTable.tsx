@@ -21,7 +21,12 @@ interface DataTableProps<TData, TValue> {
   onRowSelectionChange?: (selectedRows: TData[]) => void;
   enableRowSelection?: boolean;
   enablePagination?: boolean;
+  manualPagination?: boolean;
+  pageCount?: number;
+  pageIndex?: number;
   pageSize?: number;
+  onPageChange?: (pageIndex: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   isLoading?: boolean;
 }
 
@@ -31,7 +36,12 @@ export function DataTable<TData, TValue>({
   onRowSelectionChange,
   enableRowSelection = false,
   enablePagination = true,
+  manualPagination = false,
+  pageCount = -1,
+  pageIndex = 0,
   pageSize = 10,
+  onPageChange,
+  onPageSizeChange,
   isLoading = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -64,7 +74,10 @@ export function DataTable<TData, TValue>({
       columnFilters,
       columnVisibility,
       rowSelection,
+      ...(manualPagination ? { pagination: { pageIndex, pageSize } } : {}),
     },
+    manualPagination,
+    pageCount: manualPagination ? pageCount : undefined,
     enableRowSelection,
     initialState: {
       pagination: {
@@ -151,23 +164,48 @@ export function DataTable<TData, TValue>({
 
       {/* Pagination */}
       {enablePagination && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-700 dark:text-gray-300">
-            {table.getFilteredSelectedRowModel().rows.length > 0 && (
-              <span className="mr-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-4 text-sm text-gray-700 dark:text-gray-300">
+            {enableRowSelection && table.getFilteredSelectedRowModel().rows.length > 0 && (
+              <span className="hidden sm:inline">
                 {table.getFilteredSelectedRowModel().rows.length} of{' '}
                 {table.getFilteredRowModel().rows.length} row(s) selected
               </span>
             )}
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline">Items per page:</span>
+              <select
+                className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={manualPagination ? pageSize : table.getState().pagination.pageSize}
+                onChange={(e) => {
+                  const newSize = Number(e.target.value);
+                  if (manualPagination && onPageSizeChange) {
+                    onPageSizeChange(newSize);
+                  } else {
+                    table.setPageSize(newSize);
+                  }
+                }}
+              >
+                {[10, 20, 50, 100].map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+            </div>
             <span>
-              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              Page {manualPagination ? pageIndex + 1 : table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
             </span>
           </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => table.previousPage()}
+              onClick={() => {
+                if (manualPagination && onPageChange) {
+                  onPageChange(pageIndex - 1);
+                } else {
+                  table.previousPage();
+                }
+              }}
               disabled={!table.getCanPreviousPage()}
             >
               Previous
@@ -175,7 +213,13 @@ export function DataTable<TData, TValue>({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => table.nextPage()}
+              onClick={() => {
+                if (manualPagination && onPageChange) {
+                  onPageChange(pageIndex + 1);
+                } else {
+                  table.nextPage();
+                }
+              }}
               disabled={!table.getCanNextPage()}
             >
               Next

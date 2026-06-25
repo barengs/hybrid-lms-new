@@ -530,7 +530,7 @@ export function AssignmentDetailPage() {
         )}
 
         {/* ---- AI STATUS BANNER (from saved submission) ---- */}
-        {sub && sub.ai_status && sub.ai_status !== 'not_applicable' && (
+        {sub && sub.ai_status && sub.ai_status !== 'not_applicable' && !(sub.status === 'graded' && (sub.ai_status === 'processing' || sub.ai_status === 'pending' || sub.ai_status === 'failed')) && (
           <div className="mb-6">
             <AiStatusBanner 
               submission={sub} 

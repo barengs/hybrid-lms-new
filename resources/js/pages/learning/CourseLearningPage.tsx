@@ -129,8 +129,7 @@ export function CourseLearningPage() {
       const qType = lesson.type === 'quiz_v2' ? 'v2' : 'v1';
       url = `/learn/${slug}/quiz/${qId}${query}${query ? '&' : '?'}type=${qType}`;
     } else if (lesson.type === 'assignment') {
-      // Navigate with lesson_id — backend will resolve to the correct assignment
-      url = `/assignments/${lesson.id}${query}`;
+      url = `/assignments/${lesson.assignment_id || lesson.id}${query}`;
     } else {
       url = `/learn/${slug}/lesson/${lesson.id}${query}`;
     }

@@ -74,11 +74,11 @@ class LearningController extends Controller
 
             $completedLessons = $enrollment->completed_lessons ?? [];
 
-            $sections = $course->sections->map(function ($section) use ($completedLessons) {
+            $sections = $course->sections->map(function ($section) use ($completedLessons, $enrollment) {
                 // Get Lessons (Filter out legacy quiz placeholders)
                 $lessons = $section->lessons
                     ->reject(fn($l) => $l->type === 'quiz' && empty($l->content))
-                    ->map(function ($lesson) use ($completedLessons) {
+                    ->map(function ($lesson) use ($completedLessons, $enrollment) {
                         return [
                             'id' => $lesson->id,
                             'title' => $lesson->title,
@@ -87,6 +87,11 @@ class LearningController extends Controller
                             'is_completed' => in_array($lesson->id, $completedLessons),
                             'is_locked' => false,
                             'sort_order' => $lesson->sort_order,
+                            'assignment_id' => $lesson->type === 'assignment' ? (
+                                $lesson->assignments->where('batch_id', $enrollment->batch_id)->first()?->id
+                                ?? $lesson->assignments->whereNull('batch_id')->first()?->id
+                                ?? $lesson->assignments->first()?->id
+                            ) : null,
                         ];
                     });
 

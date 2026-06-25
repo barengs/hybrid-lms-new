@@ -66,7 +66,7 @@ class AppSettingService
         $provider = $this->get('ai_provider', config('prism.default_provider', 'ollama'));
         
         $defaultModel = match(strtolower($provider)) {
-            'gemini' => 'gemini-1.5-flash-latest',
+            'gemini' => 'gemini-1.5-flash',
             'openai' => 'gpt-4o-mini',
             'anthropic' => 'claude-3-haiku-20240307',
             default => 'llama3'

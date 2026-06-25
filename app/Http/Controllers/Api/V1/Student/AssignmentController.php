@@ -306,7 +306,7 @@ class AssignmentController extends Controller
 
             // 5. Dispatch AI Grading Job for non-quiz assignments (quiz already auto-graded)
             if ($needsAiGrading) {
-                GradeSubmission::dispatch($submission)->onQueue('default');
+                GradeSubmission::dispatchSync($submission);
             }
 
             // 6. Build informative response for the student
@@ -398,10 +398,11 @@ class AssignmentController extends Controller
                 );
             }
 
-            // Dispatch job
-            GradeSubmission::dispatch($submission)->onQueue('default');
             $submission->update(['ai_status' => 'processing']);
             $submission->touch(); // Force updated_at to refresh even if status was already processing
+            
+            // Dispatch job synchronously since queue worker is not used
+            GradeSubmission::dispatchSync($submission);
 
             return $this->successResponse(
                 new SubmissionResource($submission->refresh()),

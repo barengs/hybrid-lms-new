@@ -171,6 +171,10 @@ export function ClassGradingPage() {
   }, []);
 
   // Filter submissions
+  const handleOpenSubmission = (submission: any) => {
+    navigate(`/instructor/grading/assignments/${submission.assignment.id}/submissions/${submission.id}`);
+  };
+
   const filteredSubmissions = useMemo(() => {
     return mockSubmissions
       .filter(submission => {
@@ -494,156 +498,6 @@ export function ClassGradingPage() {
           </Card>
         )}
 
-        {/* Submission Detail Modal */}
-        {selectedSubmission && (
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-              <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setSelectedSubmission(null)} />
-
-              <div className="inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium leading-6 text-gray-900">
-                      {language === 'id' ? 'Detail Penilaian' : 'Grading Details'}
-                    </h3>
-                    <button
-                      type="button"
-                      className="text-gray-400 hover:text-gray-500"
-                      onClick={() => setSelectedSubmission(null)}
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
-                  {/* Student Info */}
-                  <div className="flex items-center gap-4 pb-4 mb-4 border-b border-gray-200">
-                    <Avatar src={selectedSubmission.student.avatar} name={selectedSubmission.student.name} size="lg" />
-                    <div>
-                      <h4 className="text-lg font-medium text-gray-900">{selectedSubmission.student.name}</h4>
-                      <p className="text-gray-500">{selectedSubmission.student.email}</p>
-                    </div>
-                    <div className="ml-auto text-right">
-                      {getStatusBadge(selectedSubmission.status)}
-                      <p className="mt-2 text-sm text-gray-500">
-                        {language === 'id' ? 'Dikirim' : 'Submitted'}: {getTimeAgo(selectedSubmission.submittedAt)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Assignment Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <FileText className="w-5 h-5" />
-                          {language === 'id' ? 'Tugas/Ujian' : 'Assignment/Exam'}
-                        </CardTitle>
-                      </CardHeader>
-                      <div className="p-4">
-                        <p className="font-medium text-gray-900">{selectedSubmission.assignment.title}</p>
-                        <div className="flex items-center gap-1 mt-2 text-sm text-gray-500">
-                          <Calendar className="w-4 h-4" />
-                          <span>{language === 'id' ? 'Batas waktu' : 'Due'}: {new Date(selectedSubmission.assignment.dueDate).toLocaleDateString()}</span>
-                        </div>
-                        <div className="mt-2 text-sm text-gray-500">
-                          {language === 'id' ? 'Poin Maksimal' : 'Max Points'}: {selectedSubmission.assignment.maxPoints}
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
-
-                  {/* Attachments */}
-                  <div className="mb-6">
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      {language === 'id' ? 'Lampiran' : 'Attachments'}
-                    </h4>
-                    {selectedSubmission.attachments.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {selectedSubmission.attachments.map((attachment, index) => (
-                          <div key={index} className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-                            <FileText className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{attachment}</span>
-                            <button className="text-blue-600 hover:text-blue-800">
-                              <Download className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-sm">
-                        {language === 'id' ? 'Tidak ada lampiran' : 'No attachments'}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Grading Form */}
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-gray-900">
-                      {language === 'id' ? 'Form Penilaian' : 'Grading Form'}
-                    </h4>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {language === 'id' ? 'Poin' : 'Points'} ({selectedSubmission.assignment.maxPoints} {language === 'id' ? 'maksimal' : 'maximum'})
-                        </label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={selectedSubmission.assignment.maxPoints}
-                          defaultValue={selectedSubmission.points}
-                          placeholder={language === 'id' ? 'Masukkan poin' : 'Enter points'}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {language === 'id' ? 'Persentase' : 'Percentage'}
-                        </label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            defaultValue={selectedSubmission.grade}
-                            placeholder="0"
-                            className="pr-12"
-                          />
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                            <span className="text-gray-500">%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'id' ? 'Umpan Balik' : 'Feedback'}
-                      </label>
-                      <textarea
-                        defaultValue={selectedSubmission.feedback}
-                        placeholder={language === 'id' ? 'Berikan umpan balik kepada siswa...' : 'Provide feedback to the student...'}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows={4}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setSelectedSubmission(null)}>
-                    {language === 'id' ? 'Batal' : 'Cancel'}
-                  </Button>
-                  <Button leftIcon={<Check className="w-4 h-4" />}>
-                    {language === 'id' ? 'Simpan Nilai' : 'Save Grade'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </DashboardLayout>
   );

@@ -11,7 +11,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { MainLayout } from '@/components/layouts';
-import { Button, Card } from '@/components/ui';
+import { Card } from '@/components/ui';
 
 export function InstructorRegisterPage() {
   const navigate = useNavigate();
@@ -31,6 +31,7 @@ export function InstructorRegisterPage() {
     portfolio: '',
     motivation: '',
     photo: null as File | null,
+    certificate: null as File | null,
   });
 
   const [errors, setErrors] = useState({
@@ -71,21 +72,15 @@ export function InstructorRegisterPage() {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         alert('File harus berupa gambar');
         return;
       }
-
-      // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         alert('Ukuran file maksimal 2MB');
         return;
       }
-
       setFormData({ ...formData, photo: file });
-
-      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoPreview(reader.result as string);
@@ -94,30 +89,61 @@ export function InstructorRegisterPage() {
     }
   };
 
+  const handleCertificateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Ukuran file maksimal 2MB');
+        return;
+      }
+      setFormData({ ...formData, certificate: file });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate
     if (formData.password.length < 8) {
       setErrors(prev => ({ ...prev, password: 'Password minimal 8 karakter' }));
       return;
     }
-
     if (formData.password !== formData.confirmPassword) {
       setErrors(prev => ({ ...prev, confirmPassword: 'Password tidak cocok' }));
+      return;
+    }
+    if (!formData.photo || !formData.certificate) {
+      alert('Foto profil dan Sertifikat wajib diunggah');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const submitData = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null) {
+          submitData.append(key, value as Blob | string);
+        }
+      });
 
-    console.log('Instructor registration:', formData);
-    alert('Terima kasih! Pendaftaran Anda telah kami terima. Tim kami akan menghubungi Anda segera melalui email.');
+      const response = await fetch('/api/v1/public/instructor-applications', {
+        method: 'POST',
+        body: submitData,
+        // Don't set Content-Type header when using FormData
+      });
 
-    navigate('/');
-    setIsSubmitting(false);
+      if (!response.ok) {
+        throw new Error('Pendaftaran gagal');
+      }
+
+      alert('Terima kasih! Pendaftaran Anda telah kami terima. Tim kami akan menghubungi Anda segera melalui email.');
+      navigate('/');
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Terjadi kesalahan saat mendaftar. Silakan coba lagi.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const benefits = [
@@ -437,6 +463,35 @@ export function InstructorRegisterPage() {
                       className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                       placeholder="Ceritakan motivasi Anda untuk menjadi instruktur di MOLANG..."
                     />
+                  </div>
+
+                  {/* Certificate Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Sertifikat Keahlian / CV (PDF/Image) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          id="certificate"
+                          accept=".pdf,image/*"
+                          onChange={handleCertificateChange}
+                          className="hidden"
+                          required
+                        />
+                        <label
+                          htmlFor="certificate"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {formData.certificate ? formData.certificate.name : 'Upload Sertifikat / CV'}
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          PDF, JPG, atau PNG. Maksimal 2MB.
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Submit Buttons */}

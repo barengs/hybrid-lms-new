@@ -148,6 +148,10 @@ Route::prefix('v1')->group(function () {
             Route::get('instructors/stats', [\App\Http\Controllers\Api\V1\Admin\InstructorManagementController::class, 'stats']);
             Route::patch('instructors/{instructor}/status', [\App\Http\Controllers\Api\V1\Admin\InstructorManagementController::class, 'updateStatus']);
             Route::apiResource('instructors', \App\Http\Controllers\Api\V1\Admin\InstructorManagementController::class);
+
+            Route::get('instructor-applications', [\App\Http\Controllers\Api\V1\Admin\InstructorApplicationController::class, 'index']);
+            Route::post('instructor-applications/{id}/approve', [\App\Http\Controllers\Api\V1\Admin\InstructorApplicationController::class, 'approve']);
+            Route::post('instructor-applications/{id}/reject', [\App\Http\Controllers\Api\V1\Admin\InstructorApplicationController::class, 'reject']);
             Route::prefix('courses')->group(function () {
                 Route::get('stats', [\App\Http\Controllers\Api\V1\Admin\CourseManagementController::class, 'stats']);
                 Route::patch('{course}/status', [\App\Http\Controllers\Api\V1\Admin\CourseManagementController::class, 'updateStatus']);
@@ -291,6 +295,7 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('public')->group(function () {
+        Route::post('instructor-applications', [\App\Http\Controllers\Api\V1\InstructorApplicationController::class, 'store']);
         Route::get('courses', [CourseCatalogController::class, 'index']);
         Route::get('courses/{slug}', [CourseCatalogController::class, 'show']);
         Route::get('courses/{course}/related', [CourseCatalogController::class, 'related']);

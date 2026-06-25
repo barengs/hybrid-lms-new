@@ -58,6 +58,6 @@ const baseQueryWithReauth: BaseQueryFn<
 export const apiSlice = createApi({
     reducerPath: 'api',
     baseQuery: baseQueryWithReauth,
-    tagTypes: ['User', 'Course', 'Class', 'InstructorCourses', 'InstructorQuizzes', 'Category', 'Students', 'Submissions', 'AppSettings', 'Earnings', 'Payouts', 'Users', 'Roles', 'Instructors', 'Courses', 'Transactions', 'TransactionStats', 'Lesson', 'OnboardingQuestions'],
+    tagTypes: ['User', 'Course', 'Class', 'InstructorCourses', 'InstructorQuizzes', 'Category', 'Students', 'Submissions', 'AppSettings', 'Earnings', 'Payouts', 'Users', 'Roles', 'Instructors', 'Courses', 'Transactions', 'TransactionStats', 'Lesson', 'OnboardingQuestions', 'InstructorApplications', 'AdminDashboard'],
     endpoints: (_builder) => ({}),
 });

@@ -459,8 +459,13 @@ export const instructorApiSlice = apiSlice.injectEndpoints({
         url: '/instructor/submissions',
         params,
       }),
-      transformResponse: (response: InstructorSubmissionsResponse) => response.data.data,
+      transformResponse: (response: { data: { data: InstructorSubmission[] } }) => response.data.data,
       providesTags: ['Submissions'],
+    }),
+    getInstructorSubmission: builder.query<InstructorSubmission, string>({
+      query: (id) => `/instructor/submissions/${id}`,
+      transformResponse: (response: { data: InstructorSubmission }) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'Submissions', id }],
     }),
     gradeSubmission: builder.mutation<InstructorSubmission, GradeSubmissionPayload>({
       query: ({ id, ...body }) => ({
@@ -660,6 +665,7 @@ export const {
   useUploadCourseThumbnailMutation,
   useGetInstructorStudentsQuery,
   useGetInstructorSubmissionsQuery,
+  useGetInstructorSubmissionQuery,
   useGradeSubmissionMutation,
   useAiGradeSubmissionMutation,
   useGetInstructorEarningsQuery,

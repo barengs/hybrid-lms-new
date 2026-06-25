@@ -85,12 +85,13 @@ class AiGradingService
         throw new \Exception("AI failed to return valid JSON: " . $response->text);
 
         } catch (\Throwable $e) {
+            $keyUsed = substr($aiConfig['api_key'] ?? '', -4);
             Log::error("CRITICAL AI Grading Error for Submission {$submission->id}: " . $e->getMessage());
             Log::error($e->getTraceAsString());
             
             $submission->update([
                 'ai_status' => 'failed',
-                'ai_feedback' => 'AI Evaluation error: ' . $e->getMessage(),
+                'ai_feedback' => 'AI Evaluation error: ' . $e->getMessage() . ' (Key ends in: ...' . $keyUsed . ')',
             ]);
             
             return null;

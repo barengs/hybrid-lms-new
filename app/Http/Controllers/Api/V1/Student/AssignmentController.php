@@ -389,7 +389,9 @@ class AssignmentController extends Controller
                 return $this->errorResponse('Submission not found.', 404);
             }
 
-            if ($submission->ai_status !== 'failed') {
+            $isStuckProcessing = $submission->ai_status === 'processing' && $submission->updated_at < now()->subMinutes(5);
+
+            if ($submission->ai_status !== 'failed' && !$isStuckProcessing) {
                 return $this->successResponse(
                     new SubmissionResource($submission->refresh()),
                     'AI evaluation is already ' . $submission->ai_status . '.'

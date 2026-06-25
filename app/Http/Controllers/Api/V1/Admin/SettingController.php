@@ -24,11 +24,19 @@ class SettingController extends Controller
      */
     public function index(): JsonResponse
     {
-        $settings = AppSetting::all()->groupBy('group');
+        $settings = AppSetting::all();
         
+        // Mask the AI API key so it doesn't get double-encrypted when saving via UI
+        $settings->transform(function ($setting) {
+            if ($setting->key === 'ai_api_key' && !empty($setting->value)) {
+                $setting->value = '********';
+            }
+            return $setting;
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $settings
+            'data' => $settings->groupBy('group')
         ]);
     }
 
@@ -46,6 +54,11 @@ class SettingController extends Controller
         ]);
 
         foreach ($request->settings as $item) {
+            // Skip updating if it's the masked API key
+            if ($item['key'] === 'ai_api_key' && $item['value'] === '********') {
+                continue;
+            }
+            
             $this->settingService->set(
                 $item['key'],
                 $item['value'],

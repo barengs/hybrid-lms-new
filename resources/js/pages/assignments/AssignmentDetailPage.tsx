@@ -128,7 +128,15 @@ function AiStatusBanner({
   onRetry?: () => void;
   isRetrying?: boolean;
 }) {
-  const { ai_status, ai_score, ai_feedback } = submission;
+  let { ai_status, ai_score, ai_feedback, updated_at } = submission;
+
+  // Check if AI processing is stuck (more than 5 minutes since last update)
+  if (ai_status === 'processing' && updated_at) {
+    const updatedTime = new Date(updated_at + (updated_at.endsWith('Z') ? '' : 'Z')).getTime();
+    if (Date.now() - updatedTime > 5 * 60 * 1000) {
+      ai_status = 'failed';
+    }
+  }
 
   const info: Record<string, { color: string; bg: string; border: string; label: string }> = {
     processing: {

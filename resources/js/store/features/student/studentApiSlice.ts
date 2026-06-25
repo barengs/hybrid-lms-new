@@ -122,6 +122,7 @@ export interface SubmissionData {
   submitted_at: string;
   graded_at: string | null;
   ai_evaluated_at: string | null;
+  updated_at?: string;
 }
 
 export interface AssignmentDetailData {

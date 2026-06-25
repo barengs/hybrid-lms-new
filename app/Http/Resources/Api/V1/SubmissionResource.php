@@ -50,6 +50,7 @@ class SubmissionResource extends JsonResource
             'ai_feedback' => $this->ai_feedback,
             'ai_status' => $this->ai_status,
             'ai_evaluated_at' => $this->ai_evaluated_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 }

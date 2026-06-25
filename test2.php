@@ -1,0 +1,1 @@
+<?php require __DIR__." /vendor/autoload.php\; \ = require_once __DIR__.\/bootstrap/app.php\; \->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); config([\prism.providers.gemini.api_key\ => \dummy\]); try { Prism\Prism\Facades\Prism::text()->using(\gemini\, \gemini-1.5-flash\)->withPrompt(\hello\)->generate(); } catch (\Throwable \) { dump(\->getMessage()); }

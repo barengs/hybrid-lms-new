@@ -63,9 +63,12 @@ class AppSettingService
      */
     public function getAiConfig(): array
     {
+        $provider = $this->get('ai_provider', config('prism.default_provider', 'ollama'));
+        $defaultModel = strtolower($provider) === 'gemini' ? 'gemini-1.5-flash' : 'llama3';
+
         return [
-            'provider' => $this->get('ai_provider', config('prism.default_provider', 'ollama')),
-            'model' => $this->get('ai_model', 'llama3'), // Default to llama3 for ollama, or gemini-1.5-flash for gemini
+            'provider' => $provider,
+            'model' => $this->get('ai_model', $defaultModel),
             'temperature' => $this->get('ai_temperature', 0.7),
             'api_key' => $this->get('ai_api_key', ''),
         ];

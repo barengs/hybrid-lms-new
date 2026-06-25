@@ -90,7 +90,7 @@ class AiGradingService
             
             $submission->update([
                 'ai_status' => 'failed',
-                'ai_feedback' => 'AI Evaluation encountered a critical error. Technical details logged.',
+                'ai_feedback' => 'AI Evaluation error: ' . $e->getMessage(),
             ]);
             
             return null;

@@ -396,6 +396,13 @@ export function AssignmentDetailPage() {
             : 'AI server is overloaded. Please try again in a few minutes.',
           { duration: 5000 }
         );
+      } else if (result?.data?.ai_status === 'failed') {
+        toast.error(
+          language === 'id'
+            ? 'Evaluasi AI gagal. Coba lagi atau hubungi instruktur.'
+            : 'AI evaluation failed. Please retry or contact your instructor.',
+          { duration: 5000 }
+        );
       } else {
         toast.success(
           language === 'id'

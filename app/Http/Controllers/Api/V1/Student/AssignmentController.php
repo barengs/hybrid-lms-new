@@ -401,6 +401,7 @@ class AssignmentController extends Controller
             // Dispatch job
             GradeSubmission::dispatch($submission)->onQueue('default');
             $submission->update(['ai_status' => 'processing']);
+            $submission->touch(); // Force updated_at to refresh even if status was already processing
 
             return $this->successResponse(
                 new SubmissionResource($submission->refresh()),

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText,
@@ -138,11 +139,14 @@ function AiStatusBanner({
     }
   }
 
+  // Check if overloaded
+  const isOverloaded = ai_status === 'failed' && (ai_feedback ?? '').toLowerCase().includes('overload');
+
   const info: Record<string, { color: string; bg: string; border: string; label: string }> = {
     processing: {
-      color: 'text-blue-700',
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
+      color: 'text-green-700',
+      bg: 'bg-green-50',
+      border: 'border-green-200',
       label: language === 'id' ? 'AI sedang mengevaluasi tugasmu...' : 'AI is evaluating your submission...',
     },
     completed: {
@@ -155,7 +159,9 @@ function AiStatusBanner({
       color: 'text-red-700',
       bg: 'bg-red-50',
       border: 'border-red-200',
-      label: language === 'id' ? 'Evaluasi AI Gagal' : 'AI Evaluation Failed',
+      label: isOverloaded
+        ? (language === 'id' ? 'Server AI Sedang Sibuk' : 'AI Server Overloaded')
+        : (language === 'id' ? 'Evaluasi AI Gagal' : 'AI Evaluation Failed'),
     },
     pending: {
       color: 'text-gray-600',
@@ -381,9 +387,31 @@ export function AssignmentDetailPage() {
   const handleRetryAi = async () => {
     if (!assignment?.id) return;
     try {
-      await retryAiGrading(assignment.id).unwrap();
+      const result = await retryAiGrading(assignment.id).unwrap();
+      const feedback = result?.data?.ai_feedback ?? '';
+      if (result?.data?.ai_status === 'failed' && feedback.toLowerCase().includes('overload')) {
+        toast.error(
+          language === 'id'
+            ? 'Server AI sedang overload. Coba lagi dalam beberapa menit.'
+            : 'AI server is overloaded. Please try again in a few minutes.',
+          { duration: 5000 }
+        );
+      } else {
+        toast.success(
+          language === 'id'
+            ? 'Evaluasi AI sedang diproses...'
+            : 'AI evaluation is being processed...',
+          { duration: 3000 }
+        );
+      }
     } catch (err: any) {
       console.error('Failed to retry AI:', err);
+      toast.error(
+        language === 'id'
+          ? 'Gagal menghubungi server. Coba lagi nanti.'
+          : 'Failed to contact server. Please try again later.',
+        { duration: 4000 }
+      );
     }
   };
 

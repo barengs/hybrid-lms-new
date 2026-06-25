@@ -71,10 +71,12 @@ class AppSettingService
             'anthropic' => 'claude-3-haiku-20240307',
             default => 'llama3'
         };
+        
+        $model = $this->get('ai_model');
 
         return [
             'provider' => $provider,
-            'model' => $this->get('ai_model', $defaultModel),
+            'model' => !empty($model) ? $model : $defaultModel,
             'temperature' => $this->get('ai_temperature', 0.7),
             'api_key' => $this->get('ai_api_key', ''),
         ];

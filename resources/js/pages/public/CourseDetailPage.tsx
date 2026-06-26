@@ -161,7 +161,12 @@ export function CourseDetailPage() {
                 <>
                   <h3 className="font-bold text-gray-900 mb-4">Yang Akan Anda Pelajari</h3>
                   <div className="grid md:grid-cols-2 gap-3">
-                    {course.outcomes.split('\n').map((outcome: string, index: number) => (
+                    {(typeof course.outcomes === 'string'
+                      ? course.outcomes.split('\n')
+                      : Array.isArray(course.outcomes)
+                      ? course.outcomes
+                      : []
+                    ).map((outcome: string, index: number) => (
                       <div key={index} className="flex items-start gap-3">
                         <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                         <span className="text-gray-700">{outcome}</span>

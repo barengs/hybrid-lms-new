@@ -110,7 +110,7 @@ export function CourseDetailPage() {
               </nav>
 
               <h1 className="text-3xl lg:text-4xl font-bold mb-4">{course.title}</h1>
-              <p className="text-lg text-gray-300 mb-6">{course.subtitle || course.description?.substring(0, 160) + '...'}</p>
+              <p className="text-lg text-gray-300 mb-6 line-clamp-3">{course.subtitle || course.description?.substring(0, 200)}</p>
 
               <div className="flex flex-wrap items-center gap-4 mb-6">
                 <div className="flex items-center gap-2">

@@ -491,6 +491,43 @@ class ClassController extends Controller
     }
 
     /**
+     * Toggle Activity Completion
+     * 
+     * Mark an activity as completed or not completed for the authenticated user.
+     * 
+     * @group Hybrid Learning
+     * @subgroup Student Actions
+     * @urlParam id integer required The ID of the activity. Example: 1
+     * @response 200 {"message": "Activity status updated", "data": {"completed": true}}
+     */
+    public function toggleActivityComplete(Request $request, $id)
+    {
+        $user = $request->user();
+        $activity = \App\Models\BatchActivity::findOrFail($id);
+
+        $completion = \App\Models\BatchActivityCompletion::where('user_id', $user->id)
+            ->where('batch_activity_id', $activity->id)
+            ->first();
+
+        if ($completion) {
+            $completion->delete();
+            $completed = false;
+        } else {
+            \App\Models\BatchActivityCompletion::create([
+                'user_id' => $user->id,
+                'batch_activity_id' => $activity->id,
+                'completed_at' => now(),
+            ]);
+            $completed = true;
+        }
+
+        return $this->successResponse(
+            ['completed' => $completed],
+            'Activity status updated'
+        );
+    }
+
+    /**
      * Join Class
      * 
      * Join an existing class using its unique 6-character class code.
